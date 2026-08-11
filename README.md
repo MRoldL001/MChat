@@ -141,10 +141,10 @@ MIMO Chat - 第三方小米 MiMo 大模型 Android 客户端
 
 ## 🗒️ 更新日志
 
-- v1.0 Stardust Crusaders
+- v1.0 **Stardust Crusaders**
   - 首次构建并发布
 
-- v1.1 Honeycomb
+- v1.1 **Honeycomb**
   - 为 Pad 端制作了一个新的 UI
   - 现在代码块会被自定义的 `CodeBlockView` 接管渲染，更加易读
   - 重构了部分 UI 设计
@@ -156,7 +156,7 @@ MIMO Chat - 第三方小米 MiMo 大模型 Android 客户端
 - v1.1.1 
   - 修复搜索栏背景在动态色彩主题下的取色问题
 
-- v1.2.0 Smells Like Teen Spirit
+- v1.2.0 **Smells Like Teen Spirit**
   - 现在在过低的安卓版本(≤API31)中动态取色主题
 会隐藏
   - 用户消息现在现在支持长按复制
@@ -180,7 +180,7 @@ MIMO Chat - 第三方小米 MiMo 大模型 Android 客户端
   - 应用初次启动时会请求允许通知权限
   - 修复了动态取色(已改名为莫奈取色)主题下设置项中的高亮Bug
 
-- v2.0.0-alpha() Paranoid Android
+- v2.0.0-alpha(Pre-release) **Paranoid Android**
   - 迁移应用的 Target API到 36(Android 16)并同步更新了所有依赖项
   - 增加了参数调整设置项
   - 添加了对实时通知的支持
