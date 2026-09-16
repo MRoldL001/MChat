@@ -96,11 +96,22 @@ class ChatService : Service() {
             .setSilent(true)
             .setProgress(0, 0, true)
 
-        // Android 14 (API 34) 及以上支持 Live Updates 优化
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
             builder.setOnlyAlertOnce(true)
+            builder.setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
         }
 
-        return builder.build()
+        val notification = builder.build()
+
+        if (Build.VERSION.SDK_INT >= 36) {
+            try {
+                val liveUpdateField = Notification::class.java.getDeclaredField("liveUpdate")
+                liveUpdateField.isAccessible = true
+                liveUpdateField.setBoolean(notification, true)
+            } catch (e: Exception) {
+            }
+        }
+
+        return notification
     }
 }

@@ -12,6 +12,8 @@ dependencyResolutionManagement {
         mavenCentral()
         maven { url = uri("https://jitpack.io") }
     }
+    versionCatalogs {
+    }
 }
 
 rootProject.name = "MIMO Chat"
