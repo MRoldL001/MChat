@@ -32,7 +32,7 @@ MIMO Chat - 第三方小米 MiMo 大模型 Android 客户端
 - 多种主题可选（包含 Material You 莫奈取色）与系统深色模式跟随
 - 自定义系统提示词与模型参数调整
 - 手机端与 Pad 端自适应布局
-- 焦点通知保活
+- 实时通知保活
 
 ## 🚀 快速开始
 
@@ -70,6 +70,7 @@ MIMO Chat - 第三方小米 MiMo 大模型 Android 客户端
 
 - Android 8 (API 26) 或更高版本
 - 莫奈取色主题仅支持 Android 12 (API 31) 或更高版本
+- 实时通知仅支持 Android 16 (API 36) 或更高版本
 
 ## 🎨 主题
 
