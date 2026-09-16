@@ -21,11 +21,13 @@ class ChatService : Service() {
         const val ACTION_STOP = "com.mroldl001.mimochat.action.STOP_CHAT_SERVICE"
         const val ACTION_UPDATE_NOTIFICATION = "com.mroldl001.mimochat.action.UPDATE_NOTIFICATION"
         const val EXTRA_NOTIFICATION_TEXT = "com.mroldl001.mimochat.extra.NOTIFICATION_TEXT"
+        const val EXTRA_CHAT_ID = "com.mroldl001.mimochat.extra.CHAT_ID"
     }
 
     private val binder = LocalBinder()
     private lateinit var notificationManager: NotificationManager
     private var currentNotificationText = "MiMo正在回复你"
+    private var currentChatId: Long = 0L
 
     inner class LocalBinder : Binder() {
         fun getService(): ChatService = this@ChatService
@@ -40,6 +42,7 @@ class ChatService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
             ACTION_START -> {
+                currentChatId = intent.getLongExtra(EXTRA_CHAT_ID, 0L)
                 val notification = createNotification(currentNotificationText)
                 startForeground(NOTIFICATION_ID, notification)
             }
@@ -83,9 +86,25 @@ class ChatService : Service() {
         val pendingIntent = PendingIntent.getActivity(
             this,
             0,
-            Intent(this, MainActivity::class.java),
+            Intent(this, MainActivity::class.java).apply {
+                putExtra(EXTRA_CHAT_ID, currentChatId)
+            },
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
+
+        if (Build.VERSION.SDK_INT >= 36) {
+            val style = Notification.ProgressStyle()
+                .setStyledByProgress(false)
+                .setProgress(1)
+            return Notification.Builder(this, CHANNEL_ID)
+                .setContentTitle("MiMo Chat")
+                .setContentText(text)
+                .setSmallIcon(android.R.drawable.ic_menu_send)
+                .setContentIntent(pendingIntent)
+                .setOngoing(true)
+                .setStyle(style)
+                .build()
+        }
 
         val builder = NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle("MiMo Chat")
@@ -102,15 +121,6 @@ class ChatService : Service() {
         }
 
         val notification = builder.build()
-
-        if (Build.VERSION.SDK_INT >= 36) {
-            try {
-                val liveUpdateField = Notification::class.java.getDeclaredField("liveUpdate")
-                liveUpdateField.isAccessible = true
-                liveUpdateField.setBoolean(notification, true)
-            } catch (e: Exception) {
-            }
-        }
 
         return notification
     }

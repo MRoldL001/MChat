@@ -17,6 +17,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Psychology
 import androidx.compose.material.icons.filled.School
+import androidx.compose.material.icons.filled.Public
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -34,9 +35,11 @@ import com.mroldl001.mimochat.ui.chat.viewmodel.SkillType
 @Composable
 fun SkillToggleBar(
     isThinkingMode: Boolean,
+    isWebSearchEnabled: Boolean,
     activeSkill: SkillType?,
     isGenerating: Boolean,
     onThinkingModeToggle: (Boolean) -> Unit,
+    onWebSearchToggle: (Boolean) -> Unit,
     onSkillToggle: (SkillType?) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -48,6 +51,15 @@ fun SkillToggleBar(
         modifier = modifier,
         verticalAlignment = Alignment.CenterVertically
     ) {
+        SkillToggleChip(
+            icon = Icons.Default.Public,
+            label = "联网",
+            isActive = isWebSearchEnabled,
+            isDisabled = isGenerating,
+            onClick = { onWebSearchToggle(!isWebSearchEnabled) }
+        )
+
+        Spacer(modifier = Modifier.width(8.dp))
 
         SkillToggleChip(
             icon = Icons.Default.Psychology,

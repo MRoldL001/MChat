@@ -56,7 +56,9 @@ fun AdaptiveChatLayout(
     streamingReasoning: String,
     isStreaming: Boolean,
     isThinkingMode: Boolean,
+    isWebSearchEnabled: Boolean,
     onThinkingModeChanged: (Boolean) -> Unit,
+    onWebSearchChanged: (Boolean) -> Unit,
     onSendMessage: (String) -> Unit,
     onStopGenerating: () -> Unit,
     onCreateNewChat: () -> Unit,
@@ -77,6 +79,10 @@ fun AdaptiveChatLayout(
     onPresencePenaltySaved: (Float) -> Unit,
     onResetParameters: () -> Unit,
     onClearError: () -> Unit,
+    onAttachmentSelected: (android.net.Uri) -> Unit = {},
+    onAttachmentCleared: () -> Unit = {},
+    attachmentLabel: String? = null,
+    isAttachmentEnabled: Boolean = true,
     modifier: Modifier = Modifier
 ) {
     val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
@@ -110,7 +116,7 @@ fun AdaptiveChatLayout(
         if (needScrollChatId != null && uiState.currentChat?.id == needScrollChatId) {
             val totalItems = messages.size + if (isStreaming) 1 else 0
             if (totalItems > 0) {
-                listState.animateScrollToItem(totalItems - 1, Int.MAX_VALUE)
+                listState.animateScrollToItem(totalItems - 1)
                 if (!isStreaming) {
                     needScrollChatId = null
                 }
@@ -123,7 +129,7 @@ fun AdaptiveChatLayout(
             delay(50)
             val totalItems = messages.size
             if (totalItems > 0) {
-                listState.animateScrollToItem(totalItems - 1, Int.MAX_VALUE)
+                listState.animateScrollToItem(totalItems - 1)
             }
         }
     }
@@ -131,7 +137,8 @@ fun AdaptiveChatLayout(
     PermanentNavigationDrawer(
         drawerContent = {
             PermanentDrawerSheet(
-                modifier = Modifier.width(280.dp)
+                modifier = Modifier.width(280.dp),
+                drawerContainerColor = MaterialTheme.colorScheme.background
             ) {
                 Column(modifier = Modifier.fillMaxSize()) {
                     ChatHistoryHeader(
@@ -213,14 +220,17 @@ fun AdaptiveChatLayout(
                     modifier = Modifier
                         .background(MaterialTheme.colorScheme.background)
                         .imePadding() // 修复输入法弹出时输入框不被顶起的 bug
+                        .navigationBarsPadding()
                 ) {
                     SkillToggleBar(
                         isThinkingMode = isThinkingMode,
+                        isWebSearchEnabled = isWebSearchEnabled,
                         activeSkill = uiState.activeSkill,
                         isGenerating = isStreaming,
                         onThinkingModeToggle = { newValue ->
                             onThinkingModeChanged(newValue)
                         },
+                        onWebSearchToggle = onWebSearchChanged,
                         onSkillToggle = { skill ->
                             if (skill != null) {
                                 onThinkingModeChanged(false)
@@ -241,7 +251,11 @@ fun AdaptiveChatLayout(
                             }
                         },
                         onStopGenerating = onStopGenerating,
-                        isGenerating = isStreaming
+                        isGenerating = isStreaming,
+                        onAttachmentSelected = onAttachmentSelected,
+                        onAttachmentCleared = onAttachmentCleared,
+                        attachmentLabel = attachmentLabel,
+                        isAttachmentEnabled = isAttachmentEnabled
                     )
                 }
             }
@@ -800,7 +814,7 @@ private fun AdvancedSettingsDialog(
                             color = MaterialTheme.colorScheme.onSurface
                         )
                         Text(
-                            text = "调整 Temperature 和 Top P",
+                            text = "调整模型参数",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -1544,7 +1558,7 @@ private fun ParameterSettingsDialog(
                     Text("取消")
                 }
             },
-            containerColor = MaterialTheme.colorScheme.surface,
+            containerColor = MaterialTheme.colorScheme.background,
             titleContentColor = MaterialTheme.colorScheme.onSurface,
             textContentColor = MaterialTheme.colorScheme.onSurfaceVariant
         )

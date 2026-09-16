@@ -2,6 +2,9 @@ package com.mroldl001.mimochat.ui.chat
 
 import android.content.Intent
 import android.net.Uri
+import android.util.Base64
+import android.widget.Toast
+import android.provider.OpenableColumns
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
@@ -33,6 +36,8 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 
@@ -54,6 +59,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.mroldl001.mimochat.ui.chat.components.*
 import com.mroldl001.mimochat.ui.chat.viewmodel.ChatViewModel
 import com.mroldl001.mimochat.ui.chat.viewmodel.SkillType
+import com.mroldl001.mimochat.data.api.*
 import com.mroldl001.mimochat.ui.theme.ThemeColor
 import com.mroldl001.mimochat.ui.theme.ThemeMode
 import com.mroldl001.mimochat.ui.theme.supportsDynamicColor
@@ -77,8 +83,74 @@ fun ChatScreen(
     val streamingContent by viewModel.streamingContent
     val streamingReasoning by viewModel.streamingReasoning
     val isStreaming by viewModel.isStreaming
+    var attachment by remember { mutableStateOf<ContentPart?>(null) }
+    var attachmentLabel by remember { mutableStateOf<String?>(null) }
+    var attachmentUri by remember { mutableStateOf<String?>(null) }
+    var attachmentMimeType by remember { mutableStateOf<String?>(null) }
+    val supportsMultimodal = uiState.selectedModel?.capabilities?.contains("multimodal") == true
+    LaunchedEffect(supportsMultimodal) {
+        if (!supportsMultimodal) {
+            attachment = null
+            attachmentLabel = null
+            attachmentUri = null
+            attachmentMimeType = null
+        }
+    }
+    val filePicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        if (uri != null) {
+            val mime = context.contentResolver.getType(uri) ?: "application/octet-stream"
+            val maxEncodedBytes = 50L * 1024L * 1024L
+            val rawSize = context.contentResolver.query(
+                uri,
+                arrayOf(OpenableColumns.SIZE),
+                null,
+                null,
+                null
+            )?.use { cursor ->
+                if (cursor.moveToFirst() && !cursor.isNull(0)) cursor.getLong(0) else -1L
+            } ?: -1L
+            if (rawSize > 0) {
+                val estimatedEncodedSize = ((rawSize + 2L) / 3L) * 4L
+                if (estimatedEncodedSize > maxEncodedBytes) {
+                    Toast.makeText(context, "文件过大：Base64 编码后不能超过 50MB", Toast.LENGTH_LONG).show()
+                    return@rememberLauncherForActivityResult
+                }
+            }
+            val bytes = context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
+            if (bytes != null) {
+                val encoded = Base64.encodeToString(bytes, Base64.NO_WRAP)
+                if (encoded.length.toLong() > maxEncodedBytes) {
+                    Toast.makeText(context, "文件过大：Base64 编码后不能超过 50MB", Toast.LENGTH_LONG).show()
+                    return@rememberLauncherForActivityResult
+                }
+                attachmentLabel = uri.lastPathSegment?.substringAfterLast('/') ?: "已选择附件"
+                attachmentUri = uri.toString()
+                attachmentMimeType = mime
+                val data = "data:$mime;base64,$encoded"
+                attachment = when {
+                    mime.startsWith("image/") -> ContentPart(type = "image_url", imageUrl = ImageUrl(data))
+                    mime.startsWith("audio/") -> ContentPart(type = "input_audio", inputAudio = InputAudio(data))
+                    mime.startsWith("video/") -> ContentPart(type = "video_url", videoUrl = VideoUrl(data), fps = 2.0, mediaResolution = "default")
+                    else -> null
+                }
+            }
+        }
+    }
+    val pickAttachment: (Uri) -> Unit = { filePicker.launch("*/*") }
+
+    // 手机和平板布局共用同一个会话跳转入口；必须在平板分支提前返回前处理。
+    LaunchedEffect(initialChatId, uiState.chats) {
+        if (initialChatId != null) {
+            uiState.chats.find { it.id == initialChatId }?.let { chat ->
+                if (uiState.currentChat?.id != chat.id) {
+                    viewModel.selectChat(chat)
+                }
+            }
+        }
+    }
 
     var isThinkingMode by remember { mutableStateOf(false) }
+    var isWebSearchEnabled by remember { mutableStateOf(false) }
 
     var showApiKeyDialog by remember { mutableStateOf(false) }
     var showApiBaseUrlDialog by remember { mutableStateOf(false) }
@@ -93,14 +165,20 @@ fun ChatScreen(
             streamingReasoning = streamingReasoning,
             isStreaming = isStreaming,
             isThinkingMode = isThinkingMode,
+            isWebSearchEnabled = isWebSearchEnabled,
             onThinkingModeChanged = { newValue ->
                 isThinkingMode = newValue
             },
+            onWebSearchChanged = { isWebSearchEnabled = it },
             onSendMessage = { content ->
                 if (uiState.apiKey.isBlank()) {
                     return@AdaptiveChatLayout
                 }
-                viewModel.sendMessage(content, isThinkingMode)
+                viewModel.sendMessage(content, isThinkingMode, attachment, isWebSearchEnabled, attachmentUri, attachmentMimeType)
+                attachment = null
+                attachmentLabel = null
+                attachmentUri = null
+                attachmentMimeType = null
             },
             onStopGenerating = { viewModel.stopGenerating() },
             onCreateNewChat = { viewModel.createNewChat() },
@@ -148,6 +226,10 @@ fun ChatScreen(
                 viewModel.resetParameters()
             },
             onClearError = { viewModel.clearError() }
+            , onAttachmentSelected = pickAttachment
+            , onAttachmentCleared = { attachment = null; attachmentLabel = null; attachmentUri = null; attachmentMimeType = null }
+            , attachmentLabel = attachmentLabel
+            , isAttachmentEnabled = supportsMultimodal
         )
         return
     }
@@ -179,7 +261,7 @@ fun ChatScreen(
         if (needScrollChatId != null && uiState.currentChat?.id == needScrollChatId) {
             val totalItems = messages.size + if (isStreaming) 1 else 0
             if (totalItems > 0) {
-                listState.animateScrollToItem(totalItems - 1, Int.MAX_VALUE)
+                listState.animateScrollToItem(totalItems - 1)
                 if (!isStreaming) {
                     needScrollChatId = null
                 }
@@ -193,16 +275,7 @@ fun ChatScreen(
             delay(50)
             val totalItems = messages.size
             if (totalItems > 0) {
-                listState.animateScrollToItem(totalItems - 1, Int.MAX_VALUE)
-            }
-        }
-    }
-
-    LaunchedEffect(initialChatId) {
-        if (initialChatId != null) {
-            val chat = uiState.chats.find { it.id == initialChatId }
-            if (chat != null) {
-                viewModel.selectChat(chat)
+                listState.animateScrollToItem(totalItems - 1)
             }
         }
     }
@@ -215,7 +288,8 @@ fun ChatScreen(
         drawerState = drawerState,
         drawerContent = {
             ModalDrawerSheet(
-                modifier = Modifier.fillMaxWidth(0.75f)
+                modifier = Modifier.fillMaxWidth(0.75f),
+                drawerContainerColor = MaterialTheme.colorScheme.background
             ) {
                 Column(modifier = Modifier.fillMaxSize()) {
                     ChatHistoryHeader(
@@ -308,14 +382,17 @@ fun ChatScreen(
                     modifier = Modifier
                         .background(MaterialTheme.colorScheme.background)
                         .imePadding() // 修复输入法弹出时输入框不被顶起的 bug
+                        .navigationBarsPadding()
                 ) {
                     SkillToggleBar(
                         isThinkingMode = isThinkingMode,
+                        isWebSearchEnabled = isWebSearchEnabled,
                         activeSkill = uiState.activeSkill,
                         isGenerating = isStreaming,
                         onThinkingModeToggle = { newValue ->
                             isThinkingMode = newValue
                         },
+                        onWebSearchToggle = { isWebSearchEnabled = it },
                         onSkillToggle = { skill ->
                             viewModel.setActiveSkill(skill)
                         },
@@ -329,11 +406,19 @@ fun ChatScreen(
                             if (uiState.apiKey.isBlank()) {
                                 showApiKeyWarningDialog = true
                             } else {
-                                viewModel.sendMessage(it, isThinkingMode)
+                                viewModel.sendMessage(it, isThinkingMode, attachment, isWebSearchEnabled, attachmentUri, attachmentMimeType)
+                                attachment = null
+                                attachmentLabel = null
+                                attachmentUri = null
+                                attachmentMimeType = null
                             }
                         },
                         onStopGenerating = { viewModel.stopGenerating() },
                         isGenerating = isStreaming
+                        , onAttachmentSelected = pickAttachment
+                        , onAttachmentCleared = { attachment = null; attachmentLabel = null; attachmentUri = null; attachmentMimeType = null }
+                        , attachmentLabel = attachmentLabel
+                        , isAttachmentEnabled = supportsMultimodal
                     )
                 }
             }
@@ -540,7 +625,7 @@ fun ChatScreen(
                     Text("取消")
                 }
             },
-            containerColor = MaterialTheme.colorScheme.surface,
+            containerColor = MaterialTheme.colorScheme.background,
             titleContentColor = MaterialTheme.colorScheme.onSurface,
             textContentColor = MaterialTheme.colorScheme.onSurfaceVariant
         )
@@ -928,7 +1013,7 @@ private fun ParameterSettingsDialog(
                     Text("取消")
                 }
             },
-            containerColor = MaterialTheme.colorScheme.surface,
+            containerColor = MaterialTheme.colorScheme.background,
             titleContentColor = MaterialTheme.colorScheme.onSurface,
             textContentColor = MaterialTheme.colorScheme.onSurfaceVariant
         )
@@ -1300,7 +1385,7 @@ private fun AdvancedSettingsDialog(
                             color = MaterialTheme.colorScheme.onSurface
                         )
                         Text(
-                            text = "调整 Temperature 和 Top P",
+                            text = "调整模型参数",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )

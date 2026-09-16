@@ -7,6 +7,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.mroldl001.mimochat.data.preferences.PreferencesManager
+import com.mroldl001.mimochat.data.api.ContentPart
 import com.mroldl001.mimochat.data.repository.ChatRepository
 import com.mroldl001.mimochat.data.repository.ModelRepository
 import com.mroldl001.mimochat.data.repository.StreamEvent
@@ -329,7 +330,7 @@ class ChatViewModel @Inject constructor(
         }
     }
 
-    fun sendMessage(content: String, thinkingEnabled: Boolean = true) {
+    fun sendMessage(content: String, thinkingEnabled: Boolean = true, attachment: ContentPart? = null, webSearchEnabled: Boolean = true, attachmentUri: String? = null, attachmentMimeType: String? = null) {
         viewModelScope.launch {
             if (activeStreams.contains(activeChatId)) {
                 return@launch
@@ -369,7 +370,9 @@ class ChatViewModel @Inject constructor(
             val userMessage = Message(
                 chatId = chat.id,
                 role = "user",
-                content = content
+                content = content,
+                attachmentUri = attachmentUri,
+                attachmentMimeType = attachmentMimeType
             )
             chatRepository.saveMessage(userMessage)
             messages.add(userMessage)
@@ -387,7 +390,7 @@ class ChatViewModel @Inject constructor(
                 return@launch
             }
 
-            val modelId = _uiState.value.selectedModel?.id ?: "mimo-v2.5-pro"
+            val modelId = if (attachment != null) "mimo-v2.5" else (_uiState.value.selectedModel?.id ?: "mimo-v2.5-pro")
             val apiBaseUrl = _uiState.value.apiBaseUrl
 
             if (isNewChat) {
@@ -434,6 +437,7 @@ class ChatViewModel @Inject constructor(
             val reasoningBuffer = mutableListOf<String>()
             var streamError: String? = null
             var isStreamDone = false
+            var streamSearchResults: List<com.mroldl001.mimochat.domain.model.WebSearchResult>? = null
 
             val activeSkill = _uiState.value.activeSkill
             val skillPrompt = activeSkill?.let { SkillPrompts.getSkillPrompt(it) } ?: ""
@@ -441,6 +445,7 @@ class ChatViewModel @Inject constructor(
 
             val serviceIntent = Intent(application, ChatService::class.java).apply {
                 action = ChatService.ACTION_START
+                putExtra(ChatService.EXTRA_CHAT_ID, chat.id)
             }
             application.startForegroundService(serviceIntent)
 
@@ -454,6 +459,7 @@ class ChatViewModel @Inject constructor(
                     thinkingEnabled = effectiveThinkingEnabled,
                     skillPrompt = skillPrompt,
                     customSystemPrompt = _uiState.value.customSystemPrompt
+                    , attachment = attachment, webSearchEnabled = webSearchEnabled
                 ).collect { event ->
                     when (event) {
                         is StreamEvent.ContentDelta -> {
@@ -464,6 +470,7 @@ class ChatViewModel @Inject constructor(
                         }
                         is StreamEvent.Done -> {
                             isStreamDone = true
+                            streamSearchResults = event.message.searchResults
                             streamJob = null
                         }
                         is StreamEvent.Error -> {
@@ -582,7 +589,8 @@ class ChatViewModel @Inject constructor(
                         chatId = targetChatId,
                         role = "assistant",
                         content = currentContent,
-                        reasoningContent = currentReasoning.ifBlank { null }
+                        reasoningContent = currentReasoning.ifBlank { null },
+                        searchResults = streamSearchResults
                     )
                     chatRepository.saveMessage(finalMessage)
                     if (activeChatId == targetChatId) {

@@ -44,6 +44,8 @@ import androidx.compose.ui.viewinterop.AndroidView
 import dev.jeziellago.compose.markdowntext.MarkdownText
 import kotlin.math.roundToInt
 import com.mroldl001.mimochat.domain.model.WebSearchResult
+import coil.compose.AsyncImage
+import androidx.compose.ui.layout.ContentScale
 
 enum class ContentType {
     MARKDOWN,
@@ -164,20 +166,20 @@ fun ThinkingCard(
                 Icon(
                     imageVector = Icons.Default.Psychology,
                     contentDescription = null,
-                    tint = Color(0xFFB0B0B0),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.size(16.dp)
                 )
                 Spacer(modifier = Modifier.width(6.dp))
                 Text(
                     text = "思考过程",
                     style = MaterialTheme.typography.labelSmall,
-                    color = Color(0xFFB0B0B0)
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Spacer(modifier = Modifier.width(4.dp))
                 Icon(
                     imageVector = Icons.Default.ArrowDropDown,
                     contentDescription = if (isExpanded) "收起" else "展开",
-                    tint = Color(0xFFB0B0B0),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier
                         .size(18.dp)
                         .rotate(rotation)
@@ -238,20 +240,20 @@ fun SearchResultsCard(
                 Icon(
                     imageVector = Icons.Default.Search,
                     contentDescription = null,
-                    tint = Color(0xFFB0B0B0),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.size(16.dp)
                 )
                 Spacer(modifier = Modifier.width(6.dp))
                 Text(
                     text = "搜索结果",
                     style = MaterialTheme.typography.labelSmall,
-                    color = Color(0xFFB0B0B0)
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Spacer(modifier = Modifier.width(4.dp))
                 Icon(
                     imageVector = Icons.Default.ArrowDropDown,
                     contentDescription = if (isExpanded) "收起" else "展开",
-                    tint = Color(0xFFB0B0B0),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier
                         .size(18.dp)
                         .rotate(rotation)
@@ -300,18 +302,27 @@ private fun SearchResultItem(result: WebSearchResult) {
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.padding(8.dp)
         ) {
-            Icon(
-                imageVector = Icons.Filled.Web,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier
-                    .size(32.dp)
-                    .padding(4.dp)
-                    .background(
-                        color = MaterialTheme.colorScheme.surfaceVariant,
-                        shape = RoundedCornerShape(6.dp)
-                    )
-            )
+            if (!result.logoUrl.isNullOrBlank()) {
+                AsyncImage(
+                    model = result.logoUrl,
+                    contentDescription = result.siteName,
+                    contentScale = ContentScale.Fit,
+                    modifier = Modifier
+                        .size(32.dp)
+                        .padding(4.dp)
+                        .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(6.dp))
+                )
+            } else {
+                Icon(
+                    imageVector = Icons.Filled.Web,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier
+                        .size(32.dp)
+                        .padding(4.dp)
+                        .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(6.dp))
+                )
+            }
             Spacer(modifier = Modifier.width(8.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Row(
@@ -320,13 +331,13 @@ private fun SearchResultItem(result: WebSearchResult) {
                     result.siteName?.let { siteName ->
                         Surface(
                             shape = RoundedCornerShape(4.dp),
-                            color = MaterialTheme.colorScheme.secondaryContainer,
+                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
                             modifier = Modifier.padding(end = 8.dp)
                         ) {
                             Text(
                                 text = siteName,
                                 style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                color = MaterialTheme.colorScheme.primary,
                                 modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                             )
                         }

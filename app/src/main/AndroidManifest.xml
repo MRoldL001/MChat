@@ -21,6 +21,7 @@
     <activity
       android:name=".MainActivity"
       android:exported="true"
+      android:launchMode="singleTop"
       android:label="@string/app_name"
       android:windowSoftInputMode="adjustResize"
       android:theme="@style/Theme.MIMOChat">

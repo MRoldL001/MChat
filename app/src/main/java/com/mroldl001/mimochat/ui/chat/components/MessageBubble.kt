@@ -2,10 +2,15 @@ package com.mroldl001.mimochat.ui.chat.components
 
 import android.graphics.drawable.GradientDrawable
 import android.widget.TextView
+import android.widget.ImageView
+import android.graphics.Bitmap
+import android.media.MediaMetadataRetriever
+import android.net.Uri
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.ErrorOutline
+import androidx.compose.material.icons.outlined.AudioFile
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -53,8 +58,12 @@ fun MessageBubble(
                 val textColor = MaterialTheme.colorScheme.onPrimaryContainer
                 val bgColor = MaterialTheme.colorScheme.primaryContainer
 
-                key(textColor, bgColor, message.content) {
-                    SelectionContainer {
+                key(textColor, bgColor, message.content, message.attachmentUri) {
+                    Column(horizontalAlignment = Alignment.End) {
+                        message.attachmentUri?.let { uri ->
+                            AttachmentPreview(uri, message.attachmentMimeType)
+                        }
+                        SelectionContainer {
                         AndroidView(
                             factory = { ctx ->
                                 val drawable = GradientDrawable().apply {
@@ -88,6 +97,7 @@ fun MessageBubble(
                             modifier = Modifier
                                 .widthIn(max = 320.dp)
                         )
+                        }
                     }
                 }
             } else {
@@ -100,6 +110,11 @@ fun MessageBubble(
                             reasoningContent = message.reasoningContent!!,
                             modifier = Modifier.padding(bottom = 8.dp)
                         )
+                    }
+
+                    message.searchResults?.takeIf { it.isNotEmpty() }?.let { results ->
+                        SearchResultsCard(searchResults = results)
+                        Spacer(modifier = Modifier.height(12.dp))
                     }
 
                     if (message.content.isNotBlank()) {
@@ -124,6 +139,54 @@ fun MessageBubble(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(top = 4.dp, start = 4.dp, end = 4.dp)
         )
+    }
+}
+
+@Composable
+private fun AttachmentPreview(uri: String, mimeType: String?) {
+    val context = LocalContext.current
+    when {
+        mimeType?.startsWith("image/") == true -> {
+            coil.compose.AsyncImage(
+                model = Uri.parse(uri),
+                contentDescription = "图片附件",
+                modifier = Modifier.sizeIn(maxWidth = 280.dp, maxHeight = 220.dp),
+                contentScale = androidx.compose.ui.layout.ContentScale.Fit
+            )
+        }
+        mimeType?.startsWith("video/") == true -> {
+            AndroidView(
+                factory = {
+                    ImageView(context).apply {
+                        scaleType = ImageView.ScaleType.CENTER_CROP
+                        setImageBitmap(runCatching {
+                            MediaMetadataRetriever().let { retriever ->
+                                try {
+                                retriever.setDataSource(context, Uri.parse(uri))
+                                retriever.getFrameAtTime(0)
+                                } finally {
+                                    retriever.release()
+                                }
+                            }
+                        }.getOrNull())
+                    }
+                },
+                modifier = Modifier.sizeIn(maxWidth = 280.dp, maxHeight = 220.dp)
+            )
+        }
+        else -> {
+            Surface(
+                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
+                shape = MaterialTheme.shapes.medium
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.AudioFile,
+                    contentDescription = "音频附件",
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.padding(14.dp).size(28.dp)
+                )
+            }
+        }
     }
 }
 

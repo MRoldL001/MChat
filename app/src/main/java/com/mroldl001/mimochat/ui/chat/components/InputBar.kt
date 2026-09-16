@@ -7,6 +7,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Send
 import androidx.compose.material.icons.filled.Stop
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -14,12 +16,17 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import android.net.Uri
 
 @Composable
 fun InputBar(
     onSendMessage: (String) -> Unit,
     onStopGenerating: () -> Unit,
     isGenerating: Boolean = false,
+    onAttachmentSelected: (Uri) -> Unit = {},
+    onAttachmentCleared: () -> Unit = {},
+    attachmentLabel: String? = null,
+    isAttachmentEnabled: Boolean = true,
     modifier: Modifier = Modifier
 ) {
     var messageText by remember { mutableStateOf("") }
@@ -29,13 +36,44 @@ fun InputBar(
         modifier = modifier.fillMaxWidth(),
         color = MaterialTheme.colorScheme.surface
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
+        Column(modifier = Modifier.fillMaxWidth()) {
+            if (attachmentLabel != null) {
+                Row(
+                    modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = attachmentLabel,
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        modifier = Modifier.weight(1f)
+                    )
+                    IconButton(onClick = onAttachmentCleared, modifier = Modifier.size(32.dp)) {
+                        Icon(Icons.Default.Close, contentDescription = "移除附件")
+                    }
+                }
+            }
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+            FilledIconButton(
+                onClick = { onAttachmentSelected(Uri.EMPTY) },
+                enabled = !isGenerating && isAttachmentEnabled,
+                colors = IconButtonDefaults.filledIconButtonColors(
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary,
+                    disabledContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
+                    disabledContentColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)
+                ),
+                modifier = Modifier.size(48.dp)
+            ) {
+                Icon(Icons.Default.Add, contentDescription = "添加图片、音频或视频")
+            }
             OutlinedTextField(
                 value = messageText,
                 onValueChange = { messageText = it },
@@ -102,6 +140,7 @@ fun InputBar(
                         contentDescription = "发送"
                     )
                 }
+            }
             }
         }
     }

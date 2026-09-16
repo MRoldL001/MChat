@@ -29,13 +29,18 @@ sealed class Screen {
 @Composable
 fun AppNavigation(
     isExpandedScreen: Boolean = false,
+    initialChatId: Long? = null,
     onThemeChanged: (ThemeColor, ThemeMode) -> Unit = { _, _ -> },
     onNavigateFromSearch: () -> Unit = {},
     onNavigateFromDrawer: (Boolean) -> Unit = {},
     onBackToChat: ((() -> Unit) -> Unit)? = null
 ) {
     var currentScreen by remember { mutableStateOf<Screen>(Screen.Chat) }
-    var selectedChatId by remember { mutableStateOf<Long?>(null) }
+    var selectedChatId by remember { mutableStateOf(initialChatId) }
+
+    LaunchedEffect(initialChatId) {
+        if (initialChatId != null) selectedChatId = initialChatId
+    }
 
     LaunchedEffect(Unit) {
         onBackToChat?.invoke {

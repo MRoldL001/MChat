@@ -2,7 +2,6 @@
 package com.mroldl001.mimochat.ui.chat.components
 
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.animateIntAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -19,7 +18,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.mroldl001.mimochat.domain.model.AIModel
 import androidx.compose.animation.animateColorAsState
 
@@ -86,7 +84,7 @@ fun ModelSelector(
     }
 
                 LazyColumn(
-                    modifier = Modifier.height(350.dp)
+                    modifier = Modifier.heightIn(max = 350.dp)
                 ) {
                     items(models, key = { it.id }) { model ->
                         ModelItem(
@@ -117,18 +115,6 @@ private fun ModelItem(
         label = "text_color"
     )
 
-    val fontWeight by animateIntAsState(
-        targetValue = if (isSelected) 700 else 400,
-        animationSpec = tween(durationMillis = 300),
-        label = "font_weight"
-    )
-
-    val fontSize by animateFloatAsState(
-        targetValue = if (isSelected) 20f else 16f,
-        animationSpec = tween(durationMillis = 300),
-        label = "font_size"
-    )
-
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -144,8 +130,8 @@ private fun ModelItem(
     ) {
         Text(
             text = model.name,
-            style = MaterialTheme.typography.titleMedium.copy(fontSize = fontSize.sp),
-            fontWeight = FontWeight(fontWeight),
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
             color = textColor,
             modifier = Modifier.padding(bottom = 4.dp)
         )

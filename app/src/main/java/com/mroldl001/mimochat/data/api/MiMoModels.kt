@@ -47,10 +47,24 @@ data class UserLocation(
 
 data class MessageRequest(
     val role: String,
-    val content: String,
+    val content: Any,
     @SerializedName("reasoning_content")
     val reasoningContent: String? = null
 )
+
+data class ContentPart(
+    val type: String,
+    val text: String? = null,
+    @SerializedName("image_url") val imageUrl: ImageUrl? = null,
+    @SerializedName("input_audio") val inputAudio: InputAudio? = null,
+    @SerializedName("video_url") val videoUrl: VideoUrl? = null,
+    val fps: Double? = null,
+    @SerializedName("media_resolution") val mediaResolution: String? = null
+)
+
+data class ImageUrl(val url: String)
+data class InputAudio(val data: String)
+data class VideoUrl(val url: String)
 
 data class ThinkingConfig(
     val type: String = "enabled"

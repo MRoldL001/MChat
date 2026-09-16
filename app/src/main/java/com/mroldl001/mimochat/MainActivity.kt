@@ -1,6 +1,7 @@
 package com.mroldl001.mimochat
 
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
@@ -12,6 +13,7 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
@@ -37,11 +39,13 @@ import javax.inject.Inject
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
+    private var notificationChatId by mutableStateOf<Long?>(null)
     
     private lateinit var notificationPermissionLauncher: androidx.activity.result.ActivityResultLauncher<String>
     
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        notificationChatId = intent.getLongExtra("com.mroldl001.mimochat.extra.CHAT_ID", 0L).takeIf { it > 0 }
         
         // 修复输入法弹出时输入框不被顶起的 bug（Android 11+ 需要 edge-to-edge 配合 imePadding）
         WindowCompat.setDecorFitsSystemWindows(window, false)
@@ -73,8 +77,14 @@ class MainActivity : ComponentActivity() {
         }
         
         setContent {
-            MainContent(isExpandedScreen = !isPhone)
+            MainContent(initialChatId = notificationChatId)
         }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        notificationChatId = intent.getLongExtra("com.mroldl001.mimochat.extra.CHAT_ID", 0L).takeIf { it > 0 }
     }
     
     private fun requestNotificationPermissionIfNeeded() {
@@ -108,7 +118,7 @@ class MainActivity : ComponentActivity() {
 @Composable
 private fun MainContent(
     viewModel: MainViewModel = hiltViewModel(),
-    isExpandedScreen: Boolean
+    initialChatId: Long? = null,
 ) {
     var themeColor by remember { mutableStateOf(viewModel.preferencesManager.getThemeColor()) }
     var themeMode by remember { mutableStateOf(viewModel.preferencesManager.getThemeMode()) }
@@ -123,24 +133,28 @@ private fun MainContent(
     val onNavigateFromSearch: () -> Unit = { }
     val onNavigateFromDrawer: (Boolean) -> Unit = { isDrawerOpen = it }
     
-    MIMOChatTheme(
-        themeColor = themeColor,
-        themeMode = themeMode
-    ) {
-        Surface(
-            modifier = Modifier.fillMaxSize(),
-            color = MaterialTheme.colorScheme.background
+    BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+        val isExpandedScreen = maxWidth >= 600.dp
+        MIMOChatTheme(
+            themeColor = themeColor,
+            themeMode = themeMode
         ) {
-            AppNavigation(
-                isExpandedScreen = isExpandedScreen,
-                onThemeChanged = { newColor, newMode ->
-                    themeColor = newColor
-                    themeMode = newMode
-                },
-                onNavigateFromSearch = onNavigateFromSearch,
-                onNavigateFromDrawer = onNavigateFromDrawer,
-                onBackToChat = { onBackToChat = it }
-            )
+            Surface(
+                modifier = Modifier.fillMaxSize(),
+                color = MaterialTheme.colorScheme.background
+            ) {
+                AppNavigation(
+                    isExpandedScreen = isExpandedScreen,
+                    initialChatId = initialChatId,
+                    onThemeChanged = { newColor, newMode ->
+                        themeColor = newColor
+                        themeMode = newMode
+                    },
+                    onNavigateFromSearch = onNavigateFromSearch,
+                    onNavigateFromDrawer = onNavigateFromDrawer,
+                    onBackToChat = { onBackToChat = it }
+                )
+            }
         }
     }
 }

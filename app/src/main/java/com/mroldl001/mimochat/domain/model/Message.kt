@@ -11,4 +11,6 @@ data class Message(
     val isStreaming: Boolean = false,
     val isAborted: Boolean = false,
     val isFailed: Boolean = false
+    , val attachmentUri: String? = null
+    , val attachmentMimeType: String? = null
 )

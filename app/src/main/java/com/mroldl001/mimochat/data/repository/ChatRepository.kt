@@ -145,7 +145,8 @@ class ChatRepository @Inject constructor(
                 chatId = chatId,
                 role = "assistant",
                 content = assistantMessage.content ?: "",
-                reasoningContent = assistantMessage.reasoningContent
+                reasoningContent = assistantMessage.reasoningContent,
+                searchResults = assistantMessage.annotations?.map { it.toWebSearchResult() }
             )
 
             return Result.success(message)
@@ -162,10 +163,12 @@ class ChatRepository @Inject constructor(
         modelId: String,
         thinkingEnabled: Boolean = true,
         skillPrompt: String = "",
-        customSystemPrompt: String = ""
+        customSystemPrompt: String = "",
+        attachment: ContentPart? = null,
+        webSearchEnabled: Boolean = true
     ): Flow<StreamEvent> = flow {
         try {
-            val chatRequest = buildRequest(modelId, messages, thinkingEnabled, stream = true, skillPrompt, customSystemPrompt)
+            val chatRequest = buildRequest(modelId, messages, thinkingEnabled, stream = true, skillPrompt, customSystemPrompt, attachment, webSearchEnabled)
             
             val normalizedBaseUrl = baseUrl.trimEnd('/')
             val endpoint = if (normalizedBaseUrl.endsWith("/v1")) {
@@ -200,6 +203,8 @@ class ChatRepository @Inject constructor(
 
                 var content = ""
                 var reasoningContent = ""
+                val annotations = mutableListOf<WebSearchResult>()
+                var doneEmitted = false
 
                 while (!source.exhausted()) {
                     val line = source.readUtf8Line() ?: continue
@@ -208,12 +213,14 @@ class ChatRepository @Inject constructor(
                         val data = line.substring(6)
 
                         if (data == "[DONE]") {
+                            doneEmitted = true
                             emit(StreamEvent.Done(
                                 Message(
                                     chatId = chatId,
                                     role = "assistant",
                                     content = content,
-                                    reasoningContent = reasoningContent.ifBlank { null }
+                                    reasoningContent = reasoningContent.ifBlank { null },
+                                    searchResults = annotations.distinctBy { it.url }
                                 )
                             ))
                             break
@@ -222,6 +229,7 @@ class ChatRepository @Inject constructor(
                         try {
                             val chunk = gson.fromJson(data, ChatCompletionChunk::class.java)
                             val delta = chunk.choices.firstOrNull()?.delta
+                            delta?.annotations?.map { it.toWebSearchResult() }?.let { annotations.addAll(it) }
 
                             delta?.content?.let {
                                 content += it
@@ -234,18 +242,29 @@ class ChatRepository @Inject constructor(
                             }
 
                             if (chunk.choices.firstOrNull()?.finish_reason != null) {
+                                doneEmitted = true
                                 emit(StreamEvent.Done(
                                     Message(
                                         chatId = chatId,
                                         role = "assistant",
                                         content = content,
-                                        reasoningContent = reasoningContent.ifBlank { null }
+                                        reasoningContent = reasoningContent.ifBlank { null },
+                                        searchResults = annotations.distinctBy { it.url }
                                     )
                                 ))
                             }
                         } catch (e: Exception) {
                         }
                     }
+                }
+                if (!doneEmitted) {
+                    emit(StreamEvent.Done(Message(
+                        chatId = chatId,
+                        role = "assistant",
+                        content = content,
+                        reasoningContent = reasoningContent.ifBlank { null },
+                        searchResults = annotations.distinctBy { it.url }
+                    )))
                 }
             }
         } catch (e: Exception) {
@@ -319,7 +338,9 @@ class ChatRepository @Inject constructor(
         thinkingEnabled: Boolean,
         stream: Boolean,
         skillPrompt: String = "",
-        customSystemPrompt: String = ""
+        customSystemPrompt: String = "",
+        attachment: ContentPart? = null,
+        webSearchEnabled: Boolean = true
     ): ChatCompletionRequest {
         val effectiveThinking = if (thinkingEnabled) ThinkingConfig("enabled") else ThinkingConfig("disabled")
 
@@ -368,10 +389,12 @@ class ChatRepository @Inject constructor(
         val requestMessages = mutableListOf<MessageRequest>()
         requestMessages.add(MessageRequest("system", fullSystemPrompt))
         
-        requestMessages.addAll(messages.map { message ->
+        requestMessages.addAll(messages.mapIndexed { index, message ->
             MessageRequest(
                 role = message.role,
-                content = message.content,
+                content = if (attachment != null && index == messages.lastIndex && message.role == "user") {
+                    listOf(attachment, ContentPart(type = "text", text = message.content))
+                } else message.content,
                 reasoningContent = if (message.role == "assistant" && !message.reasoningContent.isNullOrBlank()) {
                     message.reasoningContent
                 } else {
@@ -385,8 +408,10 @@ class ChatRepository @Inject constructor(
             messages = requestMessages,
             stream = stream,
             thinking = effectiveThinking,
-            tools = null,
-            toolChoice = null,
+            tools = if (webSearchEnabled && (modelId == "mimo-v2.5" || modelId == "mimo-v2.5-pro")) {
+                listOf(ToolConfig(type = "web_search", maxKeyword = 3, forceSearch = false, limit = 5))
+            } else null,
+            toolChoice = if (webSearchEnabled && (modelId == "mimo-v2.5" || modelId == "mimo-v2.5-pro")) "auto" else null,
             temperature = preferencesManager.getTemperature().toDouble(),
             topP = preferencesManager.getTopP().toDouble(),
             maxCompletionTokens = 1024,
@@ -395,6 +420,11 @@ class ChatRepository @Inject constructor(
             presencePenalty = preferencesManager.getPresencePenalty().toDouble()
         )
     }
+
+    private fun com.mroldl001.mimochat.data.api.Annotation.toWebSearchResult() = WebSearchResult(
+        url = this.url, title = this.title, summary = this.summary, siteName = this.siteName,
+        publishTime = this.publishTime, logoUrl = this.logoUrl
+    )
 
     private fun ChatEntity.toDomain() = Chat(
         id = id,
@@ -428,7 +458,9 @@ class ChatRepository @Inject constructor(
         timestamp = timestamp,
         isStreaming = isStreaming,
         isAborted = isAborted,
-        isFailed = isFailed
+        isFailed = isFailed,
+        attachmentUri = attachmentUri,
+        attachmentMimeType = attachmentMimeType
     )
 
     private fun Message.toEntity() = MessageEntity(
@@ -441,7 +473,9 @@ class ChatRepository @Inject constructor(
         timestamp = timestamp,
         isStreaming = isStreaming,
         isAborted = isAborted,
-        isFailed = isFailed
+        isFailed = isFailed,
+        attachmentUri = attachmentUri,
+        attachmentMimeType = attachmentMimeType
     )
 }
 
