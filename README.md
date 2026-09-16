@@ -7,10 +7,7 @@
 MIMO Chat - 第三方小米 MiMo 大模型 Android 客户端
 
 [![MiMo](https://img.shields.io/badge/MiMo-console-FF7E00?style=for-the-badge&logo=xiaomi&logoColor=white)](https://platform.xiaomimimo.com/console/balance)
-[![100T](https://img.shields.io/badge/MiMo-100T%20Toke%20Grant%20for%20Builders-FF7E00?style=for-the-badge&logo=xiaomi&logoColor=white)](https://100t.xiaomimimo.com/)
-
-[![MiMo_han](https://img.shields.io/badge/MiMo-控制台-FF7E00?style=for-the-badge&logo=xiaomi&logoColor=white)](https://platform.xiaomimimo.com/console/balance)
-[![100T_han](https://img.shields.io/badge/MiMo-百万亿%20Token%20创造者激励计划-FF7E00?style=for-the-badge&logo=xiaomi&logoColor=white)](https://100t.xiaomimimo.com/)
+[![README](https://img.shields.io/badge/MiMo-README-FF7E00?style=for-the-badge&logo=xiaomi&logoColor=white)](https://mimo.xiaomi.com/index)
 
 ---
 
@@ -18,13 +15,6 @@ MIMO Chat - 第三方小米 MiMo 大模型 Android 客户端
 > An Android client built with Kotlin that provides quick integration with the Xiaomi MiMo series Large Model APIs. Features include LaTeX rendering, custom prompts, and large model skills
 > 
 > 基于 Kotlin 开发的安卓客户端，快速接入小米 MiMo 系列大模型 API，支持 LaTeX 渲染、自定义提示词与大模型技能等功能
-
-> [!TIP]
-> **关于 MiMo 100T Token 计划的说明**
-> 
-> 若你正在使用小米 [百万亿 Token 创造者激励计划](https://100t.xiaomimimo.com/) 所赠送的 Token，请在设置中**将 API Base URL 更改为订阅接口**
-
-> 
 
 ![Kotlin](https://img.shields.io/badge/Kotlin-2.0.20-7F52FF?style=flat-square&logo=kotlin&logoColor=white)
 ![Gradle](https://img.shields.io/badge/Gradle-8.13.0-02303A?style=flat-square&logo=gradle&logoColor=white)
