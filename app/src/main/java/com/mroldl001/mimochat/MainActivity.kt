@@ -23,6 +23,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
+import androidx.core.view.WindowCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import com.mroldl001.mimochat.data.preferences.PreferencesManager
@@ -41,6 +42,9 @@ class MainActivity : ComponentActivity() {
     
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        
+        // 修复输入法弹出时输入框不被顶起的 bug（Android 11+ 需要 edge-to-edge 配合 imePadding）
+        WindowCompat.setDecorFitsSystemWindows(window, false)
         
         // 初始化权限请求 Launcher
         notificationPermissionLauncher = registerForActivityResult(

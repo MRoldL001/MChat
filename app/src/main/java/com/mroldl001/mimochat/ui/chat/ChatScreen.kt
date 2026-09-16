@@ -305,7 +305,9 @@ fun ChatScreen(
             },
             bottomBar = {
                 Column(
-                    modifier = Modifier.background(MaterialTheme.colorScheme.background)
+                    modifier = Modifier
+                        .background(MaterialTheme.colorScheme.background)
+                        .imePadding() // 修复输入法弹出时输入框不被顶起的 bug
                 ) {
                     SkillToggleBar(
                         isThinkingMode = isThinkingMode,
