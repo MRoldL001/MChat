@@ -98,6 +98,8 @@ data class ChatUiState(
     val themeColor: ThemeColor = ThemeColor.WHITE,
     val themeMode: ThemeMode = ThemeMode.FOLLOW_SYSTEM,
     val customSystemPrompt: String = "",
+    val chatBackgroundUri: String? = null,
+    val chatBackgroundOpacity: Float = PreferencesManager.DEFAULT_CHAT_BACKGROUND_OPACITY,
     val activeSkill: SkillType? = null,
     val temperature: Float = PreferencesManager.DEFAULT_TEMPERATURE,
     val topP: Float = PreferencesManager.DEFAULT_TOP_P,
@@ -122,6 +124,8 @@ class ChatViewModel @Inject constructor(
             apiKey = preferencesManager.getApiKey(),
             apiBaseUrl = preferencesManager.getApiBaseUrl(),
             customSystemPrompt = preferencesManager.getCustomSystemPrompt(),
+            chatBackgroundUri = preferencesManager.getChatBackgroundUri(),
+            chatBackgroundOpacity = preferencesManager.getChatBackgroundOpacity(),
             temperature = preferencesManager.getTemperature(),
             topP = preferencesManager.getTopP(),
             frequencyPenalty = preferencesManager.getFrequencyPenalty(),
@@ -210,6 +214,17 @@ class ChatViewModel @Inject constructor(
     fun setCustomSystemPrompt(prompt: String) {
         _uiState.update { it.copy(customSystemPrompt = prompt) }
         preferencesManager.saveCustomSystemPrompt(prompt)
+    }
+
+    fun setChatBackgroundUri(uri: String?) {
+        _uiState.update { it.copy(chatBackgroundUri = uri) }
+        preferencesManager.saveChatBackgroundUri(uri)
+    }
+
+    fun setChatBackgroundOpacity(value: Float) {
+        val opacity = value.coerceIn(0f, 1f)
+        _uiState.update { it.copy(chatBackgroundOpacity = opacity) }
+        preferencesManager.saveChatBackgroundOpacity(opacity)
     }
 
     fun setTemperature(value: Float) {
@@ -407,6 +422,14 @@ class ChatViewModel @Inject constructor(
 
             val modelId = if (attachment != null) "mimo-v2.5" else (_uiState.value.selectedModel?.id ?: "mimo-v2.5-pro")
             val apiBaseUrl = _uiState.value.apiBaseUrl
+            val titleSource = content.ifBlank {
+                when {
+                    attachmentMimeType?.startsWith("image/") == true -> "图片对话"
+                    attachmentMimeType?.startsWith("video/") == true -> "视频对话"
+                    attachmentMimeType?.startsWith("audio/") == true -> "音频对话"
+                    else -> "附件对话"
+                }
+            }
 
             if (isNewChat) {
                 val chatId = chat.id
@@ -414,9 +437,9 @@ class ChatViewModel @Inject constructor(
                     try {
                         val result = chatRepository.generateChatTitle(
                             apiKey = apiKey,
-                            baseUrl = apiBaseUrl,
-                            modelId = modelId,
-                            firstMessage = content
+                        baseUrl = apiBaseUrl,
+                        modelId = modelId,
+                        firstMessage = titleSource
                         )
                         val title = result.getOrNull()
                         if (title != null) {

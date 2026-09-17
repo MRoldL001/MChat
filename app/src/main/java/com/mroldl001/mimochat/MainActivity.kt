@@ -134,7 +134,7 @@ private fun MainContent(
     val onNavigateFromDrawer: (Boolean) -> Unit = { isDrawerOpen = it }
     
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
-        val isExpandedScreen = maxWidth >= 600.dp
+        val isExpandedScreen = this.maxWidth >= 600.dp
         MIMOChatTheme(
             themeColor = themeColor,
             themeMode = themeMode

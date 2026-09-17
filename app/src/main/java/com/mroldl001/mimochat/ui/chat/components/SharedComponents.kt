@@ -33,10 +33,15 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -457,12 +462,8 @@ private fun InlineCodeView(code: String, textColor: Color) {
 private fun CodeBlockView(code: String) {
     val context = LocalContext.current
     val lines = code.split("\n")
-    
-    val language = if (lines.isNotEmpty() && lines[0].isNotBlank() && !lines[0].startsWith(" ")) {
-        lines[0]
-    } else {
-        null
-    }
+    val fenceLabel = lines.firstOrNull()?.trim().orEmpty()
+    val language = normalizeCodeLanguage(fenceLabel).takeIf { it in supportedCodeLanguages }
     
     val codeLines = if (language != null && lines.size > 1) {
         lines.subList(1, lines.size)
@@ -472,6 +473,9 @@ private fun CodeBlockView(code: String) {
     
     val lineCount = codeLines.size
     val maxLineNumberWidth = lineCount.toString().length
+    val highlightedLines = remember(codeLines, language) {
+        highlightCodeLines(codeLines, language)
+    }
 
     Column(
         modifier = Modifier
@@ -491,7 +495,7 @@ private fun CodeBlockView(code: String) {
         ) {
             language?.let {
                 Text(
-                    text = it,
+                    text = fenceLabel,
                     style = TextStyle(
                         color = Color.Gray,
                         fontSize = 12.sp,
@@ -499,11 +503,12 @@ private fun CodeBlockView(code: String) {
                     )
                 )
             }
-            
+            Spacer(modifier = Modifier.weight(1f))
+             
             IconButton(
                 onClick = {
                     val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                    val clip = ClipData.newPlainText("code", code)
+                    val clip = ClipData.newPlainText("code", codeLines.joinToString("\n"))
                     clipboard.setPrimaryClip(clip)
                     Toast.makeText(context, "代码已复制", Toast.LENGTH_SHORT).show()
                 },
@@ -525,7 +530,7 @@ private fun CodeBlockView(code: String) {
                 .padding(bottom = 12.dp)
                 .horizontalScroll(rememberScrollState())
         ) {
-            codeLines.forEachIndexed { index, line ->
+            highlightedLines.forEachIndexed { index, line ->
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.Start,
@@ -544,7 +549,7 @@ private fun CodeBlockView(code: String) {
                     Spacer(modifier = Modifier.width(16.dp))
                     
                     Text(
-                        text = line.ifEmpty { " " },
+                        text = if (line.isEmpty()) AnnotatedString(" ") else line,
                         style = TextStyle(
                             color = Color.White,
                             fontSize = 13.sp,
@@ -552,6 +557,207 @@ private fun CodeBlockView(code: String) {
                         )
                     )
                 }
+            }
+        }
+    }
+}
+
+private val supportedCodeLanguages = setOf(
+    "python", "javascript", "typescript", "java", "kotlin", "c", "cpp", "csharp",
+    "go", "rust", "swift", "php", "ruby", "shell", "powershell", "sql", "dart",
+    "html", "xml", "css", "scss", "json", "yaml", "toml", "lua", "r", "text"
+)
+
+private fun normalizeCodeLanguage(label: String): String {
+    return when (label.lowercase().substringBefore(' ').trim()) {
+        "py", "python3" -> "python"
+        "js", "jsx", "node" -> "javascript"
+        "ts", "tsx" -> "typescript"
+        "kt", "kts" -> "kotlin"
+        "c++", "cc", "cxx" -> "cpp"
+        "c#", "cs" -> "csharp"
+        "golang" -> "go"
+        "rs" -> "rust"
+        "sh", "bash", "zsh" -> "shell"
+        "ps1" -> "powershell"
+        "htm" -> "html"
+        "yml" -> "yaml"
+        "plaintext", "txt" -> "text"
+        else -> label.lowercase().substringBefore(' ').trim()
+    }
+}
+
+private data class CodeHighlightPalette(
+    val keyword: Color = Color(0xFFC792EA),
+    val string: Color = Color(0xFFC3E88D),
+    val number: Color = Color(0xFFF78C6C),
+    val comment: Color = Color(0xFF7C8495),
+    val type: Color = Color(0xFFFFCB6B),
+    val function: Color = Color(0xFF82AAFF),
+    val operator: Color = Color(0xFF89DDFF),
+    val annotation: Color = Color(0xFFFF5370),
+    val property: Color = Color(0xFFF07178)
+)
+
+private val codeKeywords = setOf(
+    "as", "async", "await", "break", "case", "catch", "class", "const", "continue",
+    "def", "default", "do", "else", "enum", "export", "extends", "false", "final",
+    "finally", "for", "from", "fun", "function", "if", "implements", "import", "in",
+    "interface", "internal", "is", "lambda", "let", "match", "module", "new", "nil",
+    "none", "null", "object", "open", "override", "package", "pass", "private",
+    "protected", "public", "raise", "readonly", "return", "sealed", "static", "struct",
+    "super", "switch", "this", "throw", "throws", "trait", "true", "try", "typealias",
+    "typeof", "using", "val", "var", "virtual", "void", "when", "where", "while", "with",
+    "yield", "select", "insert", "update", "delete", "create", "drop", "alter", "join",
+    "into", "values", "and", "or", "not", "then", "end", "local", "func", "defer", "go"
+)
+
+private val codeTypes = setOf(
+    "any", "bool", "boolean", "byte", "char", "decimal", "double", "dynamic", "float",
+    "int", "integer", "long", "never", "number", "object", "short", "string", "uint",
+    "ulong", "ushort", "unit", "unknown", "list", "map", "set", "dict", "tuple", "array"
+)
+
+private fun highlightCodeLines(
+    lines: List<String>,
+    language: String?
+): List<AnnotatedString> {
+    val palette = CodeHighlightPalette()
+    var inBlockComment = false
+    var multiLineStringDelimiter: String? = null
+    val lineCommentMarkers = when (language) {
+        "python", "ruby", "shell", "powershell", "yaml", "r" -> listOf("#")
+        "sql", "lua" -> listOf("--")
+        "text" -> emptyList()
+        else -> listOf("//")
+    }
+    val blockMarkers = when (language) {
+        "html", "xml" -> "<!--" to "-->"
+        "python", "ruby", "shell", "powershell", "yaml", "r", "text" -> null
+        else -> "/*" to "*/"
+    }
+
+    return lines.map { line ->
+        buildAnnotatedString {
+            var index = 0
+            while (index < line.length) {
+                val activeDelimiter = multiLineStringDelimiter
+                if (activeDelimiter != null) {
+                    val end = line.indexOf(activeDelimiter, index)
+                    val tokenEnd = if (end >= 0) end + activeDelimiter.length else line.length
+                    withStyle(SpanStyle(color = palette.string)) {
+                        append(line.substring(index, tokenEnd))
+                    }
+                    index = tokenEnd
+                    if (end >= 0) multiLineStringDelimiter = null
+                    continue
+                }
+
+                if (inBlockComment && blockMarkers != null) {
+                    val end = line.indexOf(blockMarkers.second, index)
+                    val tokenEnd = if (end >= 0) end + blockMarkers.second.length else line.length
+                    withStyle(SpanStyle(color = palette.comment, fontStyle = FontStyle.Italic)) {
+                        append(line.substring(index, tokenEnd))
+                    }
+                    index = tokenEnd
+                    if (end >= 0) inBlockComment = false
+                    continue
+                }
+
+                val blockStart = blockMarkers?.first
+                if (blockStart != null && line.startsWith(blockStart, index)) {
+                    val end = line.indexOf(blockMarkers.second, index + blockStart.length)
+                    val tokenEnd = if (end >= 0) end + blockMarkers.second.length else line.length
+                    withStyle(SpanStyle(color = palette.comment, fontStyle = FontStyle.Italic)) {
+                        append(line.substring(index, tokenEnd))
+                    }
+                    index = tokenEnd
+                    if (end < 0) inBlockComment = true
+                    continue
+                }
+
+                val commentMarker = lineCommentMarkers.firstOrNull { line.startsWith(it, index) }
+                if (commentMarker != null) {
+                    withStyle(SpanStyle(color = palette.comment, fontStyle = FontStyle.Italic)) {
+                        append(line.substring(index))
+                    }
+                    index = line.length
+                    continue
+                }
+
+                val tripleDelimiter = when {
+                    language == "python" && line.startsWith("\"\"\"", index) -> "\"\"\""
+                    language == "python" && line.startsWith("'''", index) -> "'''"
+                    else -> null
+                }
+                if (tripleDelimiter != null) {
+                    val end = line.indexOf(tripleDelimiter, index + tripleDelimiter.length)
+                    val tokenEnd = if (end >= 0) end + tripleDelimiter.length else line.length
+                    withStyle(SpanStyle(color = palette.string)) {
+                        append(line.substring(index, tokenEnd))
+                    }
+                    index = tokenEnd
+                    if (end < 0) multiLineStringDelimiter = tripleDelimiter
+                    continue
+                }
+
+                val current = line[index]
+                if (current == '\"' || current == '\'' || current == '`') {
+                    var end = index + 1
+                    var escaped = false
+                    while (end < line.length) {
+                        val character = line[end]
+                        if (!escaped && character == current) {
+                            end++
+                            break
+                        }
+                        escaped = !escaped && character == '\\'
+                        if (character != '\\') escaped = false
+                        end++
+                    }
+                    val isProperty = line.substring(end).trimStart().startsWith(":")
+                    withStyle(SpanStyle(color = if (isProperty) palette.property else palette.string)) {
+                        append(line.substring(index, end))
+                    }
+                    index = end
+                    continue
+                }
+
+                if (current.isDigit()) {
+                    var end = index + 1
+                    while (end < line.length && (line[end].isLetterOrDigit() || line[end] in "._")) end++
+                    withStyle(SpanStyle(color = palette.number)) { append(line.substring(index, end)) }
+                    index = end
+                    continue
+                }
+
+                if (current.isLetter() || current == '_' || current == '$') {
+                    var end = index + 1
+                    while (end < line.length && (line[end].isLetterOrDigit() || line[end] == '_' || line[end] == '$')) end++
+                    val word = line.substring(index, end)
+                    val normalizedWord = word.lowercase()
+                    val nextNonWhitespace = line.drop(end).firstOrNull { !it.isWhitespace() }
+                    val previousNonWhitespace = line.take(index).lastOrNull { !it.isWhitespace() }
+                    val style = when {
+                        normalizedWord in codeKeywords -> SpanStyle(color = palette.keyword, fontWeight = FontWeight.SemiBold)
+                        normalizedWord in codeTypes || word.firstOrNull()?.isUpperCase() == true -> SpanStyle(color = palette.type)
+                        previousNonWhitespace == '@' -> SpanStyle(color = palette.annotation)
+                        nextNonWhitespace == '(' -> SpanStyle(color = palette.function)
+                        (language == "html" || language == "xml") &&
+                            (previousNonWhitespace == '<' || previousNonWhitespace == '/') -> SpanStyle(color = palette.function)
+                        else -> null
+                    }
+                    if (style != null) withStyle(style) { append(word) } else append(word)
+                    index = end
+                    continue
+                }
+
+                if (current in "=+-*/%<>!&|^~?:.@") {
+                    withStyle(SpanStyle(color = palette.operator)) { append(current) }
+                } else {
+                    append(current)
+                }
+                index++
             }
         }
     }

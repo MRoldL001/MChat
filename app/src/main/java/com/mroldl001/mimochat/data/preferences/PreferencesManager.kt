@@ -19,6 +19,8 @@ class PreferencesManager @Inject constructor(
         private const val KEY_API_KEY = "api_key"
         private const val KEY_API_BASE_URL = "api_base_url"
         private const val KEY_CUSTOM_SYSTEM_PROMPT = "custom_system_prompt"
+        private const val KEY_CHAT_BACKGROUND_URI = "chat_background_uri"
+        private const val KEY_CHAT_BACKGROUND_OPACITY = "chat_background_opacity"
         private const val KEY_SELECTED_MODEL_ID = "selected_model_id"
         private const val KEY_NOTIFICATION_PERMISSION_REQUESTED = "notification_permission_requested"
         private const val KEY_TEMPERATURE = "temperature"
@@ -30,6 +32,7 @@ class PreferencesManager @Inject constructor(
         const val DEFAULT_TOP_P = 0.95f
         const val DEFAULT_FREQUENCY_PENALTY = 0.0f
         const val DEFAULT_PRESENCE_PENALTY = 0.0f
+        const val DEFAULT_CHAT_BACKGROUND_OPACITY = 0.28f
     }
 
     private val prefs: SharedPreferences by lazy {
@@ -84,6 +87,28 @@ class PreferencesManager @Inject constructor(
 
     fun saveCustomSystemPrompt(prompt: String) {
         prefs.edit().putString(KEY_CUSTOM_SYSTEM_PROMPT, prompt).apply()
+    }
+
+    fun getChatBackgroundUri(): String? {
+        return prefs.getString(KEY_CHAT_BACKGROUND_URI, null)
+    }
+
+    fun saveChatBackgroundUri(uri: String?) {
+        prefs.edit().apply {
+            if (uri == null) {
+                remove(KEY_CHAT_BACKGROUND_URI)
+            } else {
+                putString(KEY_CHAT_BACKGROUND_URI, uri)
+            }
+        }.apply()
+    }
+
+    fun getChatBackgroundOpacity(): Float {
+        return prefs.getFloat(KEY_CHAT_BACKGROUND_OPACITY, DEFAULT_CHAT_BACKGROUND_OPACITY)
+    }
+
+    fun saveChatBackgroundOpacity(value: Float) {
+        prefs.edit().putFloat(KEY_CHAT_BACKGROUND_OPACITY, value.coerceIn(0f, 1f)).apply()
     }
 
     fun getSelectedModelId(): String {

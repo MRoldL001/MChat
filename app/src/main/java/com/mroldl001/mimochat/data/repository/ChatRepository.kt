@@ -437,7 +437,12 @@ class ChatRepository @Inject constructor(
             MessageRequest(
                 role = message.role,
                 content = if (attachment != null && index == messages.lastIndex && message.role == "user") {
-                    listOf(attachment, ContentPart(type = "text", text = message.content))
+                    buildList {
+                        add(attachment)
+                        if (message.content.isNotBlank()) {
+                            add(ContentPart(type = "text", text = message.content))
+                        }
+                    }
                 } else message.content,
                 reasoningContent = if (message.role == "assistant" && !message.reasoningContent.isNullOrBlank()) {
                     message.reasoningContent

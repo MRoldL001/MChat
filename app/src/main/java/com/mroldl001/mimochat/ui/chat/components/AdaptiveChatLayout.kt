@@ -2,7 +2,12 @@ package com.mroldl001.mimochat.ui.chat.components
 
 import android.content.Intent
 import android.net.Uri
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
@@ -24,11 +29,14 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -42,10 +50,17 @@ import com.mroldl001.mimochat.ui.chat.viewmodel.SkillType
 import com.mroldl001.mimochat.ui.theme.ThemeColor
 import com.mroldl001.mimochat.ui.theme.ThemeMode
 import com.mroldl001.mimochat.ui.theme.supportsDynamicColor
+import coil.compose.AsyncImage
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+
+private data class TabletChatScrollPosition(
+    val index: Int,
+    val offset: Int
+)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -73,15 +88,21 @@ fun AdaptiveChatLayout(
     onApiKeySaved: (String) -> Unit,
     onApiBaseUrlSaved: (String) -> Unit,
     onCustomPromptSaved: (String) -> Unit,
+    chatBackgroundUri: String?,
+    chatBackgroundOpacity: Float,
+    onBackgroundImageClick: () -> Unit,
     onTemperatureSaved: (Float) -> Unit,
     onTopPSaved: (Float) -> Unit,
     onFrequencyPenaltySaved: (Float) -> Unit,
     onPresencePenaltySaved: (Float) -> Unit,
     onResetParameters: () -> Unit,
     onClearError: () -> Unit,
-    onAttachmentSelected: (android.net.Uri) -> Unit = {},
+    onTakePhoto: () -> Unit = {},
+    onSelectFile: () -> Unit = {},
     onAttachmentCleared: () -> Unit = {},
     attachmentLabel: String? = null,
+    attachmentUri: String? = null,
+    attachmentMimeType: String? = null,
     isAttachmentEnabled: Boolean = true,
     initialChatId: Long? = null,
     suppressInitialScroll: Boolean = false,
@@ -91,6 +112,9 @@ fun AdaptiveChatLayout(
     val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
     val context = LocalContext.current
     val listState = rememberLazyListState()
+    val scrollScope = rememberCoroutineScope()
+    val bottomProximityPx = with(LocalDensity.current) { 120.dp.roundToPx() }
+    val scrollButtonTravelPx = with(LocalDensity.current) { 76.dp.roundToPx() }
 
     var showSettingsDialog by remember { mutableStateOf(false) }
     var showAdvancedSettingsDialog by remember { mutableStateOf(false) }
@@ -107,28 +131,57 @@ fun AdaptiveChatLayout(
     var currentApiBaseUrl by remember { mutableStateOf("") }
     var currentCustomPrompt by remember { mutableStateOf("") }
     
-    var needScrollChatId by remember { mutableStateOf<Long?>(null) }
-    var suppressInitialScrollChatId by remember(initialChatId, suppressInitialScroll) {
-        mutableStateOf(initialChatId.takeIf { suppressInitialScroll })
-    }
+    val chatScrollPositions = remember { mutableMapOf<Long, TabletChatScrollPosition>() }
+    var pendingRestoreChatId by remember { mutableStateOf(uiState.currentChat?.id) }
     var pendingInitialTopChatId by remember(initialChatId, suppressInitialScroll) {
         mutableStateOf(initialChatId.takeIf { suppressInitialScroll })
     }
     var pendingSendMessageCount by remember { mutableStateOf<Int?>(null) }
     var followStreaming by remember { mutableStateOf(false) }
     var automaticStreamScroll by remember { mutableStateOf(false) }
-    
+
+    val isNearBottom by remember(listState, bottomProximityPx) {
+        derivedStateOf {
+            val layoutInfo = listState.layoutInfo
+            val lastIndex = layoutInfo.totalItemsCount - 1
+            if (lastIndex < 0) {
+                true
+            } else {
+                val lastItem = layoutInfo.visibleItemsInfo.lastOrNull { it.index == lastIndex }
+                lastItem != null &&
+                    lastItem.offset + lastItem.size - layoutInfo.viewportEndOffset <= bottomProximityPx
+            }
+        }
+    }
+
+    val showScrollToBottom by remember {
+        derivedStateOf {
+            listState.layoutInfo.totalItemsCount > 0 &&
+                pendingRestoreChatId == null &&
+                !isNearBottom
+        }
+    }
+
+    DisposableEffect(uiState.currentChat?.id) {
+        val chatId = uiState.currentChat?.id
+        onDispose {
+            if (chatId != null) {
+                chatScrollPositions[chatId] = TabletChatScrollPosition(
+                    index = listState.firstVisibleItemIndex,
+                    offset = listState.firstVisibleItemScrollOffset
+                )
+            }
+        }
+    }
+
     LaunchedEffect(uiState.currentChat?.id) {
         val currentChatId = uiState.currentChat?.id
-        if (currentChatId != null) {
-            if (suppressInitialScrollChatId != null) {
-                needScrollChatId = null
-                if (suppressInitialScrollChatId == currentChatId) {
-                    suppressInitialScrollChatId = null
-                }
-            } else {
-                needScrollChatId = currentChatId
-            }
+        followStreaming = false
+        pendingRestoreChatId = when {
+            currentChatId == null -> null
+            pendingInitialTopChatId == currentChatId -> null
+            pendingSendMessageCount != null -> null
+            else -> currentChatId
         }
     }
 
@@ -146,6 +199,7 @@ fun AdaptiveChatLayout(
                 }
             }
             pendingSendMessageCount = null
+            pendingRestoreChatId = null
             followStreaming = isStreaming
         }
     }
@@ -153,15 +207,25 @@ fun AdaptiveChatLayout(
     LaunchedEffect(isStreaming) {
         if (!isStreaming) {
             followStreaming = false
-        } else if (pendingInitialTopChatId == null) {
+        } else if (
+            pendingInitialTopChatId == null &&
+            pendingRestoreChatId == null &&
+            isNearBottom
+        ) {
             followStreaming = true
         }
     }
 
-    LaunchedEffect(listState, isStreaming) {
-        snapshotFlow { listState.isScrollInProgress }.collect { isScrolling ->
-            if (isStreaming && isScrolling && !automaticStreamScroll) {
-                followStreaming = false
+    LaunchedEffect(listState, isStreaming, bottomProximityPx) {
+        snapshotFlow {
+            listState.isScrollInProgress to isNearBottom
+        }.collect { (isScrolling, nearBottom) ->
+            if (isStreaming && !automaticStreamScroll) {
+                if (isScrolling && !nearBottom) {
+                    followStreaming = false
+                } else if (!isScrolling && nearBottom) {
+                    followStreaming = true
+                }
             }
         }
     }
@@ -193,28 +257,44 @@ fun AdaptiveChatLayout(
             snapshotFlow { listState.layoutInfo.totalItemsCount }
                 .first { it >= messages.size && it > 0 }
             listState.scrollToItem(0)
+            pendingRestoreChatId = null
             pendingInitialTopChatId = null
             onInitialChatNavigationHandled()
         }
     }
 
-    LaunchedEffect(messages.size, messages.lastOrNull()?.chatId, needScrollChatId, isStreaming) {
-        if (needScrollChatId != null && uiState.currentChat?.id == needScrollChatId) {
-            val messagesLoadedForCurrentChat = messages.isEmpty() ||
-                messages.lastOrNull()?.chatId == needScrollChatId
-            if (!messagesLoadedForCurrentChat) return@LaunchedEffect
-            val totalItems = messages.size + if (isStreaming) 1 else 0
-            if (totalItems > 0) {
-                automaticStreamScroll = true
-                try {
-                    listState.animateScrollToItem(totalItems - 1)
-                } finally {
-                    automaticStreamScroll = false
-                }
-                followStreaming = isStreaming
-                needScrollChatId = null
-            }
+    LaunchedEffect(
+        uiState.currentChat?.id,
+        messages.size,
+        messages.lastOrNull()?.chatId,
+        pendingRestoreChatId,
+        isStreaming
+    ) {
+        val targetChatId = pendingRestoreChatId ?: return@LaunchedEffect
+        if (uiState.currentChat?.id != targetChatId) return@LaunchedEffect
+        if (messages.isEmpty() || messages.lastOrNull()?.chatId != targetChatId) {
+            return@LaunchedEffect
         }
+
+        val totalItems = messages.size + if (isStreaming) 1 else 0
+        snapshotFlow { listState.layoutInfo.totalItemsCount }
+            .first { it >= totalItems }
+
+        val savedPosition = chatScrollPositions[targetChatId]
+        automaticStreamScroll = true
+        try {
+            if (savedPosition != null) {
+                listState.scrollToItem(
+                    index = savedPosition.index.coerceIn(0, totalItems - 1),
+                    scrollOffset = savedPosition.offset.coerceAtLeast(0)
+                )
+            } else {
+                listState.scrollToBottomContent()
+            }
+        } finally {
+            automaticStreamScroll = false
+        }
+        pendingRestoreChatId = null
     }
 
     PermanentNavigationDrawer(
@@ -225,8 +305,14 @@ fun AdaptiveChatLayout(
             ) {
                 Column(modifier = Modifier.fillMaxSize()) {
                     ChatHistoryHeader(
-                        onSearchClick = onNavigateToSearch,
-                        onSettingsClick = { showSettingsDialog = true },
+                        onSearchClick = {
+                            focusManager.clearFocus()
+                            onNavigateToSearch()
+                        },
+                        onSettingsClick = {
+                            focusManager.clearFocus()
+                            showSettingsDialog = true
+                        },
                         onGitHubClick = {
                             val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/MRoldL001/MIMO-Chat"))
                             context.startActivity(intent)
@@ -254,7 +340,10 @@ fun AdaptiveChatLayout(
                                 TabletChatListItem(
                                     chat = chat,
                                     isSelected = chat.id == uiState.currentChat?.id,
-                                    onClick = { onSelectChat(chat) },
+                                    onClick = {
+                                        focusManager.clearFocus()
+                                        onSelectChat(chat)
+                                    },
                                     onDelete = { chatItem ->
                                         chatToDelete = chatItem
                                         showDeleteConfirmDialog = true
@@ -266,7 +355,10 @@ fun AdaptiveChatLayout(
 
                     Spacer(modifier = Modifier.height(8.dp))
                     Button(
-                        onClick = onCreateNewChat,
+                        onClick = {
+                            focusManager.clearFocus()
+                            onCreateNewChat()
+                        },
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(16.dp)
@@ -301,7 +393,6 @@ fun AdaptiveChatLayout(
             bottomBar = {
                 Column(
                     modifier = Modifier
-                        .background(MaterialTheme.colorScheme.background)
                         .imePadding() // 修复输入法弹出时输入框不被顶起的 bug
                         .navigationBarsPadding()
                 ) {
@@ -330,16 +421,19 @@ fun AdaptiveChatLayout(
                             if (uiState.apiKey.isBlank()) {
                                 showApiKeyWarningDialog = true
                             } else {
-                                needScrollChatId = null
+                                pendingRestoreChatId = null
                                 pendingSendMessageCount = messages.size
                                 onSendMessage(it)
                             }
                         },
                         onStopGenerating = onStopGenerating,
                         isGenerating = isStreaming,
-                        onAttachmentSelected = onAttachmentSelected,
+                        onTakePhoto = onTakePhoto,
+                        onSelectFile = onSelectFile,
                         onAttachmentCleared = onAttachmentCleared,
                         attachmentLabel = attachmentLabel,
+                        attachmentUri = attachmentUri,
+                        attachmentMimeType = attachmentMimeType,
                         isAttachmentEnabled = isAttachmentEnabled
                     )
                 }
@@ -356,6 +450,17 @@ fun AdaptiveChatLayout(
                         focusManager.clearFocus()
                     }
             ) {
+                chatBackgroundUri?.takeIf { it.isNotBlank() }?.let { backgroundUri ->
+                    AsyncImage(
+                        model = backgroundUri,
+                        contentDescription = null,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .alpha(chatBackgroundOpacity)
+                    )
+                }
+
                 if (messages.isEmpty() && !isStreaming) {
                     TabletEmptyState(
                         modifier = Modifier.align(Alignment.Center)
@@ -377,6 +482,50 @@ fun AdaptiveChatLayout(
                                 )
                             }
                         }
+                    }
+                }
+
+                AnimatedVisibility(
+                    visible = showScrollToBottom,
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .padding(end = 20.dp, bottom = 16.dp),
+                    enter = slideInHorizontally(
+                        animationSpec = tween(durationMillis = 240, easing = FastOutSlowInEasing),
+                        initialOffsetX = { scrollButtonTravelPx }
+                    ) + fadeIn(animationSpec = tween(durationMillis = 180)),
+                    exit = slideOutHorizontally(
+                        animationSpec = tween(durationMillis = 220, easing = FastOutSlowInEasing),
+                        targetOffsetX = { scrollButtonTravelPx }
+                    ) + fadeOut(animationSpec = tween(durationMillis = 160))
+                ) {
+                    FilledIconButton(
+                        onClick = {
+                            scrollScope.launch {
+                                automaticStreamScroll = true
+                                try {
+                                    val lastIndex = listState.layoutInfo.totalItemsCount - 1
+                                    if (lastIndex >= 0) {
+                                        listState.animateScrollToItem(lastIndex)
+                                        listState.scrollToBottomContent()
+                                    }
+                                    followStreaming = isStreaming
+                                } finally {
+                                    automaticStreamScroll = false
+                                }
+                            }
+                        },
+                        modifier = Modifier.size(48.dp),
+                        shape = CircleShape,
+                        colors = IconButtonDefaults.filledIconButtonColors(
+                            containerColor = MaterialTheme.colorScheme.primary,
+                            contentColor = MaterialTheme.colorScheme.onPrimary
+                        )
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.KeyboardArrowDown,
+                            contentDescription = "跳转到底部"
+                        )
                     }
                 }
 
@@ -412,13 +561,14 @@ fun AdaptiveChatLayout(
                 showSettingsDialog = false
                 showApiKeyDialog = true
             },
+            hasBackgroundImage = !chatBackgroundUri.isNullOrBlank(),
+            onBackgroundImageClick = {
+                showSettingsDialog = false
+                onBackgroundImageClick()
+            },
             onAdvancedSettingsClick = {
                 showSettingsDialog = false
                 showAdvancedSettingsDialog = true
-            },
-            onCustomPromptClick = {
-                showSettingsDialog = false
-                showCustomPromptDialog = true
             },
             onDismiss = { showSettingsDialog = false }
         )
@@ -433,6 +583,10 @@ fun AdaptiveChatLayout(
             onParameterSettingsClick = {
                 showAdvancedSettingsDialog = false
                 showParameterSettingsDialog = true
+            },
+            onCustomPromptClick = {
+                showAdvancedSettingsDialog = false
+                showCustomPromptDialog = true
             },
             onDismiss = { showAdvancedSettingsDialog = false }
         )
@@ -854,6 +1008,7 @@ private fun TabletSkillSwitchRow(
 private fun AdvancedSettingsDialog(
     onApiBaseUrlClick: () -> Unit,
     onParameterSettingsClick: () -> Unit,
+    onCustomPromptClick: () -> Unit,
     onDismiss: () -> Unit
 ) {
     AlertDialog(
@@ -900,6 +1055,48 @@ private fun AdvancedSettingsDialog(
                         )
                         Text(
                             text = "调整模型参数",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+
+                // 自定义系统提示词
+                val customPromptInteractionSource = remember { MutableInteractionSource() }
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable(
+                            interactionSource = customPromptInteractionSource,
+                            indication = null,
+                            onClick = onCustomPromptClick
+                        )
+                        .padding(vertical = 12.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.ChatBubble,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(16.dp))
+                    Column {
+                        Text(
+                            text = "自定义系统提示词",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            text = "设置个性化的系统提示词",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -963,8 +1160,9 @@ private fun SettingsDialog(
     initialThemeMode: ThemeMode,
     onApply: (ThemeColor, ThemeMode) -> Unit,
     onApiKeyClick: () -> Unit,
+    hasBackgroundImage: Boolean,
+    onBackgroundImageClick: () -> Unit,
     onAdvancedSettingsClick: () -> Unit,
-    onCustomPromptClick: () -> Unit,
     onDismiss: () -> Unit
 ) {
     var tempThemeColor by remember { mutableStateOf(initialThemeColor) }
@@ -1059,8 +1257,8 @@ private fun SettingsDialog(
                             selected = tempThemeMode == ThemeMode.FOLLOW_SYSTEM,
                             onClick = { tempThemeMode = ThemeMode.FOLLOW_SYSTEM },
                             label = "跟随系统",
-                            color = Color.Transparent,
-                            isDiagonal = true
+                            color = Color.Gray,
+                            isDiagonal = false
                         )
                     }
                 }
@@ -1147,16 +1345,16 @@ private fun SettingsDialog(
                     }
                 }
 
-                val customPromptInteractionSource = remember { MutableInteractionSource() }
+                val backgroundImageInteractionSource = remember { MutableInteractionSource() }
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(vertical = 12.dp)
                         .clickable(
-                            interactionSource = customPromptInteractionSource,
+                            interactionSource = backgroundImageInteractionSource,
                             indication = null,
-                            onClick = onCustomPromptClick
+                            onClick = onBackgroundImageClick
                         )
                 ) {
                     Box(
@@ -1167,21 +1365,21 @@ private fun SettingsDialog(
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
-                            imageVector = Icons.Default.ChatBubble,
+                            imageVector = Icons.Default.Image,
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.size(20.dp)
                         )
                     }
                     Spacer(modifier = Modifier.width(16.dp))
-                    Column {
+                    Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = "自定义系统提示词",
+                            text = "聊天背景图",
                             style = MaterialTheme.typography.titleMedium,
                             color = MaterialTheme.colorScheme.onSurface
                         )
                         Text(
-                            text = "设置个性化的系统提示词",
+                            text = "选择聊天中使用的背景图片",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -1261,8 +1459,15 @@ private fun ThemeModeOption(
     val interactionSource = remember { MutableInteractionSource() }
     
     val borderColor by animateColorAsState(
-        targetValue = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
-        animationSpec = tween(durationMillis = 300),
+        targetValue = if (selected) {
+            MaterialTheme.colorScheme.primary
+        } else {
+            MaterialTheme.colorScheme.outlineVariant
+        },
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioNoBouncy,
+            stiffness = Spring.StiffnessMediumLow
+        ),
         label = "border_color"
     )
     
@@ -1282,22 +1487,27 @@ private fun ThemeModeOption(
         Box(
             modifier = Modifier
                 .size(36.dp)
+                .border(
+                    width = 2.dp,
+                    color = borderColor,
+                    shape = CircleShape
+                )
                 .clip(CircleShape)
                 .background(
                     if (isDiagonal) {
                         Brush.linearGradient(
-                            colors = listOf(Color.White, Color.Black),
+                            colorStops = arrayOf(
+                                0f to Color.White,
+                                0.5f to Color.White,
+                                0.5f to Color.Black,
+                                1f to Color.Black
+                            ),
                             start = androidx.compose.ui.geometry.Offset.Zero,
                             end = androidx.compose.ui.geometry.Offset.Infinite
                         )
                     } else {
                         Brush.linearGradient(colors = listOf(color, color))
                     }
-                )
-                .border(
-                    width = 2.dp,
-                    color = borderColor,
-                    shape = CircleShape
                 )
                 .clickable(
                     interactionSource = interactionSource,
@@ -1306,25 +1516,6 @@ private fun ThemeModeOption(
                 ),
             contentAlignment = Alignment.Center
         ) {
-            if (isDiagonal) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(Color.White)
-                )
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(
-                            brush = Brush.linearGradient(
-                                colors = listOf(Color.Transparent, Color.Black),
-                                start = androidx.compose.ui.geometry.Offset(36f, 0f),
-                                end = androidx.compose.ui.geometry.Offset(0f, 36f)
-                            )
-                        )
-                )
-            }
-            
             if (checkScale > 0f) {
                 Icon(
                     imageVector = Icons.Default.Check,
@@ -1358,6 +1549,7 @@ private fun ApiKeyDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
+        containerColor = MaterialTheme.colorScheme.background,
         title = { Text("API Key") },
         text = {
             Column {
@@ -1408,6 +1600,7 @@ private fun ApiBaseUrlDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
+        containerColor = MaterialTheme.colorScheme.background,
         title = { Text("API Base URL") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -1477,6 +1670,7 @@ private fun CustomSystemPromptDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
+        containerColor = MaterialTheme.colorScheme.background,
         title = { Text("自定义系统提示词") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -1655,7 +1849,9 @@ private fun ParameterSettingsDialog(
         text = {
             Column(
                 verticalArrangement = Arrangement.spacedBy(20.dp),
-                modifier = Modifier.verticalScroll(rememberScrollState())
+                modifier = Modifier
+                    .heightIn(max = 420.dp)
+                    .verticalScroll(rememberScrollState())
             ) {
                 // Temperature
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -1979,8 +2175,15 @@ private fun ThemeColorOption(
     val interactionSource = remember { MutableInteractionSource() }
     
     val borderColor by animateColorAsState(
-        targetValue = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
-        animationSpec = tween(durationMillis = 300),
+        targetValue = if (selected) {
+            MaterialTheme.colorScheme.primary
+        } else {
+            MaterialTheme.colorScheme.outlineVariant
+        },
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioNoBouncy,
+            stiffness = Spring.StiffnessMediumLow
+        ),
         label = "border_color"
     )
     
@@ -2000,6 +2203,11 @@ private fun ThemeColorOption(
         Box(
             modifier = Modifier
                 .size(36.dp)
+                .border(
+                    width = 2.dp,
+                    color = borderColor,
+                    shape = CircleShape
+                )
                 .clip(CircleShape)
                 .background(
                     if (isAutoColor) {
@@ -2019,11 +2227,6 @@ private fun ThemeColorOption(
                     } else {
                         Brush.linearGradient(colors = listOf(color, color))
                     }
-                )
-                .border(
-                    width = 2.dp,
-                    color = borderColor,
-                    shape = CircleShape
                 )
                 .clickable(
                     interactionSource = interactionSource,

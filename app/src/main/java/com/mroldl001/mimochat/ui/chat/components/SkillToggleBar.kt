@@ -29,6 +29,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.unit.dp
 import com.mroldl001.mimochat.ui.chat.viewmodel.SkillType
 
@@ -121,6 +122,7 @@ private fun SkillToggleChip(
     onClick: () -> Unit
 ) {
     val interactionSource = remember { MutableInteractionSource() }
+    val focusManager = LocalFocusManager.current
     val backgroundColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
     val borderColor by animateColorAsState(
         targetValue = if (isActive) MaterialTheme.colorScheme.primary else Color.Transparent,
@@ -153,7 +155,10 @@ private fun SkillToggleChip(
                 indication = null,
                 interactionSource = interactionSource,
                 enabled = !isDisabled,
-                onClick = onClick
+                onClick = {
+                    focusManager.clearFocus()
+                    onClick()
+                }
             )
     ) {
         Row(

@@ -6,6 +6,11 @@ import android.util.Base64
 import android.widget.Toast
 import android.provider.OpenableColumns
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -15,6 +20,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
@@ -24,19 +30,23 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Brightness7
 import androidx.compose.material.icons.filled.Brightness4
 import androidx.compose.material.icons.filled.Monitor
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Key
+import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.ChatBubble
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -45,6 +55,7 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusManager
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
@@ -55,6 +66,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
+import androidx.core.content.FileProvider
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.mroldl001.mimochat.ui.chat.components.*
 import com.mroldl001.mimochat.ui.chat.viewmodel.ChatViewModel
@@ -65,6 +77,23 @@ import com.mroldl001.mimochat.ui.theme.ThemeMode
 import com.mroldl001.mimochat.ui.theme.supportsDynamicColor
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import java.io.File
+
+private data class ChatScrollPosition(
+    val index: Int,
+    val offset: Int
+)
+
+private fun LazyListState.isNearBottom(thresholdPx: Int): Boolean {
+    val layoutInfo = layoutInfo
+    val lastIndex = layoutInfo.totalItemsCount - 1
+    if (lastIndex < 0) return true
+
+    val lastItem = layoutInfo.visibleItemsInfo.lastOrNull { it.index == lastIndex }
+        ?: return false
+    val distanceToBottom = lastItem.offset + lastItem.size - layoutInfo.viewportEndOffset
+    return distanceToBottom <= thresholdPx
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -89,63 +118,174 @@ fun ChatScreen(
     var attachmentLabel by remember { mutableStateOf<String?>(null) }
     var attachmentUri by remember { mutableStateOf<String?>(null) }
     var attachmentMimeType by remember { mutableStateOf<String?>(null) }
+    var attachmentOwnedPath by remember { mutableStateOf<String?>(null) }
+    var pendingCameraUri by rememberSaveable { mutableStateOf<String?>(null) }
+    var pendingCameraPath by rememberSaveable { mutableStateOf<String?>(null) }
+    var showBackgroundSettingsDialog by remember { mutableStateOf(false) }
+    var pendingBackgroundCropUri by rememberSaveable { mutableStateOf<String?>(null) }
     var pendingInitialChatId by remember(initialChatId) { mutableStateOf(initialChatId) }
-    var suppressInitialScrollChatId by remember(initialChatId, suppressInitialScroll) {
-        mutableStateOf(initialChatId.takeIf { suppressInitialScroll })
-    }
     var pendingInitialTopChatId by remember(initialChatId, suppressInitialScroll) {
         mutableStateOf(initialChatId.takeIf { suppressInitialScroll })
     }
-    val supportsMultimodal = uiState.selectedModel?.capabilities?.contains("multimodal") == true
-    LaunchedEffect(supportsMultimodal) {
-        if (!supportsMultimodal) {
-            attachment = null
-            attachmentLabel = null
-            attachmentUri = null
-            attachmentMimeType = null
+    fun clearAttachment(deleteOwnedFile: Boolean = false) {
+        if (deleteOwnedFile) {
+            attachmentOwnedPath?.let { path -> runCatching { File(path).delete() } }
         }
+        attachment = null
+        attachmentLabel = null
+        attachmentUri = null
+        attachmentMimeType = null
+        attachmentOwnedPath = null
     }
-    val filePicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
-        if (uri != null) {
-            val mime = context.contentResolver.getType(uri) ?: "application/octet-stream"
-            val maxEncodedBytes = 50L * 1024L * 1024L
-            val rawSize = context.contentResolver.query(
+
+    fun prepareAttachment(uri: Uri, mimeOverride: String? = null): Boolean {
+        var displayName: String? = null
+        var rawSize = -1L
+        runCatching {
+            context.contentResolver.query(
                 uri,
-                arrayOf(OpenableColumns.SIZE),
+                arrayOf(OpenableColumns.DISPLAY_NAME, OpenableColumns.SIZE),
                 null,
                 null,
                 null
             )?.use { cursor ->
-                if (cursor.moveToFirst() && !cursor.isNull(0)) cursor.getLong(0) else -1L
-            } ?: -1L
-            if (rawSize > 0) {
-                val estimatedEncodedSize = ((rawSize + 2L) / 3L) * 4L
-                if (estimatedEncodedSize > maxEncodedBytes) {
-                    Toast.makeText(context, "文件过大：Base64 编码后不能超过 50MB", Toast.LENGTH_LONG).show()
-                    return@rememberLauncherForActivityResult
-                }
-            }
-            val bytes = context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
-            if (bytes != null) {
-                val encoded = Base64.encodeToString(bytes, Base64.NO_WRAP)
-                if (encoded.length.toLong() > maxEncodedBytes) {
-                    Toast.makeText(context, "文件过大：Base64 编码后不能超过 50MB", Toast.LENGTH_LONG).show()
-                    return@rememberLauncherForActivityResult
-                }
-                attachmentLabel = uri.lastPathSegment?.substringAfterLast('/') ?: "已选择附件"
-                attachmentUri = uri.toString()
-                attachmentMimeType = mime
-                val data = "data:$mime;base64,$encoded"
-                attachment = when {
-                    mime.startsWith("image/") -> ContentPart(type = "image_url", imageUrl = ImageUrl(data))
-                    mime.startsWith("audio/") -> ContentPart(type = "input_audio", inputAudio = InputAudio(data))
-                    mime.startsWith("video/") -> ContentPart(type = "video_url", videoUrl = VideoUrl(data), fps = 2.0, mediaResolution = "default")
-                    else -> null
+                if (cursor.moveToFirst()) {
+                    val nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                    val sizeIndex = cursor.getColumnIndex(OpenableColumns.SIZE)
+                    if (nameIndex >= 0 && !cursor.isNull(nameIndex)) {
+                        displayName = cursor.getString(nameIndex)
+                    }
+                    if (sizeIndex >= 0 && !cursor.isNull(sizeIndex)) {
+                        rawSize = cursor.getLong(sizeIndex)
+                    }
                 }
             }
         }
+
+        val mime = mimeOverride ?: context.contentResolver.getType(uri) ?: "application/octet-stream"
+        if (!mime.startsWith("image/") && !mime.startsWith("audio/") && !mime.startsWith("video/")) {
+            Toast.makeText(context, "当前仅支持图片、音频和视频附件", Toast.LENGTH_LONG).show()
+            return false
+        }
+
+        val maxEncodedBytes = 50L * 1024L * 1024L
+        if (rawSize > 0L) {
+            val estimatedEncodedSize = ((rawSize + 2L) / 3L) * 4L
+            if (estimatedEncodedSize > maxEncodedBytes) {
+                Toast.makeText(context, "文件过大：Base64 编码后不能超过 50MB", Toast.LENGTH_LONG).show()
+                return false
+            }
+        }
+
+        val bytes = runCatching {
+            context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
+        }.getOrNull()
+        if (bytes == null || bytes.isEmpty()) {
+            Toast.makeText(context, "无法读取所选文件", Toast.LENGTH_LONG).show()
+            return false
+        }
+
+        val encoded = Base64.encodeToString(bytes, Base64.NO_WRAP)
+        if (encoded.length.toLong() > maxEncodedBytes) {
+            Toast.makeText(context, "文件过大：Base64 编码后不能超过 50MB", Toast.LENGTH_LONG).show()
+            return false
+        }
+
+        val data = "data:$mime;base64,$encoded"
+        attachmentOwnedPath?.let { path -> runCatching { File(path).delete() } }
+        attachmentOwnedPath = null
+        attachment = when {
+            mime.startsWith("image/") -> ContentPart(type = "image_url", imageUrl = ImageUrl(data))
+            mime.startsWith("audio/") -> ContentPart(type = "input_audio", inputAudio = InputAudio(data))
+            else -> ContentPart(
+                type = "video_url",
+                videoUrl = VideoUrl(data),
+                fps = 2.0,
+                mediaResolution = "default"
+            )
+        }
+        attachmentLabel = displayName ?: uri.lastPathSegment?.substringAfterLast('/') ?: "已选择附件"
+        attachmentUri = uri.toString()
+        attachmentMimeType = mime
+        return true
     }
-    val pickAttachment: (Uri) -> Unit = { filePicker.launch("*/*") }
+
+    val supportsMultimodal = uiState.selectedModel?.capabilities?.contains("multimodal") == true
+    LaunchedEffect(supportsMultimodal) {
+        if (!supportsMultimodal) {
+            clearAttachment(deleteOwnedFile = true)
+        }
+    }
+
+    val filePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) {
+            runCatching {
+                context.contentResolver.takePersistableUriPermission(
+                    uri,
+                    Intent.FLAG_GRANT_READ_URI_PERMISSION
+                )
+            }
+            prepareAttachment(uri)
+        }
+    }
+
+    val cameraLauncher = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { captured ->
+        val cameraUri = pendingCameraUri?.let(Uri::parse)
+        val prepared = captured && cameraUri != null && prepareAttachment(cameraUri, "image/jpeg")
+        if (prepared) {
+            attachmentOwnedPath = pendingCameraPath
+        } else {
+            pendingCameraPath?.let { path -> runCatching { File(path).delete() } }
+        }
+        pendingCameraUri = null
+        pendingCameraPath = null
+    }
+
+    val pickAttachmentFile: () -> Unit = {
+        filePicker.launch(arrayOf("image/*", "audio/*", "video/*"))
+    }
+    val takePhoto: () -> Unit = {
+        val target = runCatching {
+            val directory = File(context.filesDir, "attachments").apply { mkdirs() }
+            val photoFile = File.createTempFile("camera_", ".jpg", directory)
+            val photoUri = FileProvider.getUriForFile(
+                context,
+                "${context.packageName}.fileprovider",
+                photoFile
+            )
+            photoFile to photoUri
+        }.getOrNull()
+
+        if (target == null) {
+            Toast.makeText(context, "无法创建照片文件", Toast.LENGTH_LONG).show()
+        } else {
+            pendingCameraPath = target.first.absolutePath
+            pendingCameraUri = target.second.toString()
+            runCatching { cameraLauncher.launch(target.second) }
+                .onFailure {
+                    runCatching { target.first.delete() }
+                    pendingCameraPath = null
+                    pendingCameraUri = null
+                    Toast.makeText(context, "无法打开相机", Toast.LENGTH_LONG).show()
+                }
+        }
+    }
+
+    val backgroundPicker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+        if (uri != null) {
+            pendingBackgroundCropUri = uri.toString()
+        }
+    }
+    val pickBackgroundImage = {
+        backgroundPicker.launch(
+            PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+        )
+    }
+    val clearBackgroundImage = {
+        deleteStoredChatBackground(context, uiState.chatBackgroundUri)
+        viewModel.setChatBackgroundUri(null)
+        viewModel.setChatBackgroundOpacity(com.mroldl001.mimochat.data.preferences.PreferencesManager.DEFAULT_CHAT_BACKGROUND_OPACITY)
+    }
 
     // 手机和平板布局共用同一个会话跳转入口；必须在平板分支提前返回前处理。
     LaunchedEffect(pendingInitialChatId, uiState.chats) {
@@ -185,10 +325,7 @@ fun ChatScreen(
                     return@AdaptiveChatLayout
                 }
                 viewModel.sendMessage(content, isThinkingMode, attachment, isWebSearchEnabled, attachmentUri, attachmentMimeType)
-                attachment = null
-                attachmentLabel = null
-                attachmentUri = null
-                attachmentMimeType = null
+                clearAttachment()
             },
             onStopGenerating = { viewModel.stopGenerating() },
             onCreateNewChat = { viewModel.createNewChat() },
@@ -220,6 +357,9 @@ fun ChatScreen(
             onCustomPromptSaved = { prompt ->
                 viewModel.setCustomSystemPrompt(prompt)
             },
+            chatBackgroundUri = uiState.chatBackgroundUri,
+            chatBackgroundOpacity = uiState.chatBackgroundOpacity,
+            onBackgroundImageClick = { showBackgroundSettingsDialog = true },
             onTemperatureSaved = { temp ->
                 viewModel.setTemperature(temp)
             },
@@ -236,14 +376,40 @@ fun ChatScreen(
                 viewModel.resetParameters()
             },
             onClearError = { viewModel.clearError() }
-            , onAttachmentSelected = pickAttachment
-            , onAttachmentCleared = { attachment = null; attachmentLabel = null; attachmentUri = null; attachmentMimeType = null }
+            , onTakePhoto = takePhoto
+            , onSelectFile = pickAttachmentFile
+            , onAttachmentCleared = { clearAttachment(deleteOwnedFile = true) }
             , attachmentLabel = attachmentLabel
+            , attachmentUri = attachmentUri
+            , attachmentMimeType = attachmentMimeType
             , isAttachmentEnabled = supportsMultimodal
             , initialChatId = initialChatId
             , suppressInitialScroll = suppressInitialScroll
             , onInitialChatNavigationHandled = onInitialChatNavigationHandled
         )
+        if (showBackgroundSettingsDialog) {
+            BackgroundImageSettingsDialog(
+                hasBackgroundImage = !uiState.chatBackgroundUri.isNullOrBlank(),
+                opacity = uiState.chatBackgroundOpacity,
+                onSelectImage = pickBackgroundImage,
+                onOpacityChanged = viewModel::setChatBackgroundOpacity,
+                onRestoreDefault = clearBackgroundImage,
+                onDismiss = { showBackgroundSettingsDialog = false }
+            )
+        }
+        pendingBackgroundCropUri?.let { uriString ->
+            BackgroundCropDialog(
+                sourceUri = Uri.parse(uriString),
+                onCropped = { croppedUri ->
+                    val previousUri = uiState.chatBackgroundUri
+                    viewModel.setChatBackgroundUri(croppedUri)
+                    if (previousUri != croppedUri) deleteStoredChatBackground(context, previousUri)
+                    pruneStoredChatBackgrounds(context, croppedUri)
+                    pendingBackgroundCropUri = null
+                },
+                onDismiss = { pendingBackgroundCropUri = null }
+            )
+        }
         return
     }
 
@@ -259,24 +425,33 @@ fun ChatScreen(
     val scope = rememberCoroutineScope()
     val listState = rememberLazyListState()
     val focusManager = LocalFocusManager.current
-    var needScrollChatId by remember { mutableStateOf<Long?>(null) }
+    val nearBottomThresholdPx = with(LocalDensity.current) { 120.dp.roundToPx() }
+    val scrollButtonTravelPx = with(LocalDensity.current) { 72.dp.roundToPx() }
+    val chatScrollPositions = remember { mutableMapOf<Long, ChatScrollPosition>() }
+    var pendingRestoreChatId by remember { mutableStateOf<Long?>(null) }
     var pendingSendMessageCount by remember { mutableStateOf<Int?>(null) }
     var followStreaming by remember { mutableStateOf(false) }
     var automaticStreamScroll by remember { mutableStateOf(false) }
+    val isNearBottom by remember(listState, nearBottomThresholdPx) {
+        derivedStateOf { listState.isNearBottom(nearBottomThresholdPx) }
+    }
 
-    // 监听当前聊天变化，滚动到底部
-    LaunchedEffect(uiState.currentChat?.id) {
-        val currentChatId = uiState.currentChat?.id
-        if (currentChatId != null) {
-            if (suppressInitialScrollChatId != null) {
-                needScrollChatId = null
-                if (suppressInitialScrollChatId == currentChatId) {
-                    suppressInitialScrollChatId = null
-                }
-            } else {
-                needScrollChatId = currentChatId
+    // 离开会话时记录精确阅读位置；进入会话后等待它的消息加载完成再恢复。
+    DisposableEffect(uiState.currentChat?.id, listState) {
+        val chatId = uiState.currentChat?.id
+        onDispose {
+            if (chatId != null) {
+                chatScrollPositions[chatId] = ChatScrollPosition(
+                    index = listState.firstVisibleItemIndex,
+                    offset = listState.firstVisibleItemScrollOffset
+                )
             }
         }
+    }
+
+    LaunchedEffect(uiState.currentChat?.id) {
+        pendingRestoreChatId = uiState.currentChat?.id
+        followStreaming = false
     }
 
     // 发送后只等待新用户消息真正进入列表，然后立即滚到底部。
@@ -294,22 +469,29 @@ fun ChatScreen(
                 }
             }
             pendingSendMessageCount = null
-            followStreaming = isStreaming
-        }
-    }
-
-    LaunchedEffect(isStreaming) {
-        if (!isStreaming) {
-            followStreaming = false
-        } else if (pendingInitialTopChatId == null) {
             followStreaming = true
         }
     }
 
-    LaunchedEffect(listState, isStreaming) {
-        snapshotFlow { listState.isScrollInProgress }.collect { isScrolling ->
-            if (isStreaming && isScrolling && !automaticStreamScroll) {
-                followStreaming = false
+    LaunchedEffect(isStreaming, uiState.currentChat?.id) {
+        if (!isStreaming) {
+            followStreaming = false
+        } else if (pendingInitialTopChatId == null && pendingRestoreChatId == null) {
+            withFrameNanos { }
+            followStreaming = listState.isNearBottom(nearBottomThresholdPx)
+        }
+    }
+
+    LaunchedEffect(listState, isStreaming, nearBottomThresholdPx) {
+        snapshotFlow {
+            listState.isScrollInProgress to listState.isNearBottom(nearBottomThresholdPx)
+        }.collect { (isScrolling, nearBottom) ->
+            if (isStreaming && !automaticStreamScroll) {
+                if (isScrolling && !nearBottom) {
+                    followStreaming = false
+                } else if (!isScrolling && nearBottom) {
+                    followStreaming = true
+                }
             }
         }
     }
@@ -342,29 +524,49 @@ fun ChatScreen(
             snapshotFlow { listState.layoutInfo.totalItemsCount }
                 .first { it >= messages.size && it > 0 }
             listState.scrollToItem(0)
+            chatScrollPositions[targetChatId] = ChatScrollPosition(0, 0)
+            pendingRestoreChatId = null
+            followStreaming = false
             pendingInitialTopChatId = null
             onInitialChatNavigationHandled()
         }
     }
 
-    // 普通会话切换仍定位到底部；搜索跳转会清除 needScrollChatId。
-    LaunchedEffect(messages.size, messages.lastOrNull()?.chatId, needScrollChatId, isStreaming) {
-        if (needScrollChatId != null && uiState.currentChat?.id == needScrollChatId) {
-            val messagesLoadedForCurrentChat = messages.isEmpty() ||
-                messages.lastOrNull()?.chatId == needScrollChatId
-            if (!messagesLoadedForCurrentChat) return@LaunchedEffect
-            val totalItems = messages.size + if (isStreaming) 1 else 0
-            if (totalItems > 0) {
-                automaticStreamScroll = true
-                try {
-                    listState.animateScrollToItem(totalItems - 1)
-                } finally {
-                    automaticStreamScroll = false
-                }
-                followStreaming = isStreaming
-                needScrollChatId = null
-            }
+    LaunchedEffect(
+        uiState.currentChat?.id,
+        messages.size,
+        messages.lastOrNull()?.chatId,
+        pendingRestoreChatId,
+        pendingInitialTopChatId,
+        isStreaming
+    ) {
+        val targetChatId = pendingRestoreChatId ?: return@LaunchedEffect
+        if (uiState.currentChat?.id != targetChatId || pendingInitialTopChatId == targetChatId) {
+            return@LaunchedEffect
         }
+
+        val savedPosition = chatScrollPositions[targetChatId]
+        if (messages.isEmpty()) return@LaunchedEffect
+        if (messages.lastOrNull()?.chatId != targetChatId) return@LaunchedEffect
+
+        val totalItems = messages.size + if (isStreaming) 1 else 0
+        snapshotFlow { listState.layoutInfo.totalItemsCount }
+            .first { it >= totalItems }
+        automaticStreamScroll = true
+        try {
+            if (savedPosition != null) {
+                listState.scrollToItem(
+                    index = savedPosition.index.coerceIn(0, totalItems - 1),
+                    scrollOffset = savedPosition.offset.coerceAtLeast(0)
+                )
+            } else {
+                listState.scrollToBottomContent()
+            }
+        } finally {
+            automaticStreamScroll = false
+        }
+        pendingRestoreChatId = null
+        followStreaming = isStreaming && listState.isNearBottom(nearBottomThresholdPx)
     }
 
     LaunchedEffect(drawerState.currentValue) {
@@ -454,6 +656,7 @@ fun ChatScreen(
                     },
                     navigationIcon = {
                         IconButton(onClick = {
+                            focusManager.clearFocus()
                             scope.launch { drawerState.open() }
                         }) {
                             Icon(Icons.Default.Menu, contentDescription = "菜单")
@@ -467,7 +670,6 @@ fun ChatScreen(
             bottomBar = {
                 Column(
                     modifier = Modifier
-                        .background(MaterialTheme.colorScheme.background)
                         .imePadding() // 修复输入法弹出时输入框不被顶起的 bug
                         .navigationBarsPadding()
                 ) {
@@ -493,20 +695,20 @@ fun ChatScreen(
                             if (uiState.apiKey.isBlank()) {
                                 showApiKeyWarningDialog = true
                             } else {
-                                needScrollChatId = null
+                                pendingRestoreChatId = null
                                 pendingSendMessageCount = messages.size
                                 viewModel.sendMessage(it, isThinkingMode, attachment, isWebSearchEnabled, attachmentUri, attachmentMimeType)
-                                attachment = null
-                                attachmentLabel = null
-                                attachmentUri = null
-                                attachmentMimeType = null
+                                clearAttachment()
                             }
                         },
                         onStopGenerating = { viewModel.stopGenerating() },
                         isGenerating = isStreaming
-                        , onAttachmentSelected = pickAttachment
-                        , onAttachmentCleared = { attachment = null; attachmentLabel = null; attachmentUri = null; attachmentMimeType = null }
+                        , onTakePhoto = takePhoto
+                        , onSelectFile = pickAttachmentFile
+                        , onAttachmentCleared = { clearAttachment(deleteOwnedFile = true) }
                         , attachmentLabel = attachmentLabel
+                        , attachmentUri = attachmentUri
+                        , attachmentMimeType = attachmentMimeType
                         , isAttachmentEnabled = supportsMultimodal
                     )
                 }
@@ -521,6 +723,16 @@ fun ChatScreen(
                         interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
                     ) { focusManager.clearFocus() }
             ) {
+                uiState.chatBackgroundUri?.let { backgroundUri ->
+                    coil.compose.AsyncImage(
+                        model = backgroundUri,
+                        contentDescription = null,
+                        contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                        modifier = Modifier
+                            .matchParentSize()
+                            .alpha(uiState.chatBackgroundOpacity)
+                    )
+                }
                 if (messages.isEmpty() && !isStreaming) {
                     EmptyState(
                         modifier = Modifier.align(Alignment.Center)
@@ -542,6 +754,52 @@ fun ChatScreen(
                             )
                             }
                         }
+                    }
+                }
+
+                AnimatedVisibility(
+                    visible = (messages.isNotEmpty() || isStreaming) &&
+                        pendingRestoreChatId == null &&
+                        !isNearBottom,
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .padding(end = 16.dp, bottom = 16.dp),
+                    enter = fadeIn(animationSpec = tween(180)) + slideInHorizontally(
+                        animationSpec = tween(240, easing = FastOutSlowInEasing),
+                        initialOffsetX = { scrollButtonTravelPx }
+                    ),
+                    exit = fadeOut(animationSpec = tween(160)) + slideOutHorizontally(
+                        animationSpec = tween(220, easing = FastOutSlowInEasing),
+                        targetOffsetX = { scrollButtonTravelPx }
+                    )
+                ) {
+                    FilledIconButton(
+                        onClick = {
+                            scope.launch {
+                                val lastIndex = listState.layoutInfo.totalItemsCount - 1
+                                if (lastIndex >= 0) {
+                                    automaticStreamScroll = true
+                                    try {
+                                        listState.animateScrollToItem(lastIndex)
+                                        listState.scrollToBottomContent()
+                                    } finally {
+                                        automaticStreamScroll = false
+                                    }
+                                    followStreaming = isStreaming
+                                }
+                            }
+                        },
+                        modifier = Modifier.size(48.dp),
+                        shape = CircleShape,
+                        colors = IconButtonDefaults.filledIconButtonColors(
+                            containerColor = MaterialTheme.colorScheme.primary,
+                            contentColor = MaterialTheme.colorScheme.onPrimary
+                        )
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.KeyboardArrowDown,
+                            contentDescription = "跳转到底部"
+                        )
                     }
                 }
 
@@ -627,11 +885,37 @@ fun ChatScreen(
                 showSettingsDialog = false
                 showAdvancedSettingsDialog = true
             },
-            onCustomPromptClick = {
+            hasBackgroundImage = uiState.chatBackgroundUri != null,
+            onBackgroundImageClick = {
                 showSettingsDialog = false
-                showCustomPromptDialog = true
+                showBackgroundSettingsDialog = true
             },
             onDismiss = { showSettingsDialog = false }
+        )
+    }
+
+    if (showBackgroundSettingsDialog) {
+        BackgroundImageSettingsDialog(
+            hasBackgroundImage = !uiState.chatBackgroundUri.isNullOrBlank(),
+            opacity = uiState.chatBackgroundOpacity,
+            onSelectImage = pickBackgroundImage,
+            onOpacityChanged = viewModel::setChatBackgroundOpacity,
+            onRestoreDefault = clearBackgroundImage,
+            onDismiss = { showBackgroundSettingsDialog = false }
+        )
+    }
+
+    pendingBackgroundCropUri?.let { uriString ->
+        BackgroundCropDialog(
+            sourceUri = Uri.parse(uriString),
+            onCropped = { croppedUri ->
+                val previousUri = uiState.chatBackgroundUri
+                viewModel.setChatBackgroundUri(croppedUri)
+                if (previousUri != croppedUri) deleteStoredChatBackground(context, previousUri)
+                pruneStoredChatBackgrounds(context, croppedUri)
+                pendingBackgroundCropUri = null
+            },
+            onDismiss = { pendingBackgroundCropUri = null }
         )
     }
 
@@ -644,6 +928,10 @@ fun ChatScreen(
             onParameterSettingsClick = {
                 showAdvancedSettingsDialog = false
                 showParameterSettingsDialog = true
+            },
+            onCustomPromptClick = {
+                showAdvancedSettingsDialog = false
+                showCustomPromptDialog = true
             },
             onDismiss = { showAdvancedSettingsDialog = false }
         )
@@ -816,6 +1104,7 @@ private fun ApiKeyDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
+        containerColor = MaterialTheme.colorScheme.background,
         title = { Text("API Key") },
         text = {
             Column {
@@ -866,6 +1155,7 @@ private fun ApiBaseUrlDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
+        containerColor = MaterialTheme.colorScheme.background,
         title = { Text("API Base URL") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -936,6 +1226,7 @@ private fun CustomSystemPromptDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
+        containerColor = MaterialTheme.colorScheme.background,
         title = { Text("自定义系统提示词") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -1115,7 +1406,9 @@ private fun ParameterSettingsDialog(
         text = {
             Column(
                 verticalArrangement = Arrangement.spacedBy(20.dp),
-                modifier = Modifier.verticalScroll(rememberScrollState())
+                modifier = Modifier
+                    .heightIn(max = 420.dp)
+                    .verticalScroll(rememberScrollState())
             ) {
                 // Temperature
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -1430,6 +1723,7 @@ private fun ParameterSettingsDialog(
 private fun AdvancedSettingsDialog(
     onApiBaseUrlClick: () -> Unit,
     onParameterSettingsClick: () -> Unit,
+    onCustomPromptClick: () -> Unit,
     onDismiss: () -> Unit
 ) {
     AlertDialog(
@@ -1477,6 +1771,48 @@ private fun AdvancedSettingsDialog(
                         )
                         Text(
                             text = "调整模型参数",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+
+                // 自定义系统提示词
+                val customPromptInteractionSource = remember { MutableInteractionSource() }
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable(
+                            interactionSource = customPromptInteractionSource,
+                            indication = null,
+                            onClick = onCustomPromptClick
+                        )
+                        .padding(vertical = 12.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.ChatBubble,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(16.dp))
+                    Column {
+                        Text(
+                            text = "自定义系统提示词",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            text = "设置个性化的系统提示词",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -1541,7 +1877,8 @@ private fun SettingsDialog(
     onApply: (ThemeColor, ThemeMode) -> Unit,
     onApiKeyClick: () -> Unit,
     onAdvancedSettingsClick: () -> Unit,
-    onCustomPromptClick: () -> Unit,
+    hasBackgroundImage: Boolean,
+    onBackgroundImageClick: () -> Unit,
     onDismiss: () -> Unit
 ) {
     var tempThemeColor by remember { mutableStateOf(initialThemeColor) }
@@ -1638,8 +1975,8 @@ private fun SettingsDialog(
                             selected = tempThemeMode == ThemeMode.FOLLOW_SYSTEM,
                             onClick = { tempThemeMode = ThemeMode.FOLLOW_SYSTEM },
                             label = "跟随系统",
-                            color = Color.Transparent,
-                            isDiagonal = true
+                            color = Color.Gray,
+                            isDiagonal = false
                         )
                     }
                 }
@@ -1747,16 +2084,16 @@ private fun SettingsDialog(
                     }
                 }
 
-                // 自定义系统提示词
-                val customPromptInteractionSource = remember { MutableInteractionSource() }
+                // 聊天背景图
+                val backgroundImageInteractionSource = remember { MutableInteractionSource() }
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier
                         .fillMaxWidth()
                         .clickable(
-                            interactionSource = customPromptInteractionSource,
+                            interactionSource = backgroundImageInteractionSource,
                             indication = null,
-                            onClick = onCustomPromptClick
+                            onClick = onBackgroundImageClick
                         )
                         .padding(vertical = 12.dp)
                 ) {
@@ -1768,21 +2105,21 @@ private fun SettingsDialog(
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
-                            imageVector = Icons.Default.ChatBubble,
+                            imageVector = Icons.Default.Image,
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.size(20.dp)
                         )
                     }
                     Spacer(modifier = Modifier.width(16.dp))
-                    Column {
+                    Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = "自定义系统提示词",
+                            text = "聊天背景图",
                             style = MaterialTheme.typography.titleMedium,
                             color = MaterialTheme.colorScheme.onSurface
                         )
                         Text(
-                            text = "设置个性化的系统提示词",
+                            text = "选择聊天中使用的背景图片",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -1863,8 +2200,15 @@ private fun ThemeModeOption(
     val interactionSource = remember { MutableInteractionSource() }
     
     val borderColor by animateColorAsState(
-        targetValue = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
-        animationSpec = tween(durationMillis = 300),
+        targetValue = if (selected) {
+            MaterialTheme.colorScheme.primary
+        } else {
+            MaterialTheme.colorScheme.outlineVariant
+        },
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioNoBouncy,
+            stiffness = Spring.StiffnessMediumLow
+        ),
         label = "border_color"
     )
     
@@ -1884,22 +2228,27 @@ private fun ThemeModeOption(
         Box(
             modifier = Modifier
                 .size(36.dp)
+                .border(
+                    width = 2.dp,
+                    color = borderColor,
+                    shape = CircleShape
+                )
                 .clip(CircleShape)
                 .background(
                     if (isDiagonal) {
                         Brush.linearGradient(
-                            colors = listOf(Color.White, Color.Black),
+                            colorStops = arrayOf(
+                                0f to Color.White,
+                                0.5f to Color.White,
+                                0.5f to Color.Black,
+                                1f to Color.Black
+                            ),
                             start = Offset.Zero,
                             end = Offset.Infinite
                         )
                     } else {
                         Brush.linearGradient(colors = listOf(color, color))
                     }
-                )
-                .border(
-                    width = 2.dp,
-                    color = borderColor,
-                    shape = CircleShape
                 )
                 .clickable(
                     interactionSource = interactionSource,
@@ -1908,25 +2257,6 @@ private fun ThemeModeOption(
                 ),
             contentAlignment = Alignment.Center
         ) {
-            if (isDiagonal) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(Color.White)
-                )
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(
-                            brush = Brush.linearGradient(
-                                colors = listOf(Color.Transparent, Color.Black),
-                                start = Offset(36f, 0f),
-                                end = Offset(0f, 36f)
-                            )
-                        )
-                )
-            }
-            
             if (checkScale > 0f) {
                 Icon(
                     imageVector = Icons.Default.Check,
@@ -1963,8 +2293,15 @@ private fun ThemeColorOption(
     val interactionSource = remember { MutableInteractionSource() }
     
     val borderColor by animateColorAsState(
-        targetValue = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
-        animationSpec = tween(durationMillis = 300),
+        targetValue = if (selected) {
+            MaterialTheme.colorScheme.primary
+        } else {
+            MaterialTheme.colorScheme.outlineVariant
+        },
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioNoBouncy,
+            stiffness = Spring.StiffnessMediumLow
+        ),
         label = "border_color"
     )
     
@@ -1984,6 +2321,11 @@ private fun ThemeColorOption(
         Box(
             modifier = Modifier
                 .size(36.dp)
+                .border(
+                    width = 2.dp,
+                    color = borderColor,
+                    shape = CircleShape
+                )
                 .clip(CircleShape)
                 .background(
                     if (isAutoColor) {
@@ -2003,11 +2345,6 @@ private fun ThemeColorOption(
                     } else {
                         Brush.linearGradient(colors = listOf(color, color))
                     }
-                )
-                .border(
-                    width = 2.dp,
-                    color = borderColor,
-                    shape = CircleShape
                 )
                 .clickable(
                     interactionSource = interactionSource,
