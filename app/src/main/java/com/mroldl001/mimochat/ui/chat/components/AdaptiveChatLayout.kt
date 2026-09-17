@@ -42,7 +42,7 @@ import com.mroldl001.mimochat.ui.chat.viewmodel.SkillType
 import com.mroldl001.mimochat.ui.theme.ThemeColor
 import com.mroldl001.mimochat.ui.theme.ThemeMode
 import com.mroldl001.mimochat.ui.theme.supportsDynamicColor
-import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -83,6 +83,9 @@ fun AdaptiveChatLayout(
     onAttachmentCleared: () -> Unit = {},
     attachmentLabel: String? = null,
     isAttachmentEnabled: Boolean = true,
+    initialChatId: Long? = null,
+    suppressInitialScroll: Boolean = false,
+    onInitialChatNavigationHandled: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
@@ -105,31 +108,111 @@ fun AdaptiveChatLayout(
     var currentCustomPrompt by remember { mutableStateOf("") }
     
     var needScrollChatId by remember { mutableStateOf<Long?>(null) }
+    var suppressInitialScrollChatId by remember(initialChatId, suppressInitialScroll) {
+        mutableStateOf(initialChatId.takeIf { suppressInitialScroll })
+    }
+    var pendingInitialTopChatId by remember(initialChatId, suppressInitialScroll) {
+        mutableStateOf(initialChatId.takeIf { suppressInitialScroll })
+    }
+    var pendingSendMessageCount by remember { mutableStateOf<Int?>(null) }
+    var followStreaming by remember { mutableStateOf(false) }
+    var automaticStreamScroll by remember { mutableStateOf(false) }
     
     LaunchedEffect(uiState.currentChat?.id) {
-        if (uiState.currentChat?.id != null) {
-            needScrollChatId = uiState.currentChat?.id
+        val currentChatId = uiState.currentChat?.id
+        if (currentChatId != null) {
+            if (suppressInitialScrollChatId != null) {
+                needScrollChatId = null
+                if (suppressInitialScrollChatId == currentChatId) {
+                    suppressInitialScrollChatId = null
+                }
+            } else {
+                needScrollChatId = currentChatId
+            }
         }
     }
 
-    LaunchedEffect(messages.size, needScrollChatId, isStreaming) {
-        if (needScrollChatId != null && uiState.currentChat?.id == needScrollChatId) {
-            val totalItems = messages.size + if (isStreaming) 1 else 0
-            if (totalItems > 0) {
-                listState.animateScrollToItem(totalItems - 1)
-                if (!isStreaming) {
-                    needScrollChatId = null
+    LaunchedEffect(messages.size, pendingSendMessageCount) {
+        val previousCount = pendingSendMessageCount
+        if (previousCount != null && messages.size > previousCount) {
+            val itemCount = snapshotFlow { listState.layoutInfo.totalItemsCount }
+                .first { it >= messages.size }
+            if (itemCount > 0) {
+                automaticStreamScroll = true
+                try {
+                    listState.scrollToBottomContent()
+                } finally {
+                    automaticStreamScroll = false
                 }
             }
+            pendingSendMessageCount = null
+            followStreaming = isStreaming
         }
     }
 
     LaunchedEffect(isStreaming) {
         if (!isStreaming) {
-            delay(50)
-            val totalItems = messages.size
+            followStreaming = false
+        } else if (pendingInitialTopChatId == null) {
+            followStreaming = true
+        }
+    }
+
+    LaunchedEffect(listState, isStreaming) {
+        snapshotFlow { listState.isScrollInProgress }.collect { isScrolling ->
+            if (isStreaming && isScrolling && !automaticStreamScroll) {
+                followStreaming = false
+            }
+        }
+    }
+
+    LaunchedEffect(streamingContent.length, streamingReasoning.length, isStreaming, followStreaming) {
+        if (isStreaming && followStreaming) {
+            automaticStreamScroll = true
+            try {
+                withFrameNanos { }
+                listState.scrollToBottomContent()
+            } finally {
+                automaticStreamScroll = false
+            }
+        }
+    }
+
+    LaunchedEffect(
+        uiState.currentChat?.id,
+        messages.size,
+        messages.lastOrNull()?.chatId,
+        pendingInitialTopChatId
+    ) {
+        val targetChatId = pendingInitialTopChatId
+        if (
+            targetChatId != null &&
+            uiState.currentChat?.id == targetChatId &&
+            messages.lastOrNull()?.chatId == targetChatId
+        ) {
+            snapshotFlow { listState.layoutInfo.totalItemsCount }
+                .first { it >= messages.size && it > 0 }
+            listState.scrollToItem(0)
+            pendingInitialTopChatId = null
+            onInitialChatNavigationHandled()
+        }
+    }
+
+    LaunchedEffect(messages.size, messages.lastOrNull()?.chatId, needScrollChatId, isStreaming) {
+        if (needScrollChatId != null && uiState.currentChat?.id == needScrollChatId) {
+            val messagesLoadedForCurrentChat = messages.isEmpty() ||
+                messages.lastOrNull()?.chatId == needScrollChatId
+            if (!messagesLoadedForCurrentChat) return@LaunchedEffect
+            val totalItems = messages.size + if (isStreaming) 1 else 0
             if (totalItems > 0) {
-                listState.animateScrollToItem(totalItems - 1)
+                automaticStreamScroll = true
+                try {
+                    listState.animateScrollToItem(totalItems - 1)
+                } finally {
+                    automaticStreamScroll = false
+                }
+                followStreaming = isStreaming
+                needScrollChatId = null
             }
         }
     }
@@ -247,6 +330,8 @@ fun AdaptiveChatLayout(
                             if (uiState.apiKey.isBlank()) {
                                 showApiKeyWarningDialog = true
                             } else {
+                                needScrollChatId = null
+                                pendingSendMessageCount = messages.size
                                 onSendMessage(it)
                             }
                         },

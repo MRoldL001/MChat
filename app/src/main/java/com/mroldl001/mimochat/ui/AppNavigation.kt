@@ -37,6 +37,7 @@ fun AppNavigation(
 ) {
     var currentScreen by remember { mutableStateOf<Screen>(Screen.Chat) }
     var selectedChatId by remember { mutableStateOf(initialChatId) }
+    var suppressInitialChatScroll by remember { mutableStateOf(false) }
 
     LaunchedEffect(initialChatId) {
         if (initialChatId != null) selectedChatId = initialChatId
@@ -92,17 +93,23 @@ fun AppNavigation(
                         },
                         onThemeChanged = onThemeChanged,
                         onNavigateFromDrawer = onNavigateFromDrawer,
-                        initialChatId = selectedChatId
+                        initialChatId = selectedChatId,
+                        suppressInitialScroll = suppressInitialChatScroll,
+                        onInitialChatNavigationHandled = {
+                            suppressInitialChatScroll = false
+                        }
                     )
                 }
 
                 is Screen.Search -> {
                     SearchScreen(
                         onNavigateBack = {
+                            suppressInitialChatScroll = false
                             currentScreen = Screen.Chat
                         },
                         onNavigateToChat = { chatId ->
                             selectedChatId = chatId
+                            suppressInitialChatScroll = true
                             currentScreen = Screen.Chat
                         },
                         onNavigateFromSearch = onNavigateFromSearch

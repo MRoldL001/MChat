@@ -193,6 +193,13 @@ MIMO Chat - 第三方小米 MiMo 大模型 Android 客户端
   - 更新模型列表以与 MiMo 官方保持同步
   - 修复了一系列累积的 bug
 
+- v2.0.1
+  
+  - 修复了有关流式传输的累积 bug
+  - 修复了 [Issue#2](https://github.com/MRoldL001/MIMO-Chat/issues/2) 搜索到内容后点击跳转到对应聊天页会自动滚动到底部的问题
+  - 修复了搜索结果没有网站logo的问题
+  - 更改了切换模型列表的设计与动画，以符合Material You 的标准设计风格
+
 ## 📄 免责声明
 
 ### 非官方声明

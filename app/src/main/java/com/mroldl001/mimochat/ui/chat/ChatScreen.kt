@@ -63,7 +63,7 @@ import com.mroldl001.mimochat.data.api.*
 import com.mroldl001.mimochat.ui.theme.ThemeColor
 import com.mroldl001.mimochat.ui.theme.ThemeMode
 import com.mroldl001.mimochat.ui.theme.supportsDynamicColor
-import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -75,7 +75,9 @@ fun ChatScreen(
     onNavigateToChat: (Long) -> Unit = {},
     onThemeChanged: (ThemeColor, ThemeMode) -> Unit = { _, _ -> },
     onNavigateFromDrawer: (Boolean) -> Unit = {},
-    initialChatId: Long? = null
+    initialChatId: Long? = null,
+    suppressInitialScroll: Boolean = false,
+    onInitialChatNavigationHandled: () -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val messages = viewModel.messages
@@ -87,6 +89,13 @@ fun ChatScreen(
     var attachmentLabel by remember { mutableStateOf<String?>(null) }
     var attachmentUri by remember { mutableStateOf<String?>(null) }
     var attachmentMimeType by remember { mutableStateOf<String?>(null) }
+    var pendingInitialChatId by remember(initialChatId) { mutableStateOf(initialChatId) }
+    var suppressInitialScrollChatId by remember(initialChatId, suppressInitialScroll) {
+        mutableStateOf(initialChatId.takeIf { suppressInitialScroll })
+    }
+    var pendingInitialTopChatId by remember(initialChatId, suppressInitialScroll) {
+        mutableStateOf(initialChatId.takeIf { suppressInitialScroll })
+    }
     val supportsMultimodal = uiState.selectedModel?.capabilities?.contains("multimodal") == true
     LaunchedEffect(supportsMultimodal) {
         if (!supportsMultimodal) {
@@ -139,9 +148,10 @@ fun ChatScreen(
     val pickAttachment: (Uri) -> Unit = { filePicker.launch("*/*") }
 
     // 手机和平板布局共用同一个会话跳转入口；必须在平板分支提前返回前处理。
-    LaunchedEffect(initialChatId, uiState.chats) {
-        if (initialChatId != null) {
-            uiState.chats.find { it.id == initialChatId }?.let { chat ->
+    LaunchedEffect(pendingInitialChatId, uiState.chats) {
+        if (pendingInitialChatId != null) {
+            uiState.chats.find { it.id == pendingInitialChatId }?.let { chat ->
+                pendingInitialChatId = null
                 if (uiState.currentChat?.id != chat.id) {
                     viewModel.selectChat(chat)
                 }
@@ -230,6 +240,9 @@ fun ChatScreen(
             , onAttachmentCleared = { attachment = null; attachmentLabel = null; attachmentUri = null; attachmentMimeType = null }
             , attachmentLabel = attachmentLabel
             , isAttachmentEnabled = supportsMultimodal
+            , initialChatId = initialChatId
+            , suppressInitialScroll = suppressInitialScroll
+            , onInitialChatNavigationHandled = onInitialChatNavigationHandled
         )
         return
     }
@@ -247,35 +260,109 @@ fun ChatScreen(
     val listState = rememberLazyListState()
     val focusManager = LocalFocusManager.current
     var needScrollChatId by remember { mutableStateOf<Long?>(null) }
+    var pendingSendMessageCount by remember { mutableStateOf<Int?>(null) }
+    var followStreaming by remember { mutableStateOf(false) }
+    var automaticStreamScroll by remember { mutableStateOf(false) }
 
     // 监听当前聊天变化，滚动到底部
     LaunchedEffect(uiState.currentChat?.id) {
         val currentChatId = uiState.currentChat?.id
         if (currentChatId != null) {
-            needScrollChatId = currentChatId
-        }
-    }
-
-    // 监听消息变化和流式状态，实时滚动
-    LaunchedEffect(messages.size, needScrollChatId, isStreaming) {
-        if (needScrollChatId != null && uiState.currentChat?.id == needScrollChatId) {
-            val totalItems = messages.size + if (isStreaming) 1 else 0
-            if (totalItems > 0) {
-                listState.animateScrollToItem(totalItems - 1)
-                if (!isStreaming) {
-                    needScrollChatId = null
+            if (suppressInitialScrollChatId != null) {
+                needScrollChatId = null
+                if (suppressInitialScrollChatId == currentChatId) {
+                    suppressInitialScrollChatId = null
                 }
+            } else {
+                needScrollChatId = currentChatId
             }
         }
     }
 
-    // 生成结束后滚动到页底
+    // 发送后只等待新用户消息真正进入列表，然后立即滚到底部。
+    LaunchedEffect(messages.size, pendingSendMessageCount) {
+        val previousCount = pendingSendMessageCount
+        if (previousCount != null && messages.size > previousCount) {
+            val itemCount = snapshotFlow { listState.layoutInfo.totalItemsCount }
+                .first { it >= messages.size }
+            if (itemCount > 0) {
+                automaticStreamScroll = true
+                try {
+                    listState.scrollToBottomContent()
+                } finally {
+                    automaticStreamScroll = false
+                }
+            }
+            pendingSendMessageCount = null
+            followStreaming = isStreaming
+        }
+    }
+
     LaunchedEffect(isStreaming) {
         if (!isStreaming) {
-            delay(50)
-            val totalItems = messages.size
+            followStreaming = false
+        } else if (pendingInitialTopChatId == null) {
+            followStreaming = true
+        }
+    }
+
+    LaunchedEffect(listState, isStreaming) {
+        snapshotFlow { listState.isScrollInProgress }.collect { isScrolling ->
+            if (isStreaming && isScrolling && !automaticStreamScroll) {
+                followStreaming = false
+            }
+        }
+    }
+
+    LaunchedEffect(streamingContent.length, streamingReasoning.length, isStreaming, followStreaming) {
+        if (isStreaming && followStreaming) {
+            automaticStreamScroll = true
+            try {
+                withFrameNanos { }
+                listState.scrollToBottomContent()
+            } finally {
+                automaticStreamScroll = false
+            }
+        }
+    }
+
+    // 搜索结果进入会话时固定从顶部显示，覆盖 LazyListState 的历史位置恢复。
+    LaunchedEffect(
+        uiState.currentChat?.id,
+        messages.size,
+        messages.lastOrNull()?.chatId,
+        pendingInitialTopChatId
+    ) {
+        val targetChatId = pendingInitialTopChatId
+        if (
+            targetChatId != null &&
+            uiState.currentChat?.id == targetChatId &&
+            messages.lastOrNull()?.chatId == targetChatId
+        ) {
+            snapshotFlow { listState.layoutInfo.totalItemsCount }
+                .first { it >= messages.size && it > 0 }
+            listState.scrollToItem(0)
+            pendingInitialTopChatId = null
+            onInitialChatNavigationHandled()
+        }
+    }
+
+    // 普通会话切换仍定位到底部；搜索跳转会清除 needScrollChatId。
+    LaunchedEffect(messages.size, messages.lastOrNull()?.chatId, needScrollChatId, isStreaming) {
+        if (needScrollChatId != null && uiState.currentChat?.id == needScrollChatId) {
+            val messagesLoadedForCurrentChat = messages.isEmpty() ||
+                messages.lastOrNull()?.chatId == needScrollChatId
+            if (!messagesLoadedForCurrentChat) return@LaunchedEffect
+            val totalItems = messages.size + if (isStreaming) 1 else 0
             if (totalItems > 0) {
-                listState.animateScrollToItem(totalItems - 1)
+                automaticStreamScroll = true
+                try {
+                    listState.animateScrollToItem(totalItems - 1)
+                } finally {
+                    automaticStreamScroll = false
+                }
+                followStreaming = isStreaming
+                needScrollChatId = null
             }
         }
     }
@@ -406,6 +493,8 @@ fun ChatScreen(
                             if (uiState.apiKey.isBlank()) {
                                 showApiKeyWarningDialog = true
                             } else {
+                                needScrollChatId = null
+                                pendingSendMessageCount = messages.size
                                 viewModel.sendMessage(it, isThinkingMode, attachment, isWebSearchEnabled, attachmentUri, attachmentMimeType)
                                 attachment = null
                                 attachmentLabel = null
@@ -1021,6 +1110,7 @@ private fun ParameterSettingsDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
+        containerColor = MaterialTheme.colorScheme.background,
         title = { Text("参数设置") },
         text = {
             Column(
@@ -1344,6 +1434,7 @@ private fun AdvancedSettingsDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
+        containerColor = MaterialTheme.colorScheme.background,
         title = { Text("高级设置") },
         text = {
             Column(
@@ -1493,6 +1584,7 @@ private fun SettingsDialog(
     
     AlertDialog(
         onDismissRequest = onDismiss,
+        containerColor = MaterialTheme.colorScheme.background,
         title = {
             Text("设置")
         },

@@ -271,7 +271,7 @@ fun SearchResultsCard(
                 ) {
                     searchResults.forEachIndexed { index, result ->
                         if (index > 0) {
-                            Spacer(modifier = Modifier.height(8.dp))
+                            Spacer(modifier = Modifier.height(6.dp))
                         }
                         SearchResultItem(result = result)
                     }
@@ -284,6 +284,17 @@ fun SearchResultsCard(
 @Composable
 private fun SearchResultItem(result: WebSearchResult) {
     val context = LocalContext.current
+    val faviconUrl = remember(result.logoUrl, result.url) {
+        result.logoUrl?.takeIf { it.isNotBlank() } ?: runCatching {
+            val host = Uri.parse(result.url).host?.removePrefix("www.")
+            host?.let { "https://icons.duckduckgo.com/ip3/$it.ico" }
+        }.getOrNull()
+    }
+    var faviconLoadFailed by remember(faviconUrl) { mutableStateOf(false) }
+    val hostName = remember(result.url) {
+        runCatching { Uri.parse(result.url).host?.removePrefix("www.") }.getOrNull()
+    }
+    val sourceName = result.siteName?.takeIf { it.isNotBlank() } ?: hostName
     Surface(
         shape = RoundedCornerShape(8.dp),
         color = MaterialTheme.colorScheme.surface,
@@ -300,50 +311,42 @@ private fun SearchResultItem(result: WebSearchResult) {
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.padding(8.dp)
+            modifier = Modifier.padding(horizontal = 9.dp, vertical = 6.dp)
         ) {
-            if (!result.logoUrl.isNullOrBlank()) {
+            if (faviconUrl != null && !faviconLoadFailed) {
                 AsyncImage(
-                    model = result.logoUrl,
-                    contentDescription = result.siteName,
+                    model = faviconUrl,
+                    contentDescription = sourceName,
                     contentScale = ContentScale.Fit,
-                    modifier = Modifier
-                        .size(32.dp)
-                        .padding(4.dp)
-                        .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(6.dp))
+                    onError = { faviconLoadFailed = true },
+                    modifier = Modifier.size(36.dp).padding(3.dp)
                 )
             } else {
-                Icon(
-                    imageVector = Icons.Filled.Web,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
+                Box(
                     modifier = Modifier
-                        .size(32.dp)
-                        .padding(4.dp)
+                        .size(36.dp)
+                        .padding(3.dp)
                         .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(6.dp))
                 )
             }
-            Spacer(modifier = Modifier.width(8.dp))
+            Spacer(modifier = Modifier.width(7.dp))
             Column(modifier = Modifier.weight(1f)) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    result.siteName?.let { siteName ->
-                        Surface(
-                            shape = RoundedCornerShape(4.dp),
-                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
-                            modifier = Modifier.padding(end = 8.dp)
-                        ) {
-                            Text(
-                                text = siteName,
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                if (sourceName != null) {
+                    Text(
+                        text = sourceName,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier
+                            .background(
+                                MaterialTheme.colorScheme.primaryContainer,
+                                RoundedCornerShape(4.dp)
                             )
-                        }
-                    }
+                            .padding(horizontal = 5.dp, vertical = 1.dp)
+                    )
+                    Spacer(modifier = Modifier.height(2.dp))
                 }
-                Spacer(modifier = Modifier.height(4.dp))
                 Text(
                     text = result.title,
                     style = MaterialTheme.typography.bodySmall,

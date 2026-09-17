@@ -1,9 +1,15 @@
 
 package com.mroldl001.mimochat.ui.chat.components
 
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.background
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -31,6 +37,7 @@ fun ModelSelector(
 ) {
     var showBottomSheet by remember { mutableStateOf(false) }
     val interactionSource = remember { MutableInteractionSource() }
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
     Row(
         modifier = modifier
@@ -42,14 +49,33 @@ fun ModelSelector(
             .padding(16.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(
-            text = currentModel?.name ?: "选择模型",
-            style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.onSurface
-        )
+        Box(
+            modifier = Modifier.animateContentSize(
+                animationSpec = spring(
+                    dampingRatio = Spring.DampingRatioNoBouncy,
+                    stiffness = Spring.StiffnessMediumLow
+                )
+            ),
+            contentAlignment = Alignment.CenterStart
+        ) {
+            Crossfade(
+                targetState = currentModel?.name ?: "选择模型",
+                animationSpec = tween(durationMillis = 220, easing = FastOutSlowInEasing),
+                label = "selected_model_transition"
+            ) { modelName ->
+                Text(
+                    text = modelName,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+            }
+        }
         val rotation by animateFloatAsState(
             targetValue = if (showBottomSheet) 180f else 0f,
-            animationSpec = tween(durationMillis = 200),
+            animationSpec = spring(
+                dampingRatio = Spring.DampingRatioNoBouncy,
+                stiffness = Spring.StiffnessMedium
+            ),
             label = "arrow_rotation"
         )
         Icon(
@@ -64,7 +90,10 @@ fun ModelSelector(
 
     if (showBottomSheet) {
         ModalBottomSheet(
-            onDismissRequest = { showBottomSheet = false }
+            onDismissRequest = { showBottomSheet = false },
+            sheetState = sheetState,
+            containerColor = MaterialTheme.colorScheme.background,
+            tonalElevation = 0.dp
         ) {
             Column(
                 modifier = Modifier
@@ -111,29 +140,35 @@ private fun ModelItem(
 
     val textColor by animateColorAsState(
         targetValue = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-        animationSpec = tween(durationMillis = 300),
+        animationSpec = tween(durationMillis = 220, easing = FastOutSlowInEasing),
         label = "text_color"
     )
-
+    val containerColor by animateColorAsState(
+        targetValue = if (isSelected) MaterialTheme.colorScheme.primaryContainer
+        else MaterialTheme.colorScheme.surface,
+        animationSpec = tween(durationMillis = 220, easing = FastOutSlowInEasing),
+        label = "container_color"
+    )
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 4.dp)
             .height(56.dp)
             .clickable(
                 interactionSource = interactionSource,
                 indication = null,
                 onClick = onClick
             )
+            .background(containerColor, MaterialTheme.shapes.medium)
             .padding(horizontal = 16.dp),
-        verticalAlignment = Alignment.Bottom,
+        verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.Center
     ) {
         Text(
             text = model.name,
             style = MaterialTheme.typography.titleMedium,
-            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-            color = textColor,
-            modifier = Modifier.padding(bottom = 4.dp)
+            fontWeight = FontWeight.Medium,
+            color = textColor
         )
     }
 }

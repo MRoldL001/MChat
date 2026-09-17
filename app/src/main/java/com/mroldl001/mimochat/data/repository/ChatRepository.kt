@@ -1,6 +1,7 @@
 package com.mroldl001.mimochat.data.repository
 
 import com.google.gson.Gson
+import com.google.gson.JsonParser
 import com.google.gson.reflect.TypeToken
 import com.mroldl001.mimochat.data.api.*
 import com.mroldl001.mimochat.data.local.ChatDao
@@ -15,15 +16,20 @@ import com.mroldl001.mimochat.domain.model.Message
 import com.mroldl001.mimochat.domain.model.SearchResult
 import com.mroldl001.mimochat.domain.model.WebSearchResult
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.channels.trySendBlocking
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.flow
-import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.Call
+import okhttp3.Callback
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import okhttp3.Response
 import okhttp3.RequestBody.Companion.toRequestBody
+import java.io.IOException
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -166,8 +172,10 @@ class ChatRepository @Inject constructor(
         customSystemPrompt: String = "",
         attachment: ContentPart? = null,
         webSearchEnabled: Boolean = true
-    ): Flow<StreamEvent> = flow {
-        try {
+    ): Flow<StreamEvent> = callbackFlow {
+        fun sendEvent(event: StreamEvent): Boolean = trySendBlocking(event).isSuccess
+
+        val call = try {
             val chatRequest = buildRequest(modelId, messages, thinkingEnabled, stream = true, skillPrompt, customSystemPrompt, attachment, webSearchEnabled)
             
             val normalizedBaseUrl = baseUrl.trimEnd('/')
@@ -182,95 +190,131 @@ class ChatRepository @Inject constructor(
                 .url(endpoint)
                 .addHeader("api-key", apiKey)
                 .addHeader("Content-Type", "application/json")
+                .addHeader("Accept", "text/event-stream")
                 .post(json.toRequestBody("application/json".toMediaType()))
                 .build()
 
-            okHttpClient.newCall(httpRequest).execute().use { response ->
+            okHttpClient.newCall(httpRequest)
+        } catch (e: Exception) {
+            sendEvent(StreamEvent.Error(e.message ?: "创建流式请求失败"))
+            close()
+            return@callbackFlow
+        }
+
+        call.enqueue(object : Callback {
+            override fun onFailure(call: Call, e: IOException) {
+                if (!call.isCanceled()) {
+                    sendEvent(StreamEvent.Error(e.message ?: "流式连接失败"))
+                }
+                close()
+            }
+
+            override fun onResponse(call: Call, response: Response) {
+                response.use {
                 if (!response.isSuccessful) {
                     val errorBody = response.body?.string() ?: "No error body"
-                    emit(StreamEvent.Error("HTTP ${response.code}: $errorBody"))
-                    return@flow
+                        sendEvent(StreamEvent.Error("HTTP ${response.code}: $errorBody"))
+                        close()
+                        return
                 }
 
                 val body = response.body
                 if (body == null) {
-                    emit(StreamEvent.Error("响应体为空"))
-                    return@flow
+                        sendEvent(StreamEvent.Error("响应体为空"))
+                        close()
+                        return
                 }
 
                 val source = body.source()
-                val gson = Gson()
 
                 var content = ""
                 var reasoningContent = ""
-                val annotations = mutableListOf<WebSearchResult>()
-                var doneEmitted = false
+                    val annotations = linkedMapOf<String, WebSearchResult>()
+                    var terminalEventSent = false
+                    var receivedTerminator = false
+                    var receivedFinishReason = false
 
-                while (!source.exhausted()) {
-                    val line = source.readUtf8Line() ?: continue
+                    fun mergeAnnotation(annotation: WebSearchResult) {
+                        val old = annotations[annotation.url]
+                        annotations[annotation.url] = if (old == null) annotation else annotation.copy(
+                            title = annotation.title.ifBlank { old.title },
+                            summary = annotation.summary ?: old.summary,
+                            siteName = annotation.siteName ?: old.siteName,
+                            publishTime = annotation.publishTime ?: old.publishTime,
+                            logoUrl = annotation.logoUrl ?: old.logoUrl
+                        )
+                    }
 
-                    if (line.startsWith("data: ")) {
-                        val data = line.substring(6)
+                    try {
+                        while (!source.exhausted() && !call.isCanceled()) {
+                            val line = source.readUtf8Line() ?: break
+                            if (!line.startsWith("data:")) continue
 
-                        if (data == "[DONE]") {
-                            doneEmitted = true
-                            emit(StreamEvent.Done(
-                                Message(
-                                    chatId = chatId,
-                                    role = "assistant",
-                                    content = content,
-                                    reasoningContent = reasoningContent.ifBlank { null },
-                                    searchResults = annotations.distinctBy { it.url }
-                                )
-                            ))
-                            break
-                        }
+                            val data = line.removePrefix("data:").trimStart()
+                            if (data.isBlank()) continue
+                            if (data == "[DONE]") {
+                                receivedTerminator = true
+                                break
+                            }
 
-                        try {
-                            val chunk = gson.fromJson(data, ChatCompletionChunk::class.java)
-                            val delta = chunk.choices.firstOrNull()?.delta
-                            delta?.annotations?.map { it.toWebSearchResult() }?.let { annotations.addAll(it) }
+                            val jsonObject = JsonParser.parseString(data).asJsonObject
+                            jsonObject.getAsJsonObject("error")?.let { errorObject ->
+                                val message = errorObject.get("message")?.asString ?: "流式响应错误"
+                                sendEvent(StreamEvent.Error(message))
+                                terminalEventSent = true
+                                return@use
+                            }
 
-                            delta?.content?.let {
+                            val chunk = gson.fromJson(jsonObject, ChatCompletionChunk::class.java)
+                            val choice = chunk.choices.orEmpty().firstOrNull() ?: continue
+                            if (choice.finish_reason != null) receivedFinishReason = true
+                            val delta = choice.delta
+                            delta.errorMessage?.takeIf { it.isNotBlank() }?.let { message ->
+                                sendEvent(StreamEvent.Error(message))
+                                terminalEventSent = true
+                                return@use
+                            }
+                            delta.annotations
+                                ?.map { it.toWebSearchResult() }
+                                ?.forEach(::mergeAnnotation)
+
+                            delta.content?.takeIf { it.isNotEmpty() }?.let {
                                 content += it
-                                emit(StreamEvent.ContentDelta(it, content))
+                                if (!sendEvent(StreamEvent.ContentDelta(it, content))) return@use
                             }
 
-                            delta?.reasoningContent?.let {
+                            delta.reasoningContent?.takeIf { it.isNotEmpty() }?.let {
                                 reasoningContent += it
-                                emit(StreamEvent.ReasoningDelta(it, reasoningContent))
+                                if (!sendEvent(StreamEvent.ReasoningDelta(it, reasoningContent))) return@use
                             }
+                        }
+                    } catch (e: Exception) {
+                        if (!call.isCanceled()) {
+                            sendEvent(StreamEvent.Error("流式响应解析失败：${e.message ?: "未知错误"}"))
+                            terminalEventSent = true
+                        }
+                    }
 
-                            if (chunk.choices.firstOrNull()?.finish_reason != null) {
-                                doneEmitted = true
-                                emit(StreamEvent.Done(
-                                    Message(
-                                        chatId = chatId,
-                                        role = "assistant",
-                                        content = content,
-                                        reasoningContent = reasoningContent.ifBlank { null },
-                                        searchResults = annotations.distinctBy { it.url }
-                                    )
-                                ))
-                            }
-                        } catch (e: Exception) {
+                    if (!call.isCanceled() && !terminalEventSent) {
+                        if (receivedTerminator || receivedFinishReason) {
+                            sendEvent(StreamEvent.Done(Message(
+                                chatId = chatId,
+                                role = "assistant",
+                                content = content,
+                                reasoningContent = reasoningContent.ifBlank { null },
+                                searchResults = annotations.values.toList()
+                            )))
+                        } else {
+                            sendEvent(StreamEvent.Error("流式连接意外中断"))
                         }
                     }
                 }
-                if (!doneEmitted) {
-                    emit(StreamEvent.Done(Message(
-                        chatId = chatId,
-                        role = "assistant",
-                        content = content,
-                        reasoningContent = reasoningContent.ifBlank { null },
-                        searchResults = annotations.distinctBy { it.url }
-                    )))
-                }
+                close()
             }
-        } catch (e: Exception) {
-            emit(StreamEvent.Error(e.message ?: "流式输出失败"))
-        }
-    }.flowOn(Dispatchers.IO)
+        })
+
+        awaitClose { call.cancel() }
+    }
 
     suspend fun generateChatTitle(
         apiKey: String,

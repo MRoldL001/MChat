@@ -106,11 +106,11 @@ data class Annotation(
 
 // Streaming response chunk
 data class ChatCompletionChunk(
-    val id: String,
-    val choices: List<ChunkChoice>,
-    val created: Long,
-    val model: String,
-    val `object`: String
+    val id: String? = null,
+    val choices: List<ChunkChoice>? = emptyList(),
+    val created: Long? = null,
+    val model: String? = null,
+    val `object`: String? = null
 )
 
 data class ChunkChoice(
@@ -124,7 +124,9 @@ data class DeltaMessage(
     val content: String? = null,
     @SerializedName("reasoning_content")
     val reasoningContent: String? = null,
-    val annotations: List<Annotation>? = null
+    val annotations: List<Annotation>? = null,
+    @SerializedName("error_message")
+    val errorMessage: String? = null
 )
 
 data class Usage(

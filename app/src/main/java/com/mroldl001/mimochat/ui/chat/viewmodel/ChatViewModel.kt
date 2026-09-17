@@ -18,7 +18,9 @@ import com.mroldl001.mimochat.service.ChatService
 import com.mroldl001.mimochat.ui.theme.ThemeColor
 import com.mroldl001.mimochat.ui.theme.ThemeMode
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.delay
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -137,8 +139,9 @@ class ChatViewModel @Inject constructor(
     var isStreaming = mutableStateOf(false)
         private set
 
-    private var streamJob: kotlinx.coroutines.Job? = null
-    private var messagesJob: kotlinx.coroutines.Job? = null
+    private val streamJobs = mutableMapOf<Long, Job>()
+    private var messagesJob: Job? = null
+    private var chatSelectionJob: Job? = null
     private var chatStreamStates: MutableMap<Long, StreamState> = mutableMapOf()
     private var activeChatId: Long? = null
     private val activeStreams = mutableSetOf<Long>()
@@ -168,6 +171,18 @@ class ChatViewModel @Inject constructor(
         viewModelScope.launch {
             chatRepository.getAllChats().collect { chats ->
                 _uiState.update { it.copy(chats = chats) }
+            }
+        }
+    }
+
+    private fun observeMessages(chatId: Long) {
+        messagesJob?.cancel()
+        messagesJob = viewModelScope.launch {
+            chatRepository.getMessages(chatId).collect { msgs ->
+                if (activeChatId == chatId) {
+                    messages.clear()
+                    messages.addAll(msgs)
+                }
             }
         }
     }
@@ -248,6 +263,7 @@ class ChatViewModel @Inject constructor(
     }
 
     fun createNewChat() {
+        chatSelectionJob?.cancel()
         viewModelScope.launch {
             activeChatId?.let { currentId ->
                 chatStreamStates[currentId] = StreamState(
@@ -272,6 +288,7 @@ class ChatViewModel @Inject constructor(
                 isStreaming.value = false
                 
                 activeChatId = chat.id
+                observeMessages(chat.id)
                 _uiState.update {
                     it.copy(
                         currentChat = chat,
@@ -296,10 +313,12 @@ class ChatViewModel @Inject constructor(
             )
         }
         
+        chatSelectionJob?.cancel()
         messagesJob?.cancel()
-        viewModelScope.launch {
+        chatSelectionJob = viewModelScope.launch {
             val fullChat = chatRepository.getChatById(chat.id)
             val model = modelRepository.getModelById(chat.modelId)
+            if (fullChat == null) return@launch
             _uiState.update {
                 it.copy(
                     currentChat = fullChat,
@@ -320,13 +339,7 @@ class ChatViewModel @Inject constructor(
             }
             
             activeChatId = chat.id
-
-            messagesJob = viewModelScope.launch {
-                chatRepository.getMessages(chat.id).collect { msgs ->
-                    messages.clear()
-                    messages.addAll(msgs)
-                }
-            }
+            observeMessages(chat.id)
         }
     }
 
@@ -351,6 +364,8 @@ class ChatViewModel @Inject constructor(
                         )
                     }
                     activeChatId = chat.id
+                    messages.clear()
+                    observeMessages(chat.id)
                 } else {
                     _uiState.update {
                         it.copy(
@@ -367,15 +382,15 @@ class ChatViewModel @Inject constructor(
             val isNewChat = chat.title == DEFAULT_CHAT_TITLE
             android.util.Log.d("ChatViewModel", "Current chat: ${chat.title}, isNewChat: $isNewChat")
 
-            val userMessage = Message(
+            val pendingUserMessage = Message(
                 chatId = chat.id,
                 role = "user",
                 content = content,
                 attachmentUri = attachmentUri,
                 attachmentMimeType = attachmentMimeType
             )
-            chatRepository.saveMessage(userMessage)
-            messages.add(userMessage)
+            val userMessageId = chatRepository.saveMessage(pendingUserMessage)
+            val userMessage = pendingUserMessage.copy(id = userMessageId)
 
             _uiState.update { it.copy(isLoading = true, error = null) }
 
@@ -414,7 +429,7 @@ class ChatViewModel @Inject constructor(
                                         if (it.id == chatId) it.copy(title = title) else it
                                     }
                                     state.copy(
-                                        currentChat = updatedChat,
+                                        currentChat = if (state.currentChat?.id == chatId) updatedChat else state.currentChat,
                                         chats = updatedChats
                                     )
                                 }
@@ -430,14 +445,12 @@ class ChatViewModel @Inject constructor(
             isStreaming.value = true
             activeStreams.add(chat.id)
 
-            val contextMessages = messages.filter { !it.isAborted && !it.isFailed }.toList()
+            val contextMessages = (
+                messages.filter { !it.isAborted && !it.isFailed && it.id != userMessage.id } + userMessage
+            ).distinctBy { message ->
+                if (message.id > 0) "id:${message.id}" else "${message.role}:${message.timestamp}:${message.content}"
+            }
             val targetChatId = chat.id
-
-            val contentBuffer = mutableListOf<String>()
-            val reasoningBuffer = mutableListOf<String>()
-            var streamError: String? = null
-            var isStreamDone = false
-            var streamSearchResults: List<com.mroldl001.mimochat.domain.model.WebSearchResult>? = null
 
             val activeSkill = _uiState.value.activeSkill
             val skillPrompt = activeSkill?.let { SkillPrompts.getSkillPrompt(it) } ?: ""
@@ -449,192 +462,171 @@ class ChatViewModel @Inject constructor(
             }
             application.startForegroundService(serviceIntent)
 
-            streamJob = viewModelScope.launch {
-                chatRepository.sendMessageStream(
-                    apiKey = apiKey,
-                    baseUrl = apiBaseUrl,
-                    chatId = chat.id,
-                    messages = contextMessages,
-                    modelId = modelId,
-                    thinkingEnabled = effectiveThinkingEnabled,
-                    skillPrompt = skillPrompt,
-                    customSystemPrompt = _uiState.value.customSystemPrompt
-                    , attachment = attachment, webSearchEnabled = webSearchEnabled
-                ).collect { event ->
-                    when (event) {
-                        is StreamEvent.ContentDelta -> {
-                            contentBuffer.add(event.delta)
-                        }
-                        is StreamEvent.ReasoningDelta -> {
-                            reasoningBuffer.add(event.delta)
-                        }
-                        is StreamEvent.Done -> {
-                            isStreamDone = true
-                            streamSearchResults = event.message.searchResults
-                            streamJob = null
-                        }
-                        is StreamEvent.Error -> {
-                            isStreamDone = true
-                            streamError = event.message
-                            streamJob = null
-                        }
-                    }
-                }
-            }
-
-            viewModelScope.launch {
-                var reasoningPhase = true
+            var sessionJob: Job? = null
+            sessionJob = viewModelScope.launch(start = CoroutineStart.LAZY) {
                 var currentContent = ""
                 var currentReasoning = ""
+                var streamSearchResults: List<com.mroldl001.mimochat.domain.model.WebSearchResult>? = null
+                var streamError: String? = null
+                var doneReceived = false
                 var lastNotificationUpdate = 0L
                 val notificationUpdateInterval = 500L // 每 500ms 最多更新一次通知
 
-                while (!isStreamDone || contentBuffer.isNotEmpty() || reasoningBuffer.isNotEmpty()) {
-                    var consumed = false
-
-                    if (reasoningPhase && reasoningBuffer.isNotEmpty()) {
-                        val delta = reasoningBuffer.removeAt(0)
-                        currentReasoning += delta
-                        consumed = true
-                    } else if (contentBuffer.isNotEmpty()) {
-                        val delta = contentBuffer.removeAt(0)
-                        currentContent += delta
-                        consumed = true
-                        reasoningPhase = false
-                    } else if (reasoningBuffer.isNotEmpty()) {
-                        val delta = reasoningBuffer.removeAt(0)
-                        currentReasoning += delta
-                        consumed = true
-                    }
-
+                fun publishStreamState() {
                     if (activeChatId == targetChatId && activeStreams.contains(targetChatId)) {
                         streamingContent.value = currentContent
                         streamingReasoning.value = currentReasoning
                     }
-
                     chatStreamStates[targetChatId] = StreamState(
                         content = currentContent,
                         reasoning = currentReasoning,
-                        searchResults = null,
-                        isActive = !isStreamDone
+                        searchResults = streamSearchResults,
+                        isActive = true
                     )
 
-                    // 更新通知
                     val now = System.currentTimeMillis()
-                    if (now - lastNotificationUpdate > notificationUpdateInterval) {
+                    if (now - lastNotificationUpdate >= notificationUpdateInterval) {
                         val displayText = when {
-                            reasoningPhase && currentReasoning.isNotBlank() -> "正在思考..."
-                            currentContent.isNotBlank() -> {
-                                val preview = currentContent.take(30)
-                                if (currentContent.length > 30) "$preview..." else preview
+                            currentContent.isNotBlank() -> currentContent.take(30).let {
+                                if (currentContent.length > 30) "$it..." else it
                             }
+                            currentReasoning.isNotBlank() -> "正在思考..."
                             else -> "MiMo正在回复你"
                         }
-                        val updateIntent = Intent(application, ChatService::class.java).apply {
+                        application.startService(Intent(application, ChatService::class.java).apply {
                             action = ChatService.ACTION_UPDATE_NOTIFICATION
                             putExtra(ChatService.EXTRA_NOTIFICATION_TEXT, displayText)
-                        }
-                        application.startService(updateIntent)
+                        })
                         lastNotificationUpdate = now
                     }
-
-                    if (consumed) {
-                        delay(8)
-                    } else {
-                        delay(4)
-                    }
                 }
 
-                if (activeChatId == targetChatId) {
-                    isStreaming.value = false
-                }
-                activeStreams.remove(targetChatId)
-
-                chatStreamStates[targetChatId] = StreamState(
-                    content = currentContent,
-                    reasoning = currentReasoning,
-                    searchResults = null,
-                    isActive = false
-                )
-
-                val error = streamError
-                if (error != null) {
-                    val lastUserMessage = messages.lastOrNull { it.role == "user" && it.chatId == targetChatId }
-                    if (lastUserMessage != null && !lastUserMessage.isFailed) {
-                        val failedUserMessage = lastUserMessage.copy(isFailed = true)
-                        viewModelScope.launch {
-                            chatRepository.updateMessage(failedUserMessage)
-                        }
-                    }
-                    val displayError = if (error.contains("Unable to resolve host") || 
-                        error.contains("Failed to connect") ||
-                        error.contains("timeout") ||
-                        error.contains("network") ||
-                        error.contains("Network") ||
-                        error.contains("网络")) {
-                        "无网络连接"
-                    } else {
-                        error
-                    }
-                    if (activeChatId == targetChatId) {
-                        _uiState.update {
-                            it.copy(
-                                isLoading = false,
-                                error = displayError
+                suspend fun persistFailure(error: String) {
+                    chatRepository.updateMessage(userMessage.copy(isFailed = true))
+                    if (currentContent.isNotBlank() || currentReasoning.isNotBlank()) {
+                        chatRepository.saveMessage(
+                            Message(
+                                chatId = targetChatId,
+                                role = "assistant",
+                                content = currentContent,
+                                reasoningContent = currentReasoning.ifBlank { null },
+                                searchResults = streamSearchResults,
+                                isFailed = true
                             )
-                        }
+                        )
                     }
-                } else {
-                    val finalMessage = Message(
-                        chatId = targetChatId,
-                        role = "assistant",
-                        content = currentContent,
-                        reasoningContent = currentReasoning.ifBlank { null },
-                        searchResults = streamSearchResults
-                    )
-                    chatRepository.saveMessage(finalMessage)
                     if (activeChatId == targetChatId) {
-                        messages.add(finalMessage)
-                        _uiState.update { it.copy(isLoading = false) }
+                        val displayError = if (
+                            error.contains("Unable to resolve host") ||
+                            error.contains("Failed to connect") ||
+                            error.contains("timeout", ignoreCase = true) ||
+                            error.contains("network", ignoreCase = true) ||
+                            error.contains("网络")
+                        ) "无网络连接" else error
+                        _uiState.update { it.copy(isLoading = false, error = displayError) }
                     }
                 }
 
-                // 只有在所有流都完成时才停止服务
-                if (activeStreams.isEmpty()) {
-                    val stopIntent = Intent(application, ChatService::class.java).apply {
-                        action = ChatService.ACTION_STOP
+                try {
+                    chatRepository.sendMessageStream(
+                        apiKey = apiKey,
+                        baseUrl = apiBaseUrl,
+                        chatId = targetChatId,
+                        messages = contextMessages,
+                        modelId = modelId,
+                        thinkingEnabled = effectiveThinkingEnabled,
+                        skillPrompt = skillPrompt,
+                        customSystemPrompt = _uiState.value.customSystemPrompt,
+                        attachment = attachment,
+                        webSearchEnabled = webSearchEnabled
+                    ).conflate().collect { event ->
+                        when (event) {
+                            is StreamEvent.ContentDelta -> {
+                                currentContent = event.accumulated
+                                publishStreamState()
+                            }
+                            is StreamEvent.ReasoningDelta -> {
+                                currentReasoning = event.accumulated
+                                publishStreamState()
+                            }
+                            is StreamEvent.Done -> {
+                                currentContent = event.message.content
+                                currentReasoning = event.message.reasoningContent.orEmpty()
+                                streamSearchResults = event.message.searchResults
+                                doneReceived = true
+                                publishStreamState()
+                            }
+                            is StreamEvent.Error -> streamError = event.message
+                        }
                     }
-                    application.startService(stopIntent)
+
+                    if (streamError == null && !doneReceived) {
+                        streamError = "流式连接意外中断"
+                    }
+
+                    val error = streamError
+                    if (error != null) {
+                        persistFailure(error)
+                    } else {
+                        chatRepository.saveMessage(
+                            Message(
+                                chatId = targetChatId,
+                                role = "assistant",
+                                content = currentContent,
+                                reasoningContent = currentReasoning.ifBlank { null },
+                                searchResults = streamSearchResults
+                            )
+                        )
+                        if (activeChatId == targetChatId) {
+                            _uiState.update { it.copy(isLoading = false) }
+                        }
+                    }
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    persistFailure(e.message ?: "流式输出失败")
+                } finally {
+                    if (streamJobs[targetChatId] === sessionJob) {
+                        streamJobs.remove(targetChatId)
+                        activeStreams.remove(targetChatId)
+                        chatStreamStates[targetChatId] = StreamState(
+                            content = currentContent,
+                            reasoning = currentReasoning,
+                            searchResults = streamSearchResults,
+                            isActive = false
+                        )
+                        if (activeChatId == targetChatId) {
+                            isStreaming.value = false
+                        }
+                        if (activeStreams.isEmpty()) {
+                            application.startService(Intent(application, ChatService::class.java).apply {
+                                action = ChatService.ACTION_STOP
+                            })
+                        }
+                    }
                 }
             }
+            val startedJob = checkNotNull(sessionJob)
+            streamJobs[targetChatId] = startedJob
+            startedJob.start()
         }
     }
 
     fun stopGenerating() {
-        activeStreams.remove(activeChatId)
-        streamJob?.cancel()
-        streamJob = null
-        isStreaming.value = false
+        val chatId = activeChatId ?: return
+        val state = chatStreamStates[chatId]
+        val content = state?.content ?: streamingContent.value
+        val reasoning = state?.reasoning ?: streamingReasoning.value
+        val searchResults = state?.searchResults
 
-        val content = streamingContent.value
-        val reasoning = streamingReasoning.value
-        val chatId = _uiState.value.currentChat?.id ?: 0
-
-        chatId.takeIf { it > 0 }?.let {
-            chatStreamStates[it] = StreamState(content, reasoning, null, false)
-        }
-
-        val lastUserIndex = messages.indexOfLast { it.role == "user" }
-        if (lastUserIndex >= 0) {
-            val lastUserMessage = messages[lastUserIndex]
-            if (!lastUserMessage.isAborted) {
-                val abortedUserMessage = lastUserMessage.copy(isAborted = true)
-                messages[lastUserIndex] = abortedUserMessage
-                viewModelScope.launch {
-                    chatRepository.updateMessage(abortedUserMessage)
-                }
-            }
-        }
+        activeStreams.remove(chatId)
+        streamJobs.remove(chatId)?.cancel()
+        chatStreamStates[chatId] = StreamState(
+            content = content,
+            reasoning = reasoning,
+            searchResults = searchResults,
+            isActive = false
+        )
 
         if (content.isNotBlank() || reasoning.isNotBlank()) {
             val abortedMessage = Message(
@@ -642,9 +634,9 @@ class ChatViewModel @Inject constructor(
                 role = "assistant",
                 content = content,
                 reasoningContent = reasoning.ifBlank { null },
+                searchResults = searchResults,
                 isAborted = true
             )
-            messages.add(abortedMessage)
             viewModelScope.launch {
                 chatRepository.saveMessage(abortedMessage)
             }
@@ -652,6 +644,7 @@ class ChatViewModel @Inject constructor(
 
         streamingContent.value = ""
         streamingReasoning.value = ""
+        isStreaming.value = false
         _uiState.update { it.copy(isLoading = false) }
 
         // 只有在所有流都完成时才停止服务
@@ -664,12 +657,23 @@ class ChatViewModel @Inject constructor(
     }
 
     fun deleteChat(chat: Chat) {
+        streamJobs.remove(chat.id)?.cancel()
+        activeStreams.remove(chat.id)
+        chatStreamStates.remove(chat.id)
         viewModelScope.launch {
             chatRepository.deleteChat(chat.id)
             if (_uiState.value.currentChat?.id == chat.id) {
                 messagesJob?.cancel()
                 messages.clear()
-                _uiState.update { it.copy(currentChat = null) }
+                streamingContent.value = ""
+                streamingReasoning.value = ""
+                isStreaming.value = false
+                _uiState.update { it.copy(currentChat = null, isLoading = false) }
+            }
+            if (activeStreams.isEmpty()) {
+                application.startService(Intent(application, ChatService::class.java).apply {
+                    action = ChatService.ACTION_STOP
+                })
             }
         }
     }
