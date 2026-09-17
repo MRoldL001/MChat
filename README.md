@@ -213,7 +213,7 @@ MIMO Chat - 第三方小米 MiMo 大模型 Android 客户端
   
   - 增加了返回底部按钮
   
-  - 通过内部实现为输出的代码添加了轻量的代码高亮，Python、JavaScript/TypeScript、Kotlin、Java、C/C++、C#、Go、Rust、HTML/CSS、JSON、SQL、Shell 等常见语言
+  - 通过内部实现为输出的代码添加了轻量的代码高亮，支持Python、JavaScript/TypeScript、Kotlin、Java、C/C++、C#、Go、Rust、HTML/CSS、JSON、SQL、Shell 等常见语言
   
   - 优化了大量动画，现在操作起来更加顺手
   
