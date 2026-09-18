@@ -13,12 +13,10 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -56,6 +54,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.graphics.FilterQuality
@@ -81,12 +80,14 @@ import kotlin.math.min
 import kotlin.math.roundToInt
 
 @Composable
-fun BackgroundImageSettingsDialog(
+internal fun BackgroundImageSettingsDialog(
     hasBackgroundImage: Boolean,
     opacity: Float,
     onSelectImage: () -> Unit,
     onOpacityChanged: (Float) -> Unit,
     onRestoreDefault: () -> Unit,
+    anchorBounds: Rect = Rect.Zero,
+    transition: SettingsTransition? = null,
     onDismiss: () -> Unit
 ) {
     var temporaryOpacity by remember(opacity) { mutableFloatStateOf(opacity) }
@@ -96,11 +97,14 @@ fun BackgroundImageSettingsDialog(
     var opacityError by remember(opacity) { mutableStateOf(false) }
 
     AlertDialog(
+        modifier = Modifier.settingsDialogWidth(),
         onDismissRequest = {
             onOpacityChanged(temporaryOpacity)
             onDismiss()
         },
-        containerColor = MaterialTheme.colorScheme.background,
+        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+        shape = RoundedCornerShape(28.dp),
+        icon = { SettingsDialogIcon(Icons.Default.ImageIcon) },
         title = { Text("聊天背景图") },
         text = {
             Column(
@@ -110,7 +114,7 @@ fun BackgroundImageSettingsDialog(
                 BackgroundSettingRow(
                     icon = Icons.Default.ImageIcon,
                     title = "选择图片",
-                    description = if (hasBackgroundImage) "重新选择并裁剪背景图片" else "选择图片后进行裁剪",
+                    description = "选择图片后进行裁剪",
                     onClick = onSelectImage
                 )
 
@@ -130,6 +134,7 @@ fun BackgroundImageSettingsDialog(
                         ) {
                             Text("更改背景透明度", style = MaterialTheme.typography.titleMedium)
                             OutlinedTextField(
+                                shape = RoundedCornerShape(16.dp),
                                 value = opacityText,
                                 onValueChange = { value ->
                                     opacityText = value
@@ -320,13 +325,16 @@ fun BackgroundCropDialog(
                     )
                     TextButton(
                         modifier = Modifier.align(Alignment.CenterEnd),
-                        enabled = bitmap != null && viewportSize != IntSize.Zero && !saving,
+                        enabled = bitmap != null && viewportSize.width > 0 && viewportSize.height > 0 && !saving,
                         onClick = {
                             val source = bitmap ?: return@TextButton
+                            val savedZoom = zoom
+                            val savedOffset = offset
+                            val savedViewport = viewportSize
                             saving = true
                             scope.launch {
                                 val outputUri = withContext(Dispatchers.IO) {
-                                    cropAndSaveBackground(context, source, zoom, offset, viewportSize)
+                                    cropAndSaveBackground(context, source, savedZoom, savedOffset, savedViewport)
                                 }
                                 saving = false
                                 if (outputUri != null) onCropped(outputUri) else onDismiss()
@@ -337,20 +345,12 @@ fun BackgroundCropDialog(
                     }
                 }
 
-                BoxWithConstraints(
+                BackgroundCropFrame(
                     modifier = Modifier
                         .fillMaxWidth()
                         .weight(1f)
-                        .padding(horizontal = 20.dp, vertical = 12.dp),
-                    contentAlignment = Alignment.Center
+                        .padding(horizontal = 20.dp, vertical = 12.dp)
                 ) {
-                    val availableWidth = this.maxWidth
-                    val availableHeight = this.maxHeight
-                    val frameWidth = if (availableHeight * 0.75f < availableWidth) {
-                        availableHeight * 0.75f
-                    } else {
-                        availableWidth
-                    }
                     val source = bitmap
                     when {
                         source != null -> {
@@ -360,16 +360,29 @@ fun BackgroundCropDialog(
                             val sourceImage = remember(source) { source.asImageBitmap() }
                             Box(
                                 modifier = Modifier
-                                    .width(frameWidth)
-                                    .aspectRatio(3f / 4f)
+                                    .fillMaxSize()
                                     .onSizeChanged {
+                                        // Offsets are preview pixels: preserve the selected image center on resize.
+                                        val previousSize = viewportSize
+                                        val resizedOffset = if (previousSize.width > 0 && previousSize.height > 0) {
+                                            val previousScale = max(
+                                                previousSize.width.toFloat() / source.width,
+                                                previousSize.height.toFloat() / source.height
+                                            )
+                                            val nextScale = max(
+                                                it.width.toFloat() / source.width,
+                                                it.height.toFloat() / source.height
+                                            )
+                                            offset * (nextScale / previousScale)
+                                        } else Offset.Zero
                                         viewportSize = it
-                                        offset = clampCropOffset(source, zoom, offset, it)
+                                        offset = clampCropOffset(source, zoom, resizedOffset, it)
                                     }
                                     .clip(RoundedCornerShape(28.dp))
                                     .background(MaterialTheme.colorScheme.surfaceVariant)
-                                    .pointerInput(source, viewportSize) {
+                                    .pointerInput(source, viewportSize, saving) {
                                         detectTransformGestures { _, pan, gestureZoom, _ ->
+                                            if (saving) return@detectTransformGestures
                                             val nextZoom = (currentZoom * gestureZoom).coerceIn(1f, 5f)
                                             zoom = nextZoom
                                             offset = clampCropOffset(source, nextZoom, currentOffset + pan, viewportSize)
@@ -508,12 +521,13 @@ private fun cropAndSaveBackground(
         cropHeight.roundToInt().coerceAtMost(bitmap.height - top.roundToInt())
     )
 
-    val outputScale = min(1f, min(1440f / cropped.width, 1920f / cropped.height))
+    // Apply the same resolution limit in either orientation, including wide tablet displays.
+    val outputScale = min(1f, 2560f / max(cropped.width, cropped.height))
     val output = if (outputScale < 1f) {
         Bitmap.createScaledBitmap(
             cropped,
-            (cropped.width * outputScale).roundToInt(),
-            (cropped.height * outputScale).roundToInt(),
+            (cropped.width * outputScale).roundToInt().coerceAtLeast(1),
+            (cropped.height * outputScale).roundToInt().coerceAtLeast(1),
             true
         )
     } else {

@@ -23,9 +23,16 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.mroldl001.mimochat.domain.model.AIModel
+
+private val modelSuffixPattern = Regex(
+    """(?:^|[\s_-])v?\d+(?:\.\d+)*[\s_-]+(\p{L}[\p{L}\p{N} ._+-]*)$""",
+    RegexOption.IGNORE_CASE
+)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -70,8 +77,21 @@ fun ModelSelector(
                 ),
                 label = "selected_model_transition"
             ) { modelName ->
+                val suffixColor = MaterialTheme.colorScheme.primary
+                val styledName = remember(modelName, suffixColor) {
+                    buildAnnotatedString {
+                        append(modelName)
+                        modelSuffixPattern.find(modelName)?.groups?.get(1)?.let { suffix ->
+                            addStyle(
+                                SpanStyle(color = suffixColor, fontWeight = FontWeight.ExtraBold),
+                                start = suffix.range.first,
+                                end = suffix.range.last + 1
+                            )
+                        }
+                    }
+                }
                 Text(
-                    text = modelName,
+                    text = styledName,
                     style = MaterialTheme.typography.titleMedium,
                     color = MaterialTheme.colorScheme.onSurface
                 )

@@ -9,12 +9,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Clear
-import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.focus.FocusManager
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -79,10 +77,9 @@ fun SearchScreen(
             Column(
                 modifier = Modifier.fillMaxSize()
             ) {
-                SearchBarWithButton(
+                SearchInput(
                     query = searchQuery,
                     onQueryChange = { viewModel.updateQuery(it) },
-                    onSearch = { viewModel.performSearch() },
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp, vertical = 8.dp)
@@ -123,10 +120,9 @@ fun SearchScreen(
 }
 
 @Composable
-private fun SearchBarWithButton(
+private fun SearchInput(
     query: String,
     onQueryChange: (String) -> Unit,
-    onSearch: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Surface(
@@ -134,18 +130,17 @@ private fun SearchBarWithButton(
         shape = RoundedCornerShape(28.dp),
         color = MaterialTheme.colorScheme.surfaceVariant
     ) {
-        Row(
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically
+                .padding(horizontal = 16.dp, vertical = 8.dp)
         ) {
             OutlinedTextField(
                 value = query,
                 onValueChange = onQueryChange,
-                modifier = Modifier.weight(1f),
+                modifier = Modifier.fillMaxWidth(),
                 placeholder = { Text("搜索消息内容...") },
-                maxLines = 1,
+                singleLine = true,
                 shape = RoundedCornerShape(24.dp),
                 trailingIcon = {
                     if (query.isNotEmpty()) {
@@ -160,21 +155,6 @@ private fun SearchBarWithButton(
                 }
             )
 
-            Spacer(modifier = Modifier.width(8.dp))
-
-            FilledIconButton(
-                onClick = onSearch,
-                colors = IconButtonDefaults.filledIconButtonColors(
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    contentColor = MaterialTheme.colorScheme.onPrimary
-                ),
-                modifier = Modifier.size(48.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Search,
-                    contentDescription = "搜索"
-                )
-            }
         }
     }
 }

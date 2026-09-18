@@ -111,7 +111,8 @@ fun MessageBubble(
                     if (message.content.isNotBlank()) {
                         MixedMarkdownLatex(
                             text = message.content,
-                            textColor = MaterialTheme.colorScheme.onSurface
+                            textColor = MaterialTheme.colorScheme.onSurface,
+                            isStreaming = message.isStreaming
                         )
                     }
 

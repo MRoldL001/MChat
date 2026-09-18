@@ -8,6 +8,10 @@ import androidx.lifecycle.viewModelScope
 import com.mroldl001.mimochat.data.repository.ChatRepository
 import com.mroldl001.mimochat.domain.model.SearchResult
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -31,39 +35,33 @@ class SearchViewModel @Inject constructor(
     private val _hasSearched = mutableStateOf(false)
     val hasSearched: State<Boolean> = _hasSearched
 
+    private var searchJob: Job? = null
+
     fun updateQuery(query: String) {
-        val previousQuery = _searchQuery.value
+        if (_searchQuery.value == query) return
         _searchQuery.value = query
-        
-        if (previousQuery != query) {
-            _hasSearched.value = false
-            _searchResults.value = emptyList()
-        }
-    }
+        // Cancel both the pending debounce and the previous database subscription immediately.
+        searchJob?.cancel()
+        searchJob = null
+        _searchResults.value = emptyList()
+        _hasSearched.value = false
+        _isSearching.value = false
+        if (query.isBlank()) return
 
-    fun performSearch() {
-        val query = _searchQuery.value
-
-        if (query.isBlank()) {
-            _searchResults.value = emptyList()
-            _isSearching.value = false
-            _hasSearched.value = false
-            return
-        }
-
-        viewModelScope.launch {
+        searchJob = viewModelScope.launch {
+            delay(300)
             _isSearching.value = true
-            _hasSearched.value = true
 
             chatRepository.searchMessages(query).collect { results ->
+                currentCoroutineContext().ensureActive()
                 _searchResults.value = results
+                _hasSearched.value = true
                 _isSearching.value = false
             }
         }
     }
 
     fun clearSearch() {
-        _searchQuery.value = ""
-        _searchResults.value = emptyList()
+        updateQuery("")
     }
 }

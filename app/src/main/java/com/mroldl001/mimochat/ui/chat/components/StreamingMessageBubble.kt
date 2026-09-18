@@ -32,7 +32,8 @@ fun StreamingMessageBubble(
         if (content.isNotBlank()) {
             MixedMarkdownLatex(
                 text = content,
-                textColor = textColor
+                textColor = textColor,
+                isStreaming = true
             )
         }
 

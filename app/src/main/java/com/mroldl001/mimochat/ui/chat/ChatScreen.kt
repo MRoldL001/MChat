@@ -359,7 +359,9 @@ fun ChatScreen(
             },
             chatBackgroundUri = uiState.chatBackgroundUri,
             chatBackgroundOpacity = uiState.chatBackgroundOpacity,
-            onBackgroundImageClick = { showBackgroundSettingsDialog = true },
+            onSelectBackgroundImage = pickBackgroundImage,
+            onBackgroundOpacityChanged = viewModel::setChatBackgroundOpacity,
+            onRestoreBackgroundDefault = clearBackgroundImage,
             onTemperatureSaved = { temp ->
                 viewModel.setTemperature(temp)
             },
@@ -414,6 +416,8 @@ fun ChatScreen(
     }
 
     var showSettingsDialog by remember { mutableStateOf(false) }
+    var settingsAnchorBounds by remember { mutableStateOf(androidx.compose.ui.geometry.Rect.Zero) }
+    val settingsPageTransition = rememberSettingsTransition()
     var showAdvancedSettingsDialog by remember { mutableStateOf(false) }
     var showApiKeyWarningDialog by remember { mutableStateOf(false) }
     var searchQuery by remember { mutableStateOf("") }
@@ -582,6 +586,7 @@ fun ChatScreen(
             ) {
                 Column(modifier = Modifier.fillMaxSize()) {
                     ChatHistoryHeader(
+                        onSettingsBoundsChanged = { settingsAnchorBounds = it },
                         onSearchClick = onNavigateToSearch,
                         onSettingsClick = { showSettingsDialog = true },
                         onGitHubClick = {
@@ -824,10 +829,14 @@ fun ChatScreen(
     if (showApiKeyDialog) {
         ApiKeyDialog(
             currentKey = uiState.apiKey,
-            onDismiss = { showApiKeyDialog = false },
+            anchorBounds = settingsAnchorBounds,
+            transition = settingsPageTransition,
+            onDismiss = { settingsPageTransition.close { showApiKeyDialog = false } },
             onConfirm = {
-                viewModel.setApiKey(it)
-                showApiKeyDialog = false
+                settingsPageTransition.close {
+                    viewModel.setApiKey(it)
+                    showApiKeyDialog = false
+                }
             }
         )
     }
@@ -835,10 +844,14 @@ fun ChatScreen(
     if (showApiBaseUrlDialog) {
         ApiBaseUrlDialog(
             currentUrl = uiState.apiBaseUrl,
-            onDismiss = { showApiBaseUrlDialog = false },
+            anchorBounds = settingsAnchorBounds,
+            transition = settingsPageTransition,
+            onDismiss = { settingsPageTransition.close { showApiBaseUrlDialog = false } },
             onConfirm = {
-                viewModel.setApiBaseUrl(it)
-                showApiBaseUrlDialog = false
+                settingsPageTransition.close {
+                    viewModel.setApiBaseUrl(it)
+                    showApiBaseUrlDialog = false
+                }
             }
         )
     }
@@ -846,10 +859,14 @@ fun ChatScreen(
     if (showCustomPromptDialog) {
         CustomSystemPromptDialog(
             currentPrompt = uiState.customSystemPrompt,
-            onDismiss = { showCustomPromptDialog = false },
+            anchorBounds = settingsAnchorBounds,
+            transition = settingsPageTransition,
+            onDismiss = { settingsPageTransition.close { showCustomPromptDialog = false } },
             onConfirm = {
-                viewModel.setCustomSystemPrompt(it)
-                showCustomPromptDialog = false
+                settingsPageTransition.close {
+                    viewModel.setCustomSystemPrompt(it)
+                    showCustomPromptDialog = false
+                }
             }
         )
     }
@@ -869,6 +886,7 @@ fun ChatScreen(
 
     if (showSettingsDialog) {
         SettingsDialog(
+            anchorBounds = settingsAnchorBounds,
             initialThemeColor = uiState.themeColor,
             initialThemeMode = uiState.themeMode,
             onApply = { newColor, newMode ->
@@ -878,17 +896,23 @@ fun ChatScreen(
                 showSettingsDialog = false
             },
             onApiKeyClick = {
-                showSettingsDialog = false
-                showApiKeyDialog = true
+                settingsPageTransition.openWithoutAnimation {
+                    showSettingsDialog = false
+                    showApiKeyDialog = true
+                }
             },
             onAdvancedSettingsClick = {
-                showSettingsDialog = false
-                showAdvancedSettingsDialog = true
+                settingsPageTransition.openWithoutAnimation {
+                    showSettingsDialog = false
+                    showAdvancedSettingsDialog = true
+                }
             },
             hasBackgroundImage = uiState.chatBackgroundUri != null,
             onBackgroundImageClick = {
-                showSettingsDialog = false
-                showBackgroundSettingsDialog = true
+                settingsPageTransition.openWithoutAnimation {
+                    showSettingsDialog = false
+                    showBackgroundSettingsDialog = true
+                }
             },
             onDismiss = { showSettingsDialog = false }
         )
@@ -901,7 +925,9 @@ fun ChatScreen(
             onSelectImage = pickBackgroundImage,
             onOpacityChanged = viewModel::setChatBackgroundOpacity,
             onRestoreDefault = clearBackgroundImage,
-            onDismiss = { showBackgroundSettingsDialog = false }
+            anchorBounds = settingsAnchorBounds,
+            transition = settingsPageTransition,
+            onDismiss = { settingsPageTransition.close { showBackgroundSettingsDialog = false } }
         )
     }
 
@@ -921,6 +947,8 @@ fun ChatScreen(
 
     if (showAdvancedSettingsDialog) {
         AdvancedSettingsDialog(
+            anchorBounds = settingsAnchorBounds,
+            transition = settingsPageTransition,
             onApiBaseUrlClick = {
                 showAdvancedSettingsDialog = false
                 showApiBaseUrlDialog = true
@@ -933,7 +961,7 @@ fun ChatScreen(
                 showAdvancedSettingsDialog = false
                 showCustomPromptDialog = true
             },
-            onDismiss = { showAdvancedSettingsDialog = false }
+            onDismiss = { settingsPageTransition.close { showAdvancedSettingsDialog = false } }
         )
     }
 
@@ -943,17 +971,23 @@ fun ChatScreen(
             initialTopP = uiState.topP,
             initialFrequencyPenalty = uiState.frequencyPenalty,
             initialPresencePenalty = uiState.presencePenalty,
-            onDismiss = { showParameterSettingsDialog = false },
+            anchorBounds = settingsAnchorBounds,
+            transition = settingsPageTransition,
+            onDismiss = { settingsPageTransition.close { showParameterSettingsDialog = false } },
             onConfirm = { temp, topP, freqPenalty, presPenalty ->
-                viewModel.setTemperature(temp)
-                viewModel.setTopP(topP)
-                viewModel.setFrequencyPenalty(freqPenalty)
-                viewModel.setPresencePenalty(presPenalty)
-                showParameterSettingsDialog = false
+                settingsPageTransition.close {
+                    viewModel.setTemperature(temp)
+                    viewModel.setTopP(topP)
+                    viewModel.setFrequencyPenalty(freqPenalty)
+                    viewModel.setPresencePenalty(presPenalty)
+                    showParameterSettingsDialog = false
+                }
             },
             onReset = {
-                viewModel.resetParameters()
-                showParameterSettingsDialog = false
+                settingsPageTransition.close {
+                    viewModel.resetParameters()
+                    showParameterSettingsDialog = false
+                }
             }
         )
     }
@@ -1016,11 +1050,22 @@ private fun ChatListItem(
     onClick: () -> Unit,
     onDelete: () -> Unit
 ) {
+    val backgroundColor by animateColorAsState(
+        targetValue = if (isSelected) {
+            MaterialTheme.colorScheme.primary.copy(alpha = 0.14f)
+        } else {
+            Color.Transparent
+        },
+        label = "chatSelectionBackground"
+    )
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .padding(horizontal = 8.dp)
+            .clip(RoundedCornerShape(20.dp))
+            .background(backgroundColor)
             .clickable(onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 12.dp),
+            .padding(horizontal = 8.dp, vertical = 12.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -1097,23 +1142,29 @@ private fun EmptyState(modifier: Modifier = Modifier) {
 @Composable
 private fun ApiKeyDialog(
     currentKey: String,
+    anchorBounds: androidx.compose.ui.geometry.Rect,
+    transition: SettingsTransition,
     onDismiss: () -> Unit,
     onConfirm: (String) -> Unit
 ) {
     var apiKey by remember { mutableStateOf(currentKey) }
 
     AlertDialog(
+        modifier = Modifier.settingsDialogWidth(),
         onDismissRequest = onDismiss,
-        containerColor = MaterialTheme.colorScheme.background,
+        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+        shape = RoundedCornerShape(28.dp),
+        icon = { SettingsDialogIcon(Icons.Default.Key) },
         title = { Text("API Key") },
         text = {
             Column {
                 Text(
-                    text = "月度套餐用户请在高级设置内将 API Base URL 改为订阅接口",
+                    text = "月度套餐用户请在高级选项内将 API Base URL 改为订阅接口",
                     style = MaterialTheme.typography.bodyMedium
                 )
                 Spacer(modifier = Modifier.height(16.dp))
                 OutlinedTextField(
+                    shape = RoundedCornerShape(16.dp),
                     value = apiKey,
                     onValueChange = { apiKey = it },
                     label = { Text("API Key") },
@@ -1129,85 +1180,14 @@ private fun ApiKeyDialog(
                 onClick = { onConfirm(apiKey) },
                 enabled = apiKey.isNotBlank()
             ) {
-                Text("确认")
+                Text("保存")
             }
         },
         dismissButton = {
             TextButton(
                 onClick = onDismiss,
                 colors = ButtonDefaults.textButtonColors(
-                    contentColor = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            ) {
-                Text("取消")
-            }
-        }
-    )
-}
-
-@Composable
-private fun ApiBaseUrlDialog(
-    currentUrl: String,
-    onDismiss: () -> Unit,
-    onConfirm: (String) -> Unit
-) {
-    var apiBaseUrl by remember { mutableStateOf(currentUrl) }
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        containerColor = MaterialTheme.colorScheme.background,
-        title = { Text("API Base URL") },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text(
-                    text = "请输入API服务器地址或选择预设",
-                    style = MaterialTheme.typography.bodyMedium
-                )
-
-                // 快捷填入按钮
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Button(
-                        onClick = { apiBaseUrl = "https://api.xiaomimimo.com" },
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Text("标准接口")
-                    }
-                    Button(
-                        onClick = { apiBaseUrl = "https://token-plan-cn.xiaomimimo.com" },
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Text("订阅接口")
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                OutlinedTextField(
-                    value = apiBaseUrl,
-                    onValueChange = { apiBaseUrl = it },
-                    label = { Text("API Base URL") },
-                    placeholder = { Text("https://api.xiaomimimo.com") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
-            }
-        },
-        confirmButton = {
-            TextButton(
-                onClick = { onConfirm(apiBaseUrl) },
-                enabled = apiBaseUrl.isNotBlank()
-            ) {
-                Text("确认")
-            }
-        },
-        dismissButton = {
-            TextButton(
-                onClick = onDismiss,
-                colors = ButtonDefaults.textButtonColors(
-                    contentColor = MaterialTheme.colorScheme.onSurfaceVariant
+                    contentColor = MaterialTheme.colorScheme.primary
                 )
             ) {
                 Text("取消")
@@ -1219,14 +1199,19 @@ private fun ApiBaseUrlDialog(
 @Composable
 private fun CustomSystemPromptDialog(
     currentPrompt: String,
+    anchorBounds: androidx.compose.ui.geometry.Rect,
+    transition: SettingsTransition,
     onDismiss: () -> Unit,
     onConfirm: (String) -> Unit
 ) {
     var customPrompt by remember { mutableStateOf(currentPrompt) }
 
     AlertDialog(
+        modifier = Modifier.settingsDialogWidth(),
         onDismissRequest = onDismiss,
-        containerColor = MaterialTheme.colorScheme.background,
+        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+        shape = RoundedCornerShape(28.dp),
+        icon = { SettingsDialogIcon(Icons.Default.ChatBubble) },
         title = { Text("自定义系统提示词") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -1235,6 +1220,7 @@ private fun CustomSystemPromptDialog(
                     style = MaterialTheme.typography.bodyMedium
                 )
                 OutlinedTextField(
+                    shape = RoundedCornerShape(16.dp),
                     value = customPrompt,
                     onValueChange = { customPrompt = it },
                     label = { Text("系统提示词") },
@@ -1249,14 +1235,14 @@ private fun CustomSystemPromptDialog(
             TextButton(
                 onClick = { onConfirm(customPrompt) }
             ) {
-                Text("确认")
+                Text("保存")
             }
         },
         dismissButton = {
             TextButton(
                 onClick = onDismiss,
                 colors = ButtonDefaults.textButtonColors(
-                    contentColor = MaterialTheme.colorScheme.onSurfaceVariant
+                    contentColor = MaterialTheme.colorScheme.primary
                 )
             ) {
                 Text("取消")
@@ -1271,6 +1257,8 @@ private fun ParameterSettingsDialog(
     initialTopP: Float,
     initialFrequencyPenalty: Float,
     initialPresencePenalty: Float,
+    anchorBounds: androidx.compose.ui.geometry.Rect,
+    transition: SettingsTransition,
     onDismiss: () -> Unit,
     onConfirm: (Float, Float, Float, Float) -> Unit,
     onReset: () -> Unit
@@ -1387,21 +1375,24 @@ private fun ParameterSettingsDialog(
                 TextButton(
                     onClick = { showResetConfirmDialog = false },
                     colors = ButtonDefaults.textButtonColors(
-                        contentColor = MaterialTheme.colorScheme.onSurfaceVariant
+                        contentColor = MaterialTheme.colorScheme.primary
                     )
                 ) {
                     Text("取消")
                 }
             },
-            containerColor = MaterialTheme.colorScheme.background,
+            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
             titleContentColor = MaterialTheme.colorScheme.onSurface,
             textContentColor = MaterialTheme.colorScheme.onSurfaceVariant
         )
     }
 
     AlertDialog(
+        modifier = Modifier.settingsDialogWidth(),
         onDismissRequest = onDismiss,
-        containerColor = MaterialTheme.colorScheme.background,
+        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+        shape = RoundedCornerShape(28.dp),
+        icon = { SettingsDialogIcon(Icons.Default.Tune) },
         title = { Text("参数设置") },
         text = {
             Column(
@@ -1433,6 +1424,7 @@ private fun ParameterSettingsDialog(
                                 .padding(4.dp)
                         ) {
                             OutlinedTextField(
+                    shape = RoundedCornerShape(16.dp),
                                 value = temperatureText,
                                 onValueChange = { newValue ->
                                     temperatureText = newValue
@@ -1501,6 +1493,7 @@ private fun ParameterSettingsDialog(
                                 .padding(4.dp)
                         ) {
                             OutlinedTextField(
+                    shape = RoundedCornerShape(16.dp),
                                 value = topPText,
                                 onValueChange = { newValue ->
                                     topPText = newValue
@@ -1569,6 +1562,7 @@ private fun ParameterSettingsDialog(
                                 .padding(4.dp)
                         ) {
                             OutlinedTextField(
+                    shape = RoundedCornerShape(16.dp),
                                 value = frequencyPenaltyText,
                                 onValueChange = { newValue ->
                                     frequencyPenaltyText = newValue
@@ -1637,6 +1631,7 @@ private fun ParameterSettingsDialog(
                                 .padding(4.dp)
                         ) {
                             OutlinedTextField(
+                    shape = RoundedCornerShape(16.dp),
                                 value = presencePenaltyText,
                                 onValueChange = { newValue ->
                                     presencePenaltyText = newValue
@@ -1696,7 +1691,7 @@ private fun ParameterSettingsDialog(
                 },
                 enabled = !temperatureError && !topPError && !frequencyPenaltyError && !presencePenaltyError
             ) {
-                Text("确认")
+                Text("保存")
             }
         },
         dismissButton = {
@@ -1704,7 +1699,7 @@ private fun ParameterSettingsDialog(
                 TextButton(
                     onClick = onDismiss,
                     colors = ButtonDefaults.textButtonColors(
-                        contentColor = MaterialTheme.colorScheme.onSurfaceVariant
+                        contentColor = MaterialTheme.colorScheme.primary
                     )
                 ) {
                     Text("取消")
@@ -1721,15 +1716,18 @@ private fun ParameterSettingsDialog(
 
 @Composable
 private fun AdvancedSettingsDialog(
+    anchorBounds: androidx.compose.ui.geometry.Rect,
+    transition: SettingsTransition,
     onApiBaseUrlClick: () -> Unit,
     onParameterSettingsClick: () -> Unit,
     onCustomPromptClick: () -> Unit,
     onDismiss: () -> Unit
 ) {
     AlertDialog(
+        modifier = Modifier.settingsDialogWidth(),
         onDismissRequest = onDismiss,
-        containerColor = MaterialTheme.colorScheme.background,
-        title = { Text("高级设置") },
+        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+        title = { Text("高级选项") },
         text = {
             Column(
                 verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -1872,6 +1870,7 @@ private fun AdvancedSettingsDialog(
 
 @Composable
 private fun SettingsDialog(
+    anchorBounds: androidx.compose.ui.geometry.Rect,
     initialThemeColor: ThemeColor,
     initialThemeMode: ThemeMode,
     onApply: (ThemeColor, ThemeMode) -> Unit,
@@ -1881,6 +1880,7 @@ private fun SettingsDialog(
     onBackgroundImageClick: () -> Unit,
     onDismiss: () -> Unit
 ) {
+    val transition = rememberSettingsTransition()
     var tempThemeColor by remember { mutableStateOf(initialThemeColor) }
     var tempThemeMode by remember { mutableStateOf(initialThemeMode) }
     
@@ -1919,9 +1919,12 @@ private fun SettingsDialog(
         ThemeColor.PURPLE to Color(0xFF6650A4)
     )
     
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        containerColor = MaterialTheme.colorScheme.background,
+    SettingsContainerDialog(
+        maxWidth = 320.dp,
+        anchorBounds = anchorBounds,
+        transition = transition,
+        onDismissRequest = { transition.close(onDismiss) },
+        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
         title = {
             Text("设置")
         },
@@ -2126,7 +2129,7 @@ private fun SettingsDialog(
                     }
                 }
 
-                // 更多设置项
+                // 高级选项
                 val advancedSettingsInteractionSource = remember { MutableInteractionSource() }
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
@@ -2156,12 +2159,12 @@ private fun SettingsDialog(
                     Spacer(modifier = Modifier.width(16.dp))
                     Column {
                         Text(
-                            text = "更多设置项",
+                            text = "高级选项",
                             style = MaterialTheme.typography.titleMedium,
                             color = MaterialTheme.colorScheme.onSurface
                         )
                         Text(
-                            text = "更多高级选项",
+                            text = "更多可供修改的选项",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -2170,13 +2173,13 @@ private fun SettingsDialog(
             }
         },
         confirmButton = {
-            TextButton(onClick = { onApply(tempThemeColor, tempThemeMode) }) {
+            TextButton(onClick = { transition.close { onApply(tempThemeColor, tempThemeMode) } }) {
                 Text("应用")
             }
         },
         dismissButton = {
             TextButton(
-                onClick = onDismiss,
+                onClick = { transition.close(onDismiss) },
                 colors = ButtonDefaults.textButtonColors(
                     contentColor = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -2200,11 +2203,7 @@ private fun ThemeModeOption(
     val interactionSource = remember { MutableInteractionSource() }
     
     val borderColor by animateColorAsState(
-        targetValue = if (selected) {
-            MaterialTheme.colorScheme.primary
-        } else {
-            MaterialTheme.colorScheme.outlineVariant
-        },
+        targetValue = themeOptionBorderColor(selected),
         animationSpec = spring(
             dampingRatio = Spring.DampingRatioNoBouncy,
             stiffness = Spring.StiffnessMediumLow
@@ -2293,11 +2292,7 @@ private fun ThemeColorOption(
     val interactionSource = remember { MutableInteractionSource() }
     
     val borderColor by animateColorAsState(
-        targetValue = if (selected) {
-            MaterialTheme.colorScheme.primary
-        } else {
-            MaterialTheme.colorScheme.outlineVariant
-        },
+        targetValue = themeOptionBorderColor(selected),
         animationSpec = spring(
             dampingRatio = Spring.DampingRatioNoBouncy,
             stiffness = Spring.StiffnessMediumLow

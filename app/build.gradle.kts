@@ -14,8 +14,8 @@ android {
         applicationId = "com.mroldl001.mimochat"
         minSdk = 26
         targetSdk = 36
-        versionCode = 210
-        versionName = "2.1.0-Show me the castle"
+        versionCode = 211
+        versionName = "2.1.1-Show me the castle"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -78,6 +78,7 @@ dependencies {
     implementation("io.coil-kt:coil-compose:2.7.0")
 
     implementation("com.github.jeziellago:compose-markdown:0.7.2")
+    implementation("io.noties.markwon:core:4.6.2")
     
     testImplementation("junit:junit:4.13.2")
     androidTestImplementation("androidx.test.ext:junit:1.2.1")

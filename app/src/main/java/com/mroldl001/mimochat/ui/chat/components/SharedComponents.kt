@@ -32,6 +32,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
@@ -51,6 +52,7 @@ import kotlin.math.roundToInt
 import com.mroldl001.mimochat.domain.model.WebSearchResult
 import coil.compose.AsyncImage
 import androidx.compose.ui.layout.ContentScale
+import kotlinx.coroutines.delay
 
 enum class ContentType {
     MARKDOWN,
@@ -62,77 +64,119 @@ enum class ContentType {
 
 data class ContentSegment(
     val type: ContentType,
-    val content: String
+    val content: String,
+    val info: String? = null
 )
 
-fun splitContent(text: String): List<ContentSegment> {
-    val segments = mutableListOf<ContentSegment>()
-    
-    // 只匹配块级元素：代码块和 LaTeX 块
-    val codeBlockRegex = Regex("```([\\s\\S]*?)```")
-    val latexBlockRegex = Regex("""\$\$([\s\S]*?)\$\$""")
-    
-    val allMatches = mutableListOf<MatchInfo>()
-    
-    codeBlockRegex.findAll(text).forEach { match ->
-        allMatches.add(MatchInfo(match.range, match, ContentType.CODE_BLOCK))
-    }
-    
-    latexBlockRegex.findAll(text).forEach { match ->
-        allMatches.add(MatchInfo(match.range, match, ContentType.LATEX_BLOCK))
-    }
-    
-    allMatches.sortBy { it.range.first }
-    
-    var lastEnd = 0
-    allMatches.forEach { info ->
-        if (info.range.first < lastEnd) {
-            return@forEach
-        }
-        
-        if (info.range.first > lastEnd) {
-            val mdText = text.substring(lastEnd, info.range.first)
-            if (mdText.isNotBlank()) {
-                segments.add(ContentSegment(ContentType.MARKDOWN, mdText))
-            }
-        }
-        
-        val groupValue = info.match.groupValues.getOrNull(1) ?: ""
-        
-        when (info.type) {
-            ContentType.CODE_BLOCK -> {
-                val code = groupValue.trim()
-                if (code.isNotBlank()) {
-                    segments.add(ContentSegment(ContentType.CODE_BLOCK, code))
-                }
-            }
-            ContentType.LATEX_BLOCK -> {
-                val latex = groupValue.trim()
-                if (latex.isNotBlank()) {
-                    segments.add(ContentSegment(ContentType.LATEX_BLOCK, latex))
-                }
-            }
-            else -> {}
-        }
-        
-        lastEnd = info.range.last + 1
-    }
-    
-    if (lastEnd < text.length) {
-        val remaining = text.substring(lastEnd)
-        if (remaining.isNotBlank()) {
-            segments.add(ContentSegment(ContentType.MARKDOWN, remaining))
-        }
-    }
-    
-    return segments
+private data class MarkdownFence(val marker: Char, val length: Int, val info: String?)
+
+private fun markdownFenceAt(line: String): MarkdownFence? {
+    if (line.isEmpty()) return null
+    val marker = line.first()
+    if (marker != '`' && marker != '~') return null
+    val length = line.takeWhile { it == marker }.length
+    if (length < 3) return null
+    val info = line.drop(length).trim().takeIf { it.isNotEmpty() }
+    if (marker == '`' && info?.contains('`') == true) return null
+    return MarkdownFence(marker, length, info)
 }
 
-private data class MatchInfo(
-    val range: IntRange,
-    val match: MatchResult,
-    val type: ContentType
-)
+private fun isClosingFence(line: String, fence: MarkdownFence): Boolean {
+    if (line.firstOrNull() != fence.marker) return false
+    val length = line.takeWhile { it == fence.marker }.length
+    return length >= fence.length && line.drop(length).isBlank()
+}
+
+private fun lineEnd(text: String, start: Int): Int =
+    text.indexOf('\n', start).takeIf { it >= 0 } ?: text.length
+
+private fun nextLineStart(text: String, end: Int): Int =
+    if (end < text.length) end + 1 else end
+
+private fun withoutFenceLineBreak(content: String): String = when {
+    content.endsWith("\r\n") -> content.dropLast(2)
+    content.endsWith('\n') || content.endsWith('\r') -> content.dropLast(1)
+    else -> content
+}
+
+fun splitContent(text: String, allowUnclosedCodeFence: Boolean = false): List<ContentSegment> {
+    val segments = mutableListOf<ContentSegment>()
+    var plainStart = 0
+    var cursor = 0
+
+    fun appendMarkdown(end: Int) {
+        if (end > plainStart) {
+            segments.add(ContentSegment(ContentType.MARKDOWN, text.substring(plainStart, end)))
+        }
+    }
+
+    while (cursor < text.length) {
+        val openingEnd = lineEnd(text, cursor)
+        val openingLine = text.substring(cursor, openingEnd).removeSuffix("\r")
+        val fence = markdownFenceAt(openingLine)
+        if (fence != null) {
+            val contentStart = nextLineStart(text, openingEnd)
+            var closingStart = -1
+            var closingEnd = -1
+            var search = contentStart
+            while (search < text.length) {
+                val candidateEnd = lineEnd(text, search)
+                val candidate = text.substring(search, candidateEnd).removeSuffix("\r")
+                if (isClosingFence(candidate, fence)) {
+                    closingStart = search
+                    closingEnd = candidateEnd
+                    break
+                }
+                search = nextLineStart(text, candidateEnd)
+            }
+
+            if (closingStart >= 0 || allowUnclosedCodeFence) {
+                appendMarkdown(cursor)
+                val contentEnd = if (closingStart >= 0) closingStart else text.length
+                val code = withoutFenceLineBreak(text.substring(contentStart, contentEnd))
+                segments.add(ContentSegment(ContentType.CODE_BLOCK, code, fence.info))
+                cursor = if (closingStart >= 0) nextLineStart(text, closingEnd) else text.length
+                plainStart = cursor
+                continue
+            }
+        }
+
+        if (openingLine == "\$\$") {
+            val contentStart = nextLineStart(text, openingEnd)
+            var closingStart = -1
+            var closingEnd = -1
+            var search = contentStart
+            while (search < text.length) {
+                val candidateEnd = lineEnd(text, search)
+                if (text.substring(search, candidateEnd).removeSuffix("\r") == "\$\$") {
+                    closingStart = search
+                    closingEnd = candidateEnd
+                    break
+                }
+                search = nextLineStart(text, candidateEnd)
+            }
+            if (closingStart >= 0) {
+                appendMarkdown(cursor)
+                val latex = withoutFenceLineBreak(text.substring(contentStart, closingStart))
+                segments.add(ContentSegment(ContentType.LATEX_BLOCK, latex))
+                cursor = nextLineStart(text, closingEnd)
+                plainStart = cursor
+                continue
+            }
+        } else if (openingLine.startsWith("\$\$") && openingLine.endsWith("\$\$") && openingLine.length > 4) {
+            appendMarkdown(cursor)
+            segments.add(ContentSegment(ContentType.LATEX_BLOCK, openingLine.substring(2, openingLine.length - 2)))
+            cursor = nextLineStart(text, openingEnd)
+            plainStart = cursor
+            continue
+        }
+
+        cursor = nextLineStart(text, openingEnd)
+    }
+
+    appendMarkdown(text.length)
+    return segments
+}
 
 @Composable
 fun ThinkingCard(
@@ -198,7 +242,7 @@ fun ThinkingCard(
                 Text(
                     text = reasoningContent,
                     style = MaterialTheme.typography.bodySmall,
-                    color = Color(0xFF888888),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier
                         .padding(horizontal = 12.dp)
                         .padding(bottom = 12.dp)
@@ -368,30 +412,61 @@ private fun SearchResultItem(result: WebSearchResult) {
 fun MixedMarkdownLatex(
     text: String,
     textColor: Color,
+    isStreaming: Boolean = false,
     modifier: Modifier = Modifier
 ) {
-    val segments by remember(text) { 
-        derivedStateOf { splitContent(text) } 
+    val inlineCodeBackground by rememberUpdatedState(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f).toArgb())
+    val inlineCodeText by rememberUpdatedState(MaterialTheme.colorScheme.primary.toArgb())
+    val markdownLinkColor = MaterialTheme.colorScheme.primary
+    val markdownSelectionColors = androidx.compose.foundation.text.selection.TextSelectionColors(
+        handleColor = MaterialTheme.colorScheme.primary,
+        backgroundColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.35f)
+    )
+    val latestText by rememberUpdatedState(text)
+    var renderedText by remember {
+        mutableStateOf(if (isStreaming) stabilizeStreamingMarkdown(text) else text)
+    }
+    LaunchedEffect(text, isStreaming) {
+        if (!isStreaming) renderedText = text
+    }
+    LaunchedEffect(isStreaming) {
+        if (!isStreaming) return@LaunchedEffect
+        while (true) {
+            val stableText = stabilizeStreamingMarkdown(latestText)
+            if (stableText != renderedText) renderedText = stableText
+            delay(80)
+        }
+    }
+    val segments by remember(renderedText, isStreaming) {
+        derivedStateOf { splitContent(renderedText, allowUnclosedCodeFence = isStreaming) }
     }
 
     Column(
-        modifier = modifier.wrapContentWidth()
+        modifier = modifier.fillMaxWidth()
     ) {
         segments.forEach { segment ->
             when (segment.type) {
                 ContentType.MARKDOWN -> {
+                    key(markdownLinkColor, textColor) {
                     MarkdownText(
                         markdown = segment.content,
+                        modifier = Modifier.fillMaxWidth(),
+                        linkColor = markdownLinkColor,
+                        textSelectionColors = markdownSelectionColors,
                         style = TextStyle(
                             color = textColor,
                             fontSize = 15.sp,
                             lineHeight = 22.sp
                         ),
-                        isTextSelectable = true
+                        isTextSelectable = true,
+                        afterSetMarkdown = { textView ->
+                            applyInlineCodeStyle(textView, inlineCodeBackground, inlineCodeText)
+                        }
                     )
+                    }
                 }
                 ContentType.CODE_BLOCK -> {
-                    CodeBlockView(code = segment.content)
+                    CodeBlockView(code = segment.content, info = segment.info)
                 }
                 ContentType.LATEX_BLOCK -> {
                     LatexView(
@@ -404,6 +479,60 @@ fun MixedMarkdownLatex(
             }
         }
     }
+}
+
+private fun isMarkdownTableRow(line: String): Boolean =
+    line.isNotBlank() && line.count { it == '|' } >= 1
+
+private fun isMarkdownTableDelimiter(line: String): Boolean {
+    val cells = line.trim().trim('|').split('|').map { it.trim() }
+    if (cells.size < 2) return false
+    return cells.all { it.matches(Regex("^:?-{3,}:?\$")) }
+}
+
+private fun markdownLineStart(text: String, lineIndex: Int): Int {
+    var offset = 0
+    repeat(lineIndex) {
+        val end = text.indexOf('\n', offset)
+        if (end < 0) return text.length
+        offset = end + 1
+    }
+    return offset
+}
+
+private fun stabilizeStreamingMarkdown(text: String): String {
+    val lastLineBreak = text.lastIndexOf('\n')
+    if (lastLineBreak < 0) return text
+
+    val completedLines = text.substring(0, lastLineBreak)
+        .split('\n')
+        .map { it.removeSuffix("\r") }
+    val partialLine = text.substring(lastLineBreak + 1).removeSuffix("\r")
+    val delimiterIndex = completedLines.indexOfLast(::isMarkdownTableDelimiter)
+
+    if (delimiterIndex > 0) {
+        val headerIndex = delimiterIndex - 1
+        val completedRows = completedLines.drop(delimiterIndex + 1)
+        val tableStillOpen =
+            isMarkdownTableRow(completedLines[headerIndex]) &&
+                completedRows.all(::isMarkdownTableRow) &&
+                (partialLine.isEmpty() || isMarkdownTableRow(partialLine))
+        if (tableStillOpen) {
+            return text.substring(0, markdownLineStart(text, headerIndex))
+        }
+    }
+
+    val lastCompletedLine = completedLines.lastOrNull().orEmpty()
+    if (
+        isMarkdownTableRow(lastCompletedLine) &&
+        partialLine.contains('|') &&
+        partialLine.contains('-')
+    ) {
+        val headerStart = text.lastIndexOf('\n', lastLineBreak - 1).let { it + 1 }
+        return text.substring(0, headerStart)
+    }
+
+    return text
 }
 
 @Composable
@@ -440,36 +569,12 @@ fun StreamingIndicator(modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun InlineCodeView(code: String, textColor: Color) {
-    Surface(
-        shape = RoundedCornerShape(4.dp),
-        color = MaterialTheme.colorScheme.surfaceVariant,
-        modifier = Modifier.padding(vertical = 2.dp)
-    ) {
-        Text(
-            text = code,
-            style = TextStyle(
-                fontFamily = FontFamily.Monospace,
-                fontSize = 14.sp,
-                color = textColor
-            ),
-            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-        )
-    }
-}
-
-@Composable
-private fun CodeBlockView(code: String) {
+private fun CodeBlockView(code: String, info: String?) {
     val context = LocalContext.current
-    val lines = code.split("\n")
-    val fenceLabel = lines.firstOrNull()?.trim().orEmpty()
+    val lines = code.replace("\r\n", "\n").replace('\r', '\n').split("\n")
+    val fenceLabel = info?.trim()?.substringBefore(' ').orEmpty()
     val language = normalizeCodeLanguage(fenceLabel).takeIf { it in supportedCodeLanguages }
-    
-    val codeLines = if (language != null && lines.size > 1) {
-        lines.subList(1, lines.size)
-    } else {
-        lines
-    }
+    val codeLines = lines
     
     val lineCount = codeLines.size
     val maxLineNumberWidth = lineCount.toString().length
@@ -493,7 +598,7 @@ private fun CodeBlockView(code: String) {
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            language?.let {
+            fenceLabel.takeIf { it.isNotEmpty() }?.let {
                 Text(
                     text = fenceLabel,
                     style = TextStyle(

@@ -5,6 +5,7 @@ import android.os.Build
 
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
@@ -49,6 +50,27 @@ private fun calculateSurfaceVariantColor(primary: Color, light: Boolean): Color 
     return primary.copy(alpha = if (light) 0.08f else 0.16f)
 }
 
+// Neutral text/surfaces must not inherit Material's default purple tint, including in Monet mode.
+private fun ColorScheme.withNeutralSurfaces(dark: Boolean): ColorScheme = copy(
+    background = if (dark) Color(0xFF1C1C1C) else Color(0xFFFFFBFE),
+    onBackground = if (dark) Color(0xFFE6E6E6) else Color(0xFF1C1C1C),
+    surface = if (dark) Color(0xFF1C1C1C) else Color.White,
+    onSurface = if (dark) Color(0xFFE6E6E6) else Color(0xFF1C1C1C),
+    onSurfaceVariant = if (dark) Color(0xFFCACACA) else Color(0xFF494949),
+    outline = if (dark) Color(0xFF939393) else Color(0xFF797979),
+    outlineVariant = if (dark) Color(0xFF494949) else Color(0xFFCACACA),
+    inverseSurface = if (dark) Color(0xFFE6E6E6) else Color(0xFF313131),
+    inverseOnSurface = if (dark) Color(0xFF313131) else Color(0xFFF4F4F4),
+    surfaceTint = primary,
+    surfaceDim = if (dark) Color(0xFF141414) else Color(0xFFDEDEDE),
+    surfaceBright = if (dark) Color(0xFF3B3B3B) else Color(0xFFFAFAFA),
+    surfaceContainerLowest = if (dark) Color(0xFF0F0F0F) else Color.White,
+    surfaceContainerLow = if (dark) Color(0xFF1C1C1C) else Color(0xFFF7F7F7),
+    surfaceContainer = if (dark) Color(0xFF202020) else Color(0xFFF3F3F3),
+    surfaceContainerHigh = if (dark) Color(0xFF2B2B2B) else Color(0xFFEDEDED),
+    surfaceContainerHighest = if (dark) Color(0xFF363636) else Color(0xFFE7E7E7)
+)
+
 private fun brightenColor(color: Color): Color {
     val r = color.red
     val g = color.green
@@ -74,14 +96,14 @@ private fun lightColorSchemeWithPrimary(primary: Color, onPrimary: Color): andro
         onPrimary = onPrimary,
         primaryContainer = calculateLightContainerColor(primary),
         onPrimaryContainer = Color(0xFF000000),
-        secondary = Color(0xFF625B71),
-        onSecondary = Color(0xFFFFFFFF),
-        secondaryContainer = Color(0xFFE8DEF8),
-        onSecondaryContainer = Color(0xFF1D192B),
-        tertiary = Color(0xFF7D5260),
-        onTertiary = Color(0xFFFFFFFF),
-        tertiaryContainer = Color(0xFFFFD8E4),
-        onTertiaryContainer = Color(0xFF31111D),
+        secondary = primary,
+        onSecondary = onPrimary,
+        secondaryContainer = calculateLightContainerColor(primary),
+        onSecondaryContainer = Color.Black,
+        tertiary = primary,
+        onTertiary = onPrimary,
+        tertiaryContainer = calculateLightContainerColor(primary),
+        onTertiaryContainer = Color.Black,
         error = Color(0xFFB3261E),
         onError = Color(0xFFFFFFFF),
         errorContainer = Color(0xFFF9DEDC),
@@ -97,7 +119,7 @@ private fun lightColorSchemeWithPrimary(primary: Color, onPrimary: Color): andro
         scrim = Color(0xFF000000),
         inverseSurface = Color(0xFF313033),
         inverseOnSurface = Color(0xFFF4EFF4),
-        inversePrimary = Color(0xFFD0BCFF)
+        inversePrimary = androidx.compose.ui.graphics.lerp(primary, Color.White, 0.6f)
     )
 }
 
@@ -107,14 +129,14 @@ private fun darkColorSchemeWithPrimary(primary: Color, onPrimary: Color): androi
         onPrimary = onPrimary,
         primaryContainer = calculateDarkContainerColor(primary),
         onPrimaryContainer = Color(0xFFFFFFFF),
-        secondary = Color(0xFFD0BCFF),
-        onSecondary = Color(0xFF381E72),
-        secondaryContainer = Color(0xFF4F378B),
-        onSecondaryContainer = Color(0xFFE8DEF8),
-        tertiary = Color(0xFFEFB8C8),
-        onTertiary = Color(0xFF633B48),
-        tertiaryContainer = Color(0xFF633B48),
-        onTertiaryContainer = Color(0xFFFFD8E4),
+        secondary = primary,
+        onSecondary = onPrimary,
+        secondaryContainer = calculateDarkContainerColor(primary),
+        onSecondaryContainer = Color.White,
+        tertiary = primary,
+        onTertiary = onPrimary,
+        tertiaryContainer = calculateDarkContainerColor(primary),
+        onTertiaryContainer = Color.White,
         error = Color(0xFFF2B8B5),
         onError = Color(0xFF601410),
         errorContainer = Color(0xFF8C1D18),
@@ -130,7 +152,7 @@ private fun darkColorSchemeWithPrimary(primary: Color, onPrimary: Color): androi
         scrim = Color(0xFF000000),
         inverseSurface = Color(0xFFE6E1E5),
         inverseOnSurface = Color(0xFF1C1B1F),
-        inversePrimary = Color(0xFF6750A4)
+        inversePrimary = androidx.compose.ui.graphics.lerp(primary, Color.Black, 0.6f)
     )
 }
 
@@ -211,11 +233,15 @@ fun MIMOChatTheme(
                     onPrimary = Color(0xFF1C1B1F),
                     primaryContainer = brightPrimary.copy(alpha = 0.24f),
                     onPrimaryContainer = Color(0xFFFFFFFF),
-                    inversePrimary = brightPrimary,
+                    inversePrimary = lightScheme.primary,
                     secondary = brightSecondary,
                     onSecondary = Color(0xFF1C1B1F),
+                    secondaryContainer = calculateDarkContainerColor(brightSecondary),
+                    onSecondaryContainer = Color.White,
                     tertiary = brightTertiary,
                     onTertiary = Color(0xFF1C1B1F),
+                    tertiaryContainer = calculateDarkContainerColor(brightTertiary),
+                    onTertiaryContainer = Color.White,
                     background = Color(0xFF1C1B1F),
                     onBackground = Color(0xFFE6E1E5),
                     surface = Color(0xFF1C1B1F),
@@ -243,13 +269,14 @@ fun MIMOChatTheme(
         }
     }
 
+    val resolvedColorScheme = colorScheme.withNeutralSurfaces(darkTheme)
     val view = LocalView.current
     if (!view.isInEditMode) {
         SideEffect {
             val window = (view.context as Activity).window
-            val statusBarColor = colorScheme.background.toArgb()
+            val statusBarColor = resolvedColorScheme.background.toArgb()
             window.statusBarColor = statusBarColor
-            window.navigationBarColor = colorScheme.background.toArgb()
+            window.navigationBarColor = resolvedColorScheme.background.toArgb()
 
             val insetsController = WindowCompat.getInsetsController(window, view)
             insetsController.isAppearanceLightStatusBars = !darkTheme
@@ -258,7 +285,7 @@ fun MIMOChatTheme(
     }
 
     MaterialTheme(
-        colorScheme = colorScheme,
+        colorScheme = resolvedColorScheme,
         typography = Typography,
         content = content
     )

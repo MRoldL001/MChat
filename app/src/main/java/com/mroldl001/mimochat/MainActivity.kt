@@ -30,6 +30,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import com.mroldl001.mimochat.data.preferences.PreferencesManager
 import com.mroldl001.mimochat.ui.AppNavigation
+import com.mroldl001.mimochat.ui.chat.components.ExpandedChatMinWidth
 import com.mroldl001.mimochat.ui.theme.MIMOChatTheme
 import com.mroldl001.mimochat.ui.theme.ThemeColor
 import com.mroldl001.mimochat.ui.theme.ThemeMode
@@ -134,7 +135,7 @@ private fun MainContent(
     val onNavigateFromDrawer: (Boolean) -> Unit = { isDrawerOpen = it }
     
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
-        val isExpandedScreen = this.maxWidth >= 600.dp
+        val isExpandedScreen = this.maxWidth >= ExpandedChatMinWidth
         MIMOChatTheme(
             themeColor = themeColor,
             themeMode = themeMode

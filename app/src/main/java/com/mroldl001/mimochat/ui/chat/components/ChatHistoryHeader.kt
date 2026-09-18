@@ -22,6 +22,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -33,8 +36,10 @@ fun ChatHistoryHeader(
     onSearchClick: () -> Unit,
     onSettingsClick: () -> Unit,
     onGitHubClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onSettingsBoundsChanged: (Rect) -> Unit = {}
 ) {
+    val view = LocalView.current
     Row(
         modifier = modifier
             .fillMaxWidth()
@@ -79,6 +84,7 @@ fun ChatHistoryHeader(
                         )
                     },
                     contentDescription = "设置",
+                    modifier = Modifier.onGloballyPositioned { onSettingsBoundsChanged(it.screenBounds(view)) },
                     onClick = onSettingsClick
                 )
                 IconCircleButton(
@@ -102,13 +108,14 @@ fun ChatHistoryHeader(
 private fun IconCircleButton(
     icon: @Composable () -> Unit,
     contentDescription: String,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
     Surface(
         onClick = onClick,
         shape = CircleShape,
         color = Color.Transparent,
-        modifier = Modifier.size(40.dp)
+        modifier = modifier.size(40.dp)
     ) {
         Box(
             contentAlignment = Alignment.Center,
