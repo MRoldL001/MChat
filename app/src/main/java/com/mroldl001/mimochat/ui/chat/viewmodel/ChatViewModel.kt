@@ -20,6 +20,7 @@ import com.mroldl001.mimochat.domain.model.Chat
 import com.mroldl001.mimochat.domain.model.Message
 import com.mroldl001.mimochat.service.ChatService
 import com.mroldl001.mimochat.service.UpdateDownloadService
+import com.mroldl001.mimochat.ui.chat.components.LatexBitmapRenderer
 import com.mroldl001.mimochat.ui.theme.ThemeColor
 import com.mroldl001.mimochat.ui.theme.ThemeMode
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -741,6 +742,7 @@ class ChatViewModel @Inject constructor(
     }
 
     fun deleteChat(chat: Chat) {
+        LatexBitmapRenderer.clear()
         streamJobs.remove(chat.id)?.cancel()
         activeStreams.remove(chat.id)
         chatStreamStates.remove(chat.id)

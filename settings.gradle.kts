@@ -18,4 +18,5 @@ dependencyResolutionManagement {
 
 rootProject.name = "MIMO Chat"
 include(":app")
+include(":latexlibrary")
  

@@ -83,11 +83,6 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import java.io.File
 
-private data class ChatScrollPosition(
-    val index: Int,
-    val offset: Int
-)
-
 private fun LazyListState.isNearBottom(thresholdPx: Int): Boolean {
     val layoutInfo = layoutInfo
     val lastIndex = layoutInfo.totalItemsCount - 1
@@ -110,6 +105,7 @@ fun ChatScreen(
     onThemeChanged: (ThemeColor, ThemeMode) -> Unit = { _, _ -> },
     onNavigateFromDrawer: (Boolean) -> Unit = {},
     initialChatId: Long? = null,
+    chatScrollPositions: MutableMap<Long, ChatScrollPosition>,
     suppressInitialScroll: Boolean = false,
     onInitialChatNavigationHandled: () -> Unit = {}
 ) {
@@ -396,6 +392,7 @@ fun ChatScreen(
             , attachmentMimeType = attachmentMimeType
             , isAttachmentEnabled = supportsMultimodal
             , initialChatId = initialChatId
+            , chatScrollPositions = chatScrollPositions
             , suppressInitialScroll = suppressInitialScroll
             , onInitialChatNavigationHandled = onInitialChatNavigationHandled
         )
@@ -449,7 +446,6 @@ fun ChatScreen(
     val focusManager = LocalFocusManager.current
     val nearBottomThresholdPx = with(LocalDensity.current) { 120.dp.roundToPx() }
     val scrollButtonTravelPx = with(LocalDensity.current) { 72.dp.roundToPx() }
-    val chatScrollPositions = remember { mutableMapOf<Long, ChatScrollPosition>() }
     var pendingRestoreChatId by remember { mutableStateOf<Long?>(null) }
     var pendingSendMessageCount by remember { mutableStateOf<Int?>(null) }
     var followStreaming by remember { mutableStateOf(false) }
@@ -829,7 +825,7 @@ fun ChatScreen(
                                     automaticStreamScroll = true
                                     try {
                                         listState.animateScrollToItem(lastIndex)
-                                        listState.scrollToBottomContent()
+                                        listState.scrollToBottomContentStable()
                                     } finally {
                                         automaticStreamScroll = false
                                     }

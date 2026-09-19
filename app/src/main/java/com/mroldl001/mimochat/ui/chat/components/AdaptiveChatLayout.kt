@@ -61,11 +61,6 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-private data class TabletChatScrollPosition(
-    val index: Int,
-    val offset: Int
-)
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AdaptiveChatLayout(
@@ -116,6 +111,7 @@ fun AdaptiveChatLayout(
     attachmentMimeType: String? = null,
     isAttachmentEnabled: Boolean = true,
     initialChatId: Long? = null,
+    chatScrollPositions: MutableMap<Long, ChatScrollPosition>,
     suppressInitialScroll: Boolean = false,
     onInitialChatNavigationHandled: () -> Unit = {},
     modifier: Modifier = Modifier
@@ -145,7 +141,6 @@ fun AdaptiveChatLayout(
     var currentApiBaseUrl by remember { mutableStateOf("") }
     var currentCustomPrompt by remember { mutableStateOf("") }
     
-    val chatScrollPositions = remember { mutableMapOf<Long, TabletChatScrollPosition>() }
     var pendingRestoreChatId by remember { mutableStateOf(uiState.currentChat?.id) }
     var pendingInitialTopChatId by remember(initialChatId, suppressInitialScroll) {
         mutableStateOf(initialChatId.takeIf { suppressInitialScroll })
@@ -180,7 +175,7 @@ fun AdaptiveChatLayout(
         val chatId = uiState.currentChat?.id
         onDispose {
             if (chatId != null) {
-                chatScrollPositions[chatId] = TabletChatScrollPosition(
+                chatScrollPositions[chatId] = ChatScrollPosition(
                     index = listState.firstVisibleItemIndex,
                     offset = listState.firstVisibleItemScrollOffset
                 )
@@ -534,7 +529,7 @@ fun AdaptiveChatLayout(
                                     val lastIndex = listState.layoutInfo.totalItemsCount - 1
                                     if (lastIndex >= 0) {
                                         listState.animateScrollToItem(lastIndex)
-                                        listState.scrollToBottomContent()
+                                        listState.scrollToBottomContentStable()
                                     }
                                     followStreaming = isStreaming
                                 } finally {

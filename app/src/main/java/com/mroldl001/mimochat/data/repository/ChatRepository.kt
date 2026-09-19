@@ -463,7 +463,7 @@ class ChatRepository @Inject constructor(
             toolChoice = if (webSearchEnabled && (modelId == "mimo-v2.5" || modelId == "mimo-v2.5-pro")) "auto" else null,
             temperature = preferencesManager.getTemperature().toDouble(),
             topP = preferencesManager.getTopP().toDouble(),
-            maxCompletionTokens = 1024,
+            maxCompletionTokens = 8192,
             stop = null,
             frequencyPenalty = preferencesManager.getFrequencyPenalty().toDouble(),
             presencePenalty = preferencesManager.getPresencePenalty().toDouble()

@@ -2,15 +2,18 @@ package com.mroldl001.mimochat.ui.chat.components
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.ErrorOutline
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.viewinterop.AndroidView
+import android.util.TypedValue
+import android.view.Gravity
+import android.widget.TextView
 import com.mroldl001.mimochat.domain.model.Message
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -72,22 +75,35 @@ fun MessageBubble(
                             )
                         }
                         if (message.content.isNotBlank()) {
-                            SelectionContainer {
-                                Text(
-                                    text = message.content,
-                                    style = MaterialTheme.typography.bodyLarge,
-                                    color = MaterialTheme.colorScheme.onPrimaryContainer,
-                                    textAlign = TextAlign.Start,
-                                    modifier = Modifier
-                                        .align(Alignment.Start)
-                                        .padding(
-                                            start = if (hasAttachment) 8.dp else 12.dp,
-                                            top = if (hasAttachment) 7.dp else 9.dp,
-                                            end = if (hasAttachment) 8.dp else 12.dp,
-                                            bottom = if (hasAttachment) 7.dp else 9.dp
-                                        )
-                                )
-                            }
+                            val textColor = MaterialTheme.colorScheme.onPrimaryContainer
+                            val textSize = MaterialTheme.typography.bodyLarge.fontSize.value
+                            AndroidView(
+                                factory = { context ->
+                                    TextView(context).apply {
+                                        setBackgroundColor(android.graphics.Color.TRANSPARENT)
+                                        setTextIsSelectable(true)
+                                        includeFontPadding = false
+                                        gravity = Gravity.START
+                                        setLineSpacing(0f, 1.1f)
+                                    }
+                                },
+                                update = { textView ->
+                                    textView.text = message.content
+                                    textView.setTextColor(textColor.toArgb())
+                                    textView.setTextSize(
+                                        TypedValue.COMPLEX_UNIT_SP,
+                                        textSize
+                                    )
+                                },
+                                modifier = Modifier
+                                    .align(Alignment.Start)
+                                    .padding(
+                                        start = if (hasAttachment) 8.dp else 12.dp,
+                                        top = if (hasAttachment) 7.dp else 9.dp,
+                                        end = if (hasAttachment) 8.dp else 12.dp,
+                                        bottom = if (hasAttachment) 7.dp else 9.dp
+                                    )
+                            )
                         }
                     }
                 }

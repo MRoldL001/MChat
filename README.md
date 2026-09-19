@@ -215,7 +215,7 @@ MIMO Chat - 第三方小米 MiMo 大模型 Android 客户端
 
 - v2.1.1
   
-  - ﻿现在激活/关闭技能后输入栏将不会失焦
+  - 现在激活/关闭技能后输入栏将不会失焦
   - 裁剪背景图功能适配平板/异形屏
   - 重做了部分UI设计以符合 Material You 的标准设计风格
   - 行内代码的渲染现在将会被自定义容器接管
@@ -234,6 +234,18 @@ MIMO Chat - 第三方小米 MiMo 大模型 Android 客户端
   - 修复了有关 LaTeX 渲染的累积 bug，包含一些严重影响体验的 bug
   - 将所有 Snackbar 提示迁移为系统 Toast 以保证样式统一
   - 优化了更多动画效果
+
+- v2.1.4
+  
+  - 表格会被内建的渲染器接管，现在它更加美观了
+  - 修复了表格与行内代码及 LaTeX 公式的混排问题
+  - 将 LaTeX 的渲染器从 KaTeX 迁移到 latexlibrary
+  - 修复了复制栏组件不统一的问题
+  - 修复了一些关于消息渲染的累积 bug
+  - 加入了关于页
+  - 加入了开源库列表
+  - 开源协议现在更新为 GPL-2.0
+  - 所有已知 bug 均已被修复，新功能蓄势待发！
 
 ## 📄 免责声明
 
@@ -255,4 +267,4 @@ MIMO Chat - 第三方小米 MiMo 大模型 Android 客户端
 
 ### 反馈与支持
 
-若在使用中遇到问题，请前往 [Issues](https://github.com/MRoldL001/MIMO-Chat/issues) 反馈，若有能力也可尝试 fork 源码自行修改后发起 PR。
+若在使用中遇到问题，请前往 [Issues](https://github.com/MRoldL001/MIMO-Chat/issues) 反馈，若有能力也可尝试 fork 源码自行修改后发起 PR。bug

@@ -8,6 +8,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -15,6 +16,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -55,6 +57,7 @@ import java.net.URL
 fun SettingsScreen(
     onNavigateBack: () -> Unit,
     onThemeChanged: (ThemeColor, ThemeMode) -> Unit,
+    onNavigateToDisclaimer: () -> Unit,
     viewModel: ChatViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -65,6 +68,7 @@ fun SettingsScreen(
     var showParameters by remember { mutableStateOf(false) }
     var showPrompt by remember { mutableStateOf(false) }
     var showApiUrl by remember { mutableStateOf(false) }
+    var showAbout by remember { mutableStateOf(false) }
     var pendingCropUri by rememberSaveable { mutableStateOf<String?>(null) }
 
     val backgroundPicker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
@@ -104,6 +108,7 @@ fun SettingsScreen(
         onApiBaseUrlClick = { showApiUrl = true },
         acceptPrereleaseUpdates = uiState.acceptPrereleaseUpdates,
         onAcceptPrereleaseUpdatesChanged = viewModel::setAcceptPrereleaseUpdates,
+        onAboutClick = { showAbout = true },
         onNavigateBack = onNavigateBack
     )
 
@@ -176,6 +181,16 @@ fun SettingsScreen(
             onConfirm = { viewModel.setApiBaseUrl(it); showApiUrl = false }
         )
     }
+    if (showAbout) {
+        AboutDialog(
+            transition = transition,
+            onDismiss = { showAbout = false },
+            onDisclaimerClick = {
+                showAbout = false
+                onNavigateToDisclaimer()
+            }
+        )
+    }
     (uiState.updateState as? UpdateUiState.Available)?.let { update ->
         UpdateReleaseDialog(
             release = update.release,
@@ -200,10 +215,11 @@ private fun SettingsPageContent(
     onApiBaseUrlClick: () -> Unit,
     acceptPrereleaseUpdates: Boolean,
     onAcceptPrereleaseUpdatesChanged: (Boolean) -> Unit,
+    onAboutClick: () -> Unit,
     onNavigateBack: () -> Unit
 ) {
     val pageColor by animateColorAsState(
-        targetValue = MaterialTheme.colorScheme.surfaceContainerHigh,
+        targetValue = MaterialTheme.colorScheme.background,
         animationSpec = tween(durationMillis = 450),
         label = "settings_page_color"
     )
@@ -213,8 +229,19 @@ private fun SettingsPageContent(
             TopAppBar(
                 title = { Text("设置") },
                 navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "返回")
+                    val backInteractionSource = remember { MutableInteractionSource() }
+                    Box(
+                        modifier = Modifier
+                            .size(48.dp)
+                            .clip(CircleShape)
+                            .clickable(
+                                interactionSource = backInteractionSource,
+                                indication = null,
+                                onClick = onNavigateBack
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -279,6 +306,7 @@ private fun SettingsPageContent(
                 SettingAction(Icons.Default.Tune, "参数设置", "调整模型参数", onParameterSettingsClick)
                 UpdateSettingsItem(updateState, onCheckForUpdate)
                 PrereleaseUpdateSetting(acceptPrereleaseUpdates, onAcceptPrereleaseUpdatesChanged)
+                SettingAction(Icons.Default.Info, "关于 MIMO Chat", "应用信息与声明", onAboutClick)
             }
         }
     }
@@ -380,11 +408,13 @@ private fun ShowMeTheCastleBanner() {
                 verticalArrangement = Arrangement.spacedBy(6.dp)
             ) {
                 BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+                    val availableWidth = maxWidth
                     val initialTitleFontSize = MaterialTheme.typography.titleLarge.fontSize
-                    var titleFontSize by remember(versionName, maxWidth, initialTitleFontSize) {
+                    var titleFontSize by remember(versionName, availableWidth, initialTitleFontSize) {
                         mutableStateOf(initialTitleFontSize)
                     }
                     Text(
+                        modifier = Modifier.widthIn(max = availableWidth),
                         text = buildAnnotatedString {
                             append(versionNumber)
                             if (versionSubtitle.isNotEmpty()) {

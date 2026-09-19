@@ -206,6 +206,7 @@ private val HatsuneMikuDarkColors = darkColorSchemeWithPrimary(
     onPrimary = HatsuneMikuDarkOnPrimary
 )
 
+@Suppress("DEPRECATION")
 @Composable
 fun MIMOChatTheme(
     themeColor: ThemeColor = ThemeColor.WHITE,

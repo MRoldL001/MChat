@@ -5,11 +5,7 @@ import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
-import android.os.Handler
-import android.os.Looper
-import android.webkit.JavascriptInterface
-import android.webkit.WebSettings
-import android.webkit.WebView
+import android.text.util.Linkify
 import android.widget.Toast
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.BorderStroke
@@ -33,6 +29,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
@@ -51,7 +48,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import dev.jeziellago.compose.markdowntext.MarkdownText
-import kotlin.math.roundToInt
 import com.mroldl001.mimochat.domain.model.WebSearchResult
 import coil.compose.AsyncImage
 import androidx.compose.ui.layout.ContentScale
@@ -59,6 +55,7 @@ import kotlinx.coroutines.delay
 
 enum class ContentType {
     MARKDOWN,
+    TABLE,
     CODE_BLOCK,
     INLINE_CODE,
     LATEX_INLINE,
@@ -183,6 +180,39 @@ private fun parseInlineMath(line: String): List<InlineMathPart>? {
     return parts.takeIf { foundMath }
 }
 
+/**
+ * Some model responses escape Markdown emphasis delimiters (for example
+ * `\\*\\*重点\\*\\*`). Treat paired escaped delimiters as emphasis while leaving
+ * inline code untouched.
+ */
+private fun normalizeEscapedEmphasis(markdown: String): String {
+    val output = StringBuilder(markdown.length)
+    var cursor = 0
+    while (cursor < markdown.length) {
+        if (markdown[cursor] == '`') {
+            val ticks = markdown.substring(cursor).takeWhile { it == '`' }.length
+            val delimiter = "`".repeat(ticks)
+            val closing = markdown.indexOf(delimiter, cursor + ticks)
+            val end = if (closing >= 0) closing + ticks else markdown.length
+            output.append(markdown, cursor, end)
+            cursor = end
+            continue
+        }
+        when {
+            markdown.startsWith("\\*\\*", cursor) -> {
+                output.append("**")
+                cursor += 4
+            }
+            markdown.startsWith("\\_\\_", cursor) -> {
+                output.append("__")
+                cursor += 4
+            }
+            else -> output.append(markdown[cursor++])
+        }
+    }
+    return output.toString()
+}
+
 fun splitContent(text: String, allowUnclosedCodeFence: Boolean = false): List<ContentSegment> {
     val segments = mutableListOf<ContentSegment>()
     var plainStart = 0
@@ -214,6 +244,30 @@ fun splitContent(text: String, allowUnclosedCodeFence: Boolean = false): List<Co
     while (cursor < text.length) {
         val openingEnd = lineEnd(text, cursor)
         val openingLine = text.substring(cursor, openingEnd).removeSuffix("\r")
+
+        // Render tables separately so inline LaTeX inside a cell does not
+        // turn the entire pipe-delimited row into one LaTeX block.
+        val tableDelimiterEnd = nextLineStart(text, openingEnd)
+            .takeIf { it < text.length }
+            ?.let { lineEnd(text, it) }
+        if (
+            isMarkdownTableRow(openingLine) &&
+            tableDelimiterEnd != null &&
+            isMarkdownTableDelimiter(text.substring(nextLineStart(text, openingEnd), tableDelimiterEnd))
+        ) {
+            appendMarkdown(cursor)
+            var tableEnd = nextLineStart(text, tableDelimiterEnd)
+            while (tableEnd < text.length) {
+                val rowEnd = lineEnd(text, tableEnd)
+                if (!isMarkdownTableRow(text.substring(tableEnd, rowEnd).removeSuffix("\r"))) break
+                tableEnd = nextLineStart(text, rowEnd)
+            }
+            segments += ContentSegment(ContentType.TABLE, text.substring(cursor, tableEnd))
+            cursor = tableEnd
+            plainStart = cursor
+            continue
+        }
+
         val fence = markdownFenceAt(openingLine)
         if (fence != null) {
             val contentStart = nextLineStart(text, openingEnd)
@@ -531,6 +585,8 @@ fun MixedMarkdownLatex(
     text: String,
     textColor: Color,
     isStreaming: Boolean = false,
+    compact: Boolean = false,
+    onLatexWidthMeasured: ((Float) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val inlineCodeBackground by rememberUpdatedState(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f).toArgb())
@@ -565,11 +621,15 @@ fun MixedMarkdownLatex(
         segments.forEach { segment ->
             when (segment.type) {
                 ContentType.MARKDOWN -> {
+                    val markdown = remember(segment.content) {
+                        normalizeEscapedEmphasis(segment.content)
+                    }
                     key(markdownLinkColor, textColor) {
                     MarkdownText(
-                        markdown = segment.content,
+                        markdown = markdown,
                         modifier = Modifier.fillMaxWidth(),
                         linkColor = markdownLinkColor,
+                        linkifyMask = Linkify.WEB_URLS or Linkify.EMAIL_ADDRESSES,
                         textSelectionColors = markdownSelectionColors,
                         style = TextStyle(
                             color = textColor,
@@ -578,31 +638,138 @@ fun MixedMarkdownLatex(
                         ),
                         isTextSelectable = true,
                         afterSetMarkdown = { textView ->
-                            applyInlineCodeStyle(textView, inlineCodeBackground, inlineCodeText)
+                            applyInlineCodeStyle(
+                                textView,
+                                inlineCodeBackground,
+                                inlineCodeText,
+                                markdown
+                            )
                         }
                     )
+                    }
+                }
+                ContentType.TABLE -> {
+                    Box(modifier = Modifier.padding(vertical = 12.dp)) {
+                        MarkdownTableView(
+                            markdown = segment.content,
+                            textColor = textColor
+                        )
                     }
                 }
                 ContentType.CODE_BLOCK -> {
                     CodeBlockView(code = segment.content, info = segment.info)
                 }
                 ContentType.LATEX_BLOCK -> {
-                    LatexView(
+                    LatexBlockImage(
                         latex = segment.content,
                         textColor = textColor,
-                        isBlock = true
+                        compact = compact,
+                        onWidthMeasured = onLatexWidthMeasured
                     )
                 }
                 ContentType.LATEX_INLINE -> {
-                    InlineLatexView(
+                    LatexInlineLine(
                         line = segment.content,
-                        textColor = textColor
+                        textColor = textColor,
+                        onWidthMeasured = onLatexWidthMeasured
                     )
                 }
                 else -> {}
             }
         }
     }
+}
+
+@Composable
+private fun MarkdownTableView(
+    markdown: String,
+    textColor: Color
+) {
+    val rows = remember(markdown) {
+        markdown.lineSequence()
+            .map { it.removeSuffix("\r").trim() }
+            .filter { it.isNotBlank() && !isMarkdownTableDelimiter(it) }
+            .map { line ->
+                line.removePrefix("|")
+                    .removeSuffix("|")
+                    .split(Regex("(?<!\\\\)\\|"))
+                    .map(String::trim)
+            }
+            .toList()
+    }
+
+    if (rows.isEmpty()) return
+
+    val tableShape = RoundedCornerShape(10.dp)
+    val borderColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.58f)
+    val headerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
+    val maxColumnCount = rows.maxOf { it.size }
+    val renderedFormulaWidths = remember(markdown) { mutableStateMapOf<Int, Float>() }
+    val columnWidths = List(maxColumnCount) { columnIndex ->
+        val widestCell = rows.fold(0) { widest, row ->
+            val cellText = stripLatexForTableWidth(row.getOrNull(columnIndex).orEmpty())
+            val cellWidth = cellText.fold(0) { width, character ->
+                width + if (character.code > 0x7F) 14 else 8
+            }
+            maxOf(widest, cellWidth)
+        }
+        val estimatedWidth = (widestCell + 28).coerceIn(96, 260).dp
+        val renderedWidth = (renderedFormulaWidths[columnIndex] ?: 0f).dp + 28.dp
+        maxOf(estimatedWidth, renderedWidth)
+    }
+    val tableWidth = columnWidths.fold(0.dp) { total, width -> total + width }
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .horizontalScroll(rememberScrollState())
+    ) {
+        Column(
+            modifier = Modifier
+                .then(if (maxColumnCount == 1) Modifier.fillMaxWidth() else Modifier.width(tableWidth))
+                .clip(tableShape)
+                .border(BorderStroke(1.dp, borderColor), tableShape)
+        ) {
+            rows.forEachIndexed { rowIndex, cells ->
+                Row(modifier = Modifier.height(IntrinsicSize.Min)) {
+                    cells.forEachIndexed { columnIndex, cell ->
+                        Box(
+                            modifier = Modifier
+                                .then(if (maxColumnCount == 1) Modifier.fillMaxWidth() else Modifier.width(columnWidths[columnIndex]))
+                                .fillMaxHeight()
+                                .background(if (rowIndex == 0) headerColor else MaterialTheme.colorScheme.surface)
+                                .border(BorderStroke(0.5.dp, borderColor))
+                                .padding(horizontal = 14.dp, vertical = 10.dp),
+                            contentAlignment = Alignment.CenterStart
+                        ) {
+                            MixedMarkdownLatex(
+                                text = cell.replace("\\|", "|").let {
+                                    if (rowIndex == 0 && !it.startsWith("**")) "**$it**" else it
+                                },
+                                textColor = textColor,
+                                compact = true,
+                                onLatexWidthMeasured = { width ->
+                                    val previous = renderedFormulaWidths[columnIndex] ?: 0f
+                                    if (width > previous) {
+                                        renderedFormulaWidths[columnIndex] = width
+                                    }
+                                }
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+private fun stripLatexForTableWidth(cell: String): String {
+    return cell
+        .replace(Regex("\\$\\$[\\s\\S]*?\\$\\$"), "")
+        .replace(Regex("(?<!\\\\)\\$(?!\\$)[^$]*?\\$"), "")
+        .replace(Regex("\\\\\\[[\\s\\S]*?\\\\\\]"), "")
+        .replace(Regex("\\\\\\([\\s\\S]*?\\\\\\)"), "")
+        .trim()
 }
 
 private fun isMarkdownTableRow(line: String): Boolean =
@@ -757,7 +924,7 @@ private fun CodeBlockView(code: String, info: String?) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 8.dp)
+            .padding(vertical = 12.dp)
             .background(
                 color = Color.Black,
                 shape = RoundedCornerShape(8.dp)
@@ -809,7 +976,7 @@ private fun CodeBlockView(code: String, info: String?) {
         ) {
             highlightedLines.forEachIndexed { index, line ->
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.width(IntrinsicSize.Max),
                     horizontalArrangement = Arrangement.Start,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -1038,257 +1205,4 @@ private fun highlightCodeLines(
             }
         }
     }
-}
-
-@Composable
-private fun LatexView(
-    latex: String,
-    textColor: Color,
-    isBlock: Boolean
-) {
-    val hexColor = textColor.toHexString()
-    val htmlContent = remember(latex, hexColor, isBlock) {
-        buildKaTeXHtml(latex, hexColor, isBlock)
-    }
-
-    KaTeXWebView(
-        htmlContent = htmlContent,
-        initialHeight = if (isBlock) 48f else 28f,
-        modifier = if (isBlock) {
-            Modifier
-                .fillMaxWidth()
-                .padding(vertical = 8.dp)
-        } else {
-            Modifier
-                .fillMaxWidth()
-                .padding(vertical = 2.dp)
-        }
-    )
-}
-
-@Composable
-private fun InlineLatexView(
-    line: String,
-    textColor: Color
-) {
-    val hexColor = textColor.toHexString()
-    val htmlContent = remember(line, hexColor) {
-        buildInlineKaTeXHtml(line, hexColor)
-    }
-    KaTeXWebView(
-        htmlContent = htmlContent,
-        initialHeight = 28f,
-        modifier = Modifier.fillMaxWidth()
-    )
-}
-
-private class MathHeightBridge(
-    private val onHeightChanged: (Float) -> Unit
-) {
-    private val mainHandler = Handler(Looper.getMainLooper())
-
-    @JavascriptInterface
-    fun updateHeight(height: Float) {
-        mainHandler.post {
-            if (height.isFinite() && height > 0f) onHeightChanged(height)
-        }
-    }
-}
-
-@Composable
-private fun KaTeXWebView(
-    htmlContent: String,
-    initialHeight: Float,
-    modifier: Modifier = Modifier
-) {
-    var contentHeight by remember(htmlContent) { mutableFloatStateOf(initialHeight) }
-
-    AndroidView(
-        factory = { context ->
-            WebView(context).apply {
-                setBackgroundColor(android.graphics.Color.TRANSPARENT)
-                settings.apply {
-                    javaScriptEnabled = true
-                    cacheMode = WebSettings.LOAD_NO_CACHE
-                    setSupportZoom(false)
-                    displayZoomControls = false
-                    builtInZoomControls = false
-                    allowFileAccess = true
-                }
-                addJavascriptInterface(
-                    MathHeightBridge { height -> contentHeight = height },
-                    "MathHeightBridge"
-                )
-            }
-        },
-        update = { webView ->
-            val contentKey = htmlContent.hashCode()
-            if (webView.tag != contentKey) {
-                webView.tag = contentKey
-                webView.loadDataWithBaseURL(
-                    "file:///android_asset/katex/",
-                    htmlContent,
-                    "text/html",
-                    "UTF-8",
-                    null
-                )
-            }
-        },
-        onRelease = { webView ->
-            webView.removeJavascriptInterface("MathHeightBridge")
-            webView.stopLoading()
-            webView.destroy()
-        },
-        modifier = modifier.height(contentHeight.dp)
-    )
-}
-
-private fun buildKaTeXHtml(latex: String, textColor: String, isBlock: Boolean): String {
-    val displayMode = if (isBlock) "true" else "false"
-    val quotedLatex = org.json.JSONObject.quote(latex.replace("\n", " "))
-
-    return """
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <link rel="stylesheet" href="katex.min.css">
-            <script src="katex.min.js"></script>
-            <style>
-                html, body { width: 100%; }
-                body {
-                    margin: 0;
-                    padding: 0;
-                    display: flex;
-                    ${if (isBlock) "justify-content: center;" else "justify-content: flex-start;"}
-                    align-items: center;
-                    min-height: ${if (isBlock) "40px" else "24px"};
-                    background: transparent;
-                    overflow-x: auto;
-                    overflow-y: hidden;
-                }
-                #math {
-                    color: $textColor;
-                    display: inline-block;
-                    flex: 0 0 auto;
-                }
-                .katex { color: $textColor !important; }
-            </style>
-        </head>
-        <body>
-            <div id="math"></div>
-            <script>
-                try {
-                    katex.render($quotedLatex, document.getElementById('math'), {
-                        throwOnError: false,
-                        displayMode: $displayMode,
-                        color: '$textColor'
-                    });
-                } catch (e) {
-                    document.getElementById('math').textContent = $quotedLatex;
-                }
-                const reportHeight = () => requestAnimationFrame(() => {
-                    MathHeightBridge.updateHeight(Math.max(
-                        document.body.scrollHeight,
-                        document.documentElement.scrollHeight
-                    ));
-                });
-                new ResizeObserver(reportHeight).observe(document.body);
-                if (document.fonts) document.fonts.ready.then(reportHeight);
-                window.addEventListener('load', reportHeight);
-                reportHeight();
-            </script>
-        </body>
-        </html>
-    """.trimIndent()
-}
-
-private fun buildInlineKaTeXHtml(line: String, textColor: String): String {
-    val parts = parseInlineMath(line) ?: listOf(InlineMathPart(line, false))
-    var formulaIndex = 0
-    val formulas = mutableListOf<Pair<String, String>>()
-    val body = buildString {
-        parts.forEach { part ->
-            if (part.isMath) {
-                val id = "math-${formulaIndex++}"
-                formulas += id to part.content
-                append("<span id=\"")
-                append(id)
-                append("\" class=\"inline-math\"></span>")
-            } else {
-                append(escapeHtml(part.content))
-            }
-        }
-    }
-    val renderCalls = formulas.joinToString("\n") { (id, formula) ->
-        "katex.render(${org.json.JSONObject.quote(formula)}, document.getElementById('$id'), " +
-            "{ throwOnError: false, displayMode: false, color: '$textColor' });"
-    }
-    return """
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <link rel="stylesheet" href="katex.min.css">
-            <script src="katex.min.js"></script>
-            <style>
-                html, body { width: 100%; }
-                body {
-                    margin: 0;
-                    padding: 0;
-                    color: $textColor;
-                    background: transparent;
-                    font: 15px sans-serif;
-                    line-height: 22px;
-                    white-space: pre-wrap;
-                    overflow-x: auto;
-                    overflow-y: hidden;
-                }
-                .inline-math { display: inline-block; white-space: nowrap; }
-                .katex { color: $textColor !important; }
-            </style>
-        </head>
-        <body>$body
-            <script>
-                try {
-                    $renderCalls
-                } catch (e) {}
-                const reportHeight = () => requestAnimationFrame(() => {
-                    MathHeightBridge.updateHeight(Math.max(
-                        document.body.scrollHeight,
-                        document.documentElement.scrollHeight
-                    ));
-                });
-                new ResizeObserver(reportHeight).observe(document.body);
-                if (document.fonts) document.fonts.ready.then(reportHeight);
-                window.addEventListener('load', reportHeight);
-                reportHeight();
-            </script>
-        </body>
-        </html>
-    """.trimIndent()
-}
-
-private fun escapeHtml(text: String): String = buildString(text.length) {
-    text.forEach { character ->
-        append(
-            when (character) {
-                '&' -> "&amp;"
-                '<' -> "&lt;"
-                '>' -> "&gt;"
-                '"' -> "&quot;"
-                '\'' -> "&#39;"
-                else -> character
-            }
-        )
-    }
-}
-
-private fun Color.toHexString(): String {
-    val r = (this.red * 255).toInt()
-    val g = (this.green * 255).toInt()
-    val b = (this.blue * 255).toInt()
-    return String.format("#%02X%02X%02X", r, g, b)
 }
