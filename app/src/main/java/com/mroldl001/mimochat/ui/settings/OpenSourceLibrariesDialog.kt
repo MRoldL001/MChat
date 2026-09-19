@@ -58,11 +58,6 @@ private val openSourceGroups = listOf(
         )
     ),
     OpenSourceGroup(
-        company = "Khan Academy",
-        libraries = listOf(
-        )
-    ),
-    OpenSourceGroup(
         company = "其它",
         libraries = listOf(
             OpenSourceLibrary("Coil", "Apache-2.0"),
