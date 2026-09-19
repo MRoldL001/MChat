@@ -1,32 +1,24 @@
 package com.mroldl001.mimochat.ui.chat.components
 
 import android.view.View
-import android.view.WindowManager
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ProvideTextStyle
-import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.boundsInWindow
-import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
-import androidx.compose.ui.window.DialogWindowProvider
 
 internal fun LayoutCoordinates.screenBounds(view: View): Rect {
     val screen = IntArray(2)
@@ -75,46 +67,17 @@ internal fun SettingsContainerDialog(
     confirmButton: @Composable () -> Unit,
     dismissButton: @Composable () -> Unit
 ) {
-    Dialog(onDismissRequest = onDismissRequest, properties = DialogProperties(
-        usePlatformDefaultWidth = false, decorFitsSystemWindows = false
-    )) {
-        val view = LocalView.current
-        SideEffect {
-            (view.parent as? DialogWindowProvider)?.window?.apply {
-                clearFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND)
-            }
-        }
-        val colors = MaterialTheme.colorScheme
-        Box(Modifier.fillMaxSize()) {
-            Box(Modifier.fillMaxSize()
-                .background(colors.scrim.copy(alpha = 0.32f))
-                .clickable(remember { MutableInteractionSource() }, indication = null, onClick = onDismissRequest))
-            Box(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing).padding(24.dp),
-                contentAlignment = Alignment.Center) {
-                Column(
-                    modifier = Modifier.widthIn(max = maxWidth).fillMaxWidth()
-                        .clip(RoundedCornerShape(28.dp))
-                        .background(containerColor)
-                        .clickable(remember { MutableInteractionSource() }, indication = null) { }
-                        .padding(24.dp)
-                ) {
-                    Column {
-                        ProvideTextStyle(MaterialTheme.typography.headlineSmall.copy(color = colors.onSurface), title)
-                    }
-                    Spacer(Modifier.height(16.dp))
-                    Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState())) {
-                        ProvideTextStyle(MaterialTheme.typography.bodyMedium.copy(color = colors.onSurfaceVariant), text)
-                    }
-                    Spacer(Modifier.height(24.dp))
-                    Row(Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.End,
-                        verticalAlignment = Alignment.CenterVertically) {
-                        dismissButton()
-                        Spacer(Modifier.width(8.dp))
-                        confirmButton()
-                    }
-                }
-            }
-        }
-    }
+    // 与其它二级设置菜单保持一致：使用 Material3 AlertDialog，
+    // 由系统负责居中、状态栏区域的 dim 以及超高内容的滚动，
+    // 避免自定义全屏 Dialog 造成的页面不居中与状态栏高亮问题。
+    AlertDialog(
+        onDismissRequest = onDismissRequest,
+        modifier = Modifier.settingsDialogWidth().widthIn(max = maxWidth),
+        containerColor = containerColor,
+        shape = RoundedCornerShape(28.dp),
+        title = title,
+        text = text,
+        confirmButton = confirmButton,
+        dismissButton = dismissButton
+    )
 }

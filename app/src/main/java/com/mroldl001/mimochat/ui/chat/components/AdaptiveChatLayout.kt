@@ -10,6 +10,7 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
@@ -41,6 +42,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.mroldl001.mimochat.domain.model.Chat
 import com.mroldl001.mimochat.domain.model.Message
@@ -339,22 +341,30 @@ fun AdaptiveChatLayout(
                             )
                         }
                     } else {
-                        LazyColumn(
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            items(uiState.chats, key = { it.id }) { chat ->
-                                TabletChatListItem(
-                                    chat = chat,
-                                    isSelected = chat.id == uiState.currentChat?.id,
-                                    onClick = {
-                                        focusManager.clearFocus()
-                                        onSelectChat(chat)
-                                    },
-                                    onDelete = { chatItem ->
-                                        chatToDelete = chatItem
-                                        showDeleteConfirmDialog = true
-                                    }
-                                )
+                        val historyListState = rememberLazyListState()
+                        Box(modifier = Modifier.weight(1f)) {
+                            ChatSelectionHighlight(
+                                listState = historyListState,
+                                selectedIndex = uiState.chats.indexOfFirst { it.id == uiState.currentChat?.id }
+                            )
+                            LazyColumn(
+                                state = historyListState,
+                                modifier = Modifier.fillMaxSize()
+                            ) {
+                                items(uiState.chats, key = { it.id }) { chat ->
+                                    TabletChatListItem(
+                                        chat = chat,
+                                        isSelected = chat.id == uiState.currentChat?.id,
+                                        onClick = {
+                                            focusManager.clearFocus()
+                                            onSelectChat(chat)
+                                        },
+                                        onDelete = { chatItem ->
+                                            chatToDelete = chatItem
+                                            showDeleteConfirmDialog = true
+                                        }
+                                    )
+                                }
                             }
                         }
                     }
@@ -763,35 +773,38 @@ private fun TabletChatListItem(
     onClick: () -> Unit,
     onDelete: (Chat) -> Unit
 ) {
-    val backgroundColor by animateColorAsState(
-        targetValue = if (isSelected) {
-            MaterialTheme.colorScheme.primary.copy(alpha = 0.14f)
-        } else {
-            Color.Transparent
-        },
-        label = "tabletChatSelectionBackground"
+    val interactionSource = remember { MutableInteractionSource() }
+    val contentOffset by animateDpAsState(
+        targetValue = if (isSelected) 8.dp else 0.dp,
+        animationSpec = tween(durationMillis = 240, easing = FastOutSlowInEasing),
+        label = "tabletChatItemContentOffset"
     )
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 8.dp)
-            .clip(RoundedCornerShape(20.dp))
-            .background(backgroundColor)
-            .clickable(onClick = onClick)
-            .padding(horizontal = 8.dp, vertical = 12.dp),
+            .height(72.dp)
+            .clickable(
+                interactionSource = interactionSource,
+                indication = null,
+                onClick = onClick
+            )
+            .padding(horizontal = 8.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Column(modifier = Modifier.weight(1f)) {
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .graphicsLayer { translationX = contentOffset.toPx() }
+        ) {
             Text(
                 text = chat.title,
                 style = MaterialTheme.typography.bodyLarge,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
                 fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                color = if (isSelected) {
-                    MaterialTheme.colorScheme.primary
-                } else {
-                    MaterialTheme.colorScheme.onSurface
-                }
+                color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
             )
             Text(
                 text = formatTimestamp(chat.updatedAt),

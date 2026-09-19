@@ -65,6 +65,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -77,6 +78,8 @@ import com.mroldl001.mimochat.ui.theme.ThemeMode
 import com.mroldl001.mimochat.ui.theme.supportsDynamicColor
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import java.io.File
 
 private data class ChatScrollPosition(
@@ -428,6 +431,14 @@ fun ChatScreen(
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
     val listState = rememberLazyListState()
+    val historyListState = rememberLazyListState()
+    var pendingSelectedChatId by remember { mutableStateOf<Long?>(null) }
+    var pendingSelectJob by remember { mutableStateOf<Job?>(null) }
+    LaunchedEffect(uiState.currentChat?.id, pendingSelectedChatId) {
+        if (pendingSelectedChatId == uiState.currentChat?.id) {
+            pendingSelectedChatId = null
+        }
+    }
     val focusManager = LocalFocusManager.current
     val nearBottomThresholdPx = with(LocalDensity.current) { 120.dp.roundToPx() }
     val scrollButtonTravelPx = with(LocalDensity.current) { 72.dp.roundToPx() }
@@ -613,20 +624,41 @@ fun ChatScreen(
                             )
                         }
                     } else {
-                        LazyColumn(modifier = Modifier.weight(1f)) {
-                            items(filteredChats) { chat ->
-                                ChatListItem(
-                                    chat = chat,
-                                    isSelected = chat.id == uiState.currentChat?.id,
-                                    onClick = {
-                                        viewModel.selectChat(chat)
-                                        scope.launch { drawerState.close() }
-                                    },
-                                    onDelete = {
-                                        chatToDelete = chat
-                                        showDeleteConfirmDialog = true
-                                    }
-                                )
+                        Box(modifier = Modifier.weight(1f)) {
+                            val highlightedChatId = pendingSelectedChatId ?: uiState.currentChat?.id
+                            ChatSelectionHighlight(
+                                listState = historyListState,
+                                selectedIndex = filteredChats.indexOfFirst { it.id == highlightedChatId },
+                                durationMillis = 360
+                            )
+                            LazyColumn(
+                                state = historyListState,
+                                modifier = Modifier.fillMaxSize()
+                            ) {
+                                items(filteredChats, key = { it.id }) { chat ->
+                                    ChatListItem(
+                                        chat = chat,
+                                        isSelected = chat.id == highlightedChatId,
+                                        onClick = {
+                                            pendingSelectJob?.cancel()
+                                            if (chat.id == uiState.currentChat?.id) {
+                                                pendingSelectedChatId = null
+                                                scope.launch { drawerState.close() }
+                                            } else {
+                                                pendingSelectedChatId = chat.id
+                                                pendingSelectJob = scope.launch {
+                                                    delay(360L)
+                                                    drawerState.close()
+                                                    viewModel.selectChat(chat)
+                                                }
+                                            }
+                                        },
+                                        onDelete = {
+                                            chatToDelete = chat
+                                            showDeleteConfirmDialog = true
+                                        }
+                                    )
+                                }
                             }
                         }
                     }
@@ -1050,35 +1082,38 @@ private fun ChatListItem(
     onClick: () -> Unit,
     onDelete: () -> Unit
 ) {
-    val backgroundColor by animateColorAsState(
-        targetValue = if (isSelected) {
-            MaterialTheme.colorScheme.primary.copy(alpha = 0.14f)
-        } else {
-            Color.Transparent
-        },
-        label = "chatSelectionBackground"
+    val interactionSource = remember { MutableInteractionSource() }
+    val contentOffset by animateDpAsState(
+        targetValue = if (isSelected) 8.dp else 0.dp,
+        animationSpec = tween(durationMillis = 360, easing = FastOutSlowInEasing),
+        label = "chatItemContentOffset"
     )
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 8.dp)
-            .clip(RoundedCornerShape(20.dp))
-            .background(backgroundColor)
-            .clickable(onClick = onClick)
-            .padding(horizontal = 8.dp, vertical = 12.dp),
+            .height(72.dp)
+            .clickable(
+                interactionSource = interactionSource,
+                indication = null,
+                onClick = onClick
+            )
+            .padding(horizontal = 8.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Column(modifier = Modifier.weight(1f)) {
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .graphicsLayer { translationX = contentOffset.toPx() }
+        ) {
             Text(
                 text = chat.title,
                 style = MaterialTheme.typography.bodyLarge,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
                 fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                color = if (isSelected) {
-                    MaterialTheme.colorScheme.primary
-                } else {
-                    MaterialTheme.colorScheme.onSurface
-                }
+                color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
             )
             Text(
                 text = formatTimestamp(chat.updatedAt),
@@ -1087,12 +1122,12 @@ private fun ChatListItem(
             )
         }
         IconButton(onClick = onDelete) {
-                Icon(
-                    imageVector = Icons.Default.Delete,
-                    contentDescription = "删除",
-                    tint = MaterialTheme.colorScheme.primary
-                )
-            }
+            Icon(
+                imageVector = Icons.Default.Delete,
+                contentDescription = "删除",
+                tint = MaterialTheme.colorScheme.primary
+            )
+        }
     }
 }
 

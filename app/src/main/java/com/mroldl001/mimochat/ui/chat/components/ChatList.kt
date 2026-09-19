@@ -1,9 +1,17 @@
 package com.mroldl001.mimochat.ui.chat.components
 
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
@@ -11,6 +19,12 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.mroldl001.mimochat.domain.model.Chat
 
@@ -69,14 +83,25 @@ fun ChatList(
                     )
                 }
             } else {
-                LazyColumn {
-                    items(chats) { chat ->
-                        ChatListItem(
-                            chat = chat,
-                            isSelected = chat.id == selectedChatId,
-                            onClick = { onChatSelected(chat) },
-                            onDelete = { onDeleteChat(chat) }
-                        )
+                val listState = rememberLazyListState()
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clipToBounds()
+                ) {
+                    ChatSelectionHighlight(
+                        listState = listState,
+                        selectedIndex = chats.indexOfFirst { it.id == selectedChatId }
+                    )
+                    LazyColumn(state = listState) {
+                        items(chats, key = { it.id }) { chat ->
+                            ChatListItem(
+                                chat = chat,
+                                isSelected = chat.id == selectedChatId,
+                                onClick = { onChatSelected(chat) },
+                                onDelete = { onDeleteChat(chat) }
+                            )
+                        }
                     }
                 }
             }
@@ -91,18 +116,31 @@ private fun ChatListItem(
     onClick: () -> Unit,
     onDelete: () -> Unit
 ) {
+    val contentOffset by animateDpAsState(
+        targetValue = if (isSelected) 8.dp else 0.dp,
+        animationSpec = tween(durationMillis = 240, easing = FastOutSlowInEasing),
+        label = "chatListItemContentOffset"
+    )
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .padding(horizontal = 8.dp)
+            .height(CHAT_HISTORY_ITEM_HEIGHT)
             .clickable(onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 12.dp),
+            .padding(horizontal = 8.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Column(modifier = Modifier.weight(1f)) {
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .graphicsLayer { translationX = contentOffset.toPx() }
+        ) {
             Text(
                 text = chat.title,
                 style = MaterialTheme.typography.bodyLarge,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
                 color = if (isSelected) {
                     MaterialTheme.colorScheme.primary
                 } else {
@@ -123,6 +161,39 @@ private fun ChatListItem(
             )
         }
     }
+}
+
+private val CHAT_HISTORY_ITEM_HEIGHT = 72.dp
+
+/** 与模型选择列表相同：列表底层只有一个背景块，选择变化时按固定行坐标上下移动。 */
+@Composable
+internal fun ChatSelectionHighlight(
+    listState: LazyListState,
+    selectedIndex: Int,
+    durationMillis: Int = 240
+) {
+    if (selectedIndex < 0) return
+
+    val density = LocalDensity.current
+    val animatedIndex by animateFloatAsState(
+        targetValue = selectedIndex.toFloat(),
+        animationSpec = tween(durationMillis = durationMillis, easing = FastOutSlowInEasing),
+        label = "chatSelectionOffset"
+    )
+    val rowHeightPx = with(density) { CHAT_HISTORY_ITEM_HEIGHT.toPx() }
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .graphicsLayer {
+                val scrollOffset = listState.firstVisibleItemIndex * rowHeightPx +
+                    listState.firstVisibleItemScrollOffset
+                translationY = animatedIndex * rowHeightPx - scrollOffset
+            }
+            .padding(horizontal = 8.dp)
+            .height(CHAT_HISTORY_ITEM_HEIGHT)
+            .clip(RoundedCornerShape(20.dp))
+            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.14f))
+    )
 }
 
 private fun formatDate(timestamp: Long): String {

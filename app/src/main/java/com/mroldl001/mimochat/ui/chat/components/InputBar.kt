@@ -138,6 +138,22 @@ fun InputBar(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
+            // 附件按钮可用/不可用（如切换到不支持多模态的模型时）的过渡动画，
+            // 与发送按钮的可用/不可用变换保持一致。
+            val attachmentActive = !isGenerating && isAttachmentEnabled
+            val attachmentPrimary = MaterialTheme.colorScheme.primary
+            val attachmentContainerColor by animateColorAsState(
+                targetValue = if (attachmentActive) attachmentPrimary else attachmentPrimary.copy(alpha = 0.15f),
+                label = "attachmentContainerColor"
+            )
+            val attachmentContentColor by animateColorAsState(
+                targetValue = if (attachmentActive) MaterialTheme.colorScheme.onPrimary else attachmentPrimary.copy(alpha = 0.4f),
+                label = "attachmentContentColor"
+            )
+            val attachmentAlpha by animateFloatAsState(
+                targetValue = if (attachmentActive) 1f else 0.7f,
+                label = "attachmentAlpha"
+            )
             Box {
                 FilledIconButton(
                     onClick = {
@@ -149,14 +165,16 @@ fun InputBar(
                             attachmentMenuExpanded = true
                         }
                     },
-                    enabled = !isGenerating && isAttachmentEnabled,
+                    enabled = attachmentActive,
                     colors = IconButtonDefaults.filledIconButtonColors(
-                        containerColor = MaterialTheme.colorScheme.primary,
-                        contentColor = MaterialTheme.colorScheme.onPrimary,
-                        disabledContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
-                        disabledContentColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)
+                        containerColor = attachmentContainerColor,
+                        contentColor = attachmentContentColor,
+                        disabledContainerColor = attachmentContainerColor,
+                        disabledContentColor = attachmentContentColor
                     ),
-                    modifier = Modifier.size(48.dp)
+                    modifier = Modifier
+                        .size(48.dp)
+                        .alpha(attachmentAlpha)
                 ) {
                     Icon(Icons.Default.Add, contentDescription = "添加附件")
                 }
