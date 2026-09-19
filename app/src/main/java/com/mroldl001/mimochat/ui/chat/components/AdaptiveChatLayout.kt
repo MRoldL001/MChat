@@ -2,6 +2,7 @@ package com.mroldl001.mimochat.ui.chat.components
 
 import android.content.Intent
 import android.net.Uri
+import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.fadeIn
@@ -32,6 +33,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
@@ -87,6 +89,7 @@ fun AdaptiveChatLayout(
     onThemeModeChanged: (ThemeMode) -> Unit,
     onThemeChanged: (ThemeColor, ThemeMode) -> Unit,
     onNavigateToSearch: () -> Unit,
+    onNavigateToSettings: () -> Unit,
     onApiKeySaved: (String) -> Unit,
     onApiBaseUrlSaved: (String) -> Unit,
     onCustomPromptSaved: (String) -> Unit,
@@ -100,6 +103,10 @@ fun AdaptiveChatLayout(
     onFrequencyPenaltySaved: (Float) -> Unit,
     onPresencePenaltySaved: (Float) -> Unit,
     onResetParameters: () -> Unit,
+    onCheckForUpdate: () -> Unit,
+    onAcceptPrereleaseUpdatesChanged: (Boolean) -> Unit,
+    onDownloadUpdate: (com.mroldl001.mimochat.data.update.GitHubRelease) -> Unit,
+    onClearUpdateState: () -> Unit,
     onClearError: () -> Unit,
     onTakePhoto: () -> Unit = {},
     onSelectFile: () -> Unit = {},
@@ -319,7 +326,7 @@ fun AdaptiveChatLayout(
                         },
                         onSettingsClick = {
                             focusManager.clearFocus()
-                            showSettingsDialog = true
+                            onNavigateToSettings()
                         },
                         onGitHubClick = {
                             val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/MRoldL001/MIMO-Chat"))
@@ -342,7 +349,11 @@ fun AdaptiveChatLayout(
                         }
                     } else {
                         val historyListState = rememberLazyListState()
-                        Box(modifier = Modifier.weight(1f)) {
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clipToBounds()
+                ) {
                             ChatSelectionHighlight(
                                 listState = historyListState,
                                 selectedIndex = uiState.chats.indexOfFirst { it.id == uiState.currentChat?.id }
@@ -545,18 +556,10 @@ fun AdaptiveChatLayout(
                     }
                 }
 
-                uiState.error?.let { error ->
-                    Snackbar(
-                        modifier = Modifier
-                            .align(Alignment.BottomCenter)
-                            .padding(16.dp),
-                        action = {
-                            TextButton(onClick = onClearError) {
-                                Text("关闭")
-                            }
-                        }
-                    ) {
-                        Text(error)
+                LaunchedEffect(uiState.error) {
+                    uiState.error?.let { error ->
+                        Toast.makeText(context, error, Toast.LENGTH_LONG).show()
+                        onClearError()
                     }
                 }
             }
@@ -564,56 +567,47 @@ fun AdaptiveChatLayout(
     }
 
     if (showSettingsDialog) {
-        SettingsDialog(
-            anchorBounds = settingsAnchorBounds,
+        SettingsPage(
             initialThemeColor = uiState.themeColor,
             initialThemeMode = uiState.themeMode,
-            onApply = { newColor, newMode ->
-                onThemeColorChanged(newColor)
-                onThemeModeChanged(newMode)
-                onThemeChanged(newColor, newMode)
-                showSettingsDialog = false
+            onThemeChanged = { color, mode ->
+                onThemeColorChanged(color)
+                onThemeModeChanged(mode)
+                onThemeChanged(color, mode)
             },
             onApiKeyClick = {
-                settingsPageTransition.openWithoutAnimation {
-                    showSettingsDialog = false
-                    showApiKeyDialog = true
-                }
+                showSettingsDialog = false
+                showApiKeyDialog = true
             },
-            hasBackgroundImage = !chatBackgroundUri.isNullOrBlank(),
             onBackgroundImageClick = {
-                settingsPageTransition.openWithoutAnimation {
-                    showSettingsDialog = false
-                    showBackgroundSettingsDialog = true
-                }
+                showSettingsDialog = false
+                showBackgroundSettingsDialog = true
             },
-            onAdvancedSettingsClick = {
-                settingsPageTransition.openWithoutAnimation {
-                    showSettingsDialog = false
-                    showAdvancedSettingsDialog = true
-                }
+            updateState = uiState.updateState,
+            onCheckForUpdate = onCheckForUpdate,
+            onParameterSettingsClick = {
+                showSettingsDialog = false
+                showParameterSettingsDialog = true
             },
+            onCustomPromptClick = {
+                showSettingsDialog = false
+                showCustomPromptDialog = true
+            },
+            onApiBaseUrlClick = {
+                showSettingsDialog = false
+                showApiBaseUrlDialog = true
+            },
+            acceptPrereleaseUpdates = uiState.acceptPrereleaseUpdates,
+            onAcceptPrereleaseUpdatesChanged = onAcceptPrereleaseUpdatesChanged,
             onDismiss = { showSettingsDialog = false }
         )
     }
 
-    if (showAdvancedSettingsDialog) {
-        AdvancedSettingsDialog(
-            anchorBounds = settingsAnchorBounds,
-            transition = settingsPageTransition,
-            onApiBaseUrlClick = {
-                showAdvancedSettingsDialog = false
-                showApiBaseUrlDialog = true
-            },
-            onParameterSettingsClick = {
-                showAdvancedSettingsDialog = false
-                showParameterSettingsDialog = true
-            },
-            onCustomPromptClick = {
-                showAdvancedSettingsDialog = false
-                showCustomPromptDialog = true
-            },
-            onDismiss = { settingsPageTransition.close { showAdvancedSettingsDialog = false } }
+    (uiState.updateState as? com.mroldl001.mimochat.ui.chat.viewmodel.UpdateUiState.Available)?.let { update ->
+        UpdateReleaseDialog(
+            release = update.release,
+            onDismiss = onClearUpdateState,
+            onDownload = { onDownloadUpdate(update.release) }
         )
     }
 
@@ -1081,6 +1075,8 @@ private fun AdvancedSettingsDialog(
     onApiBaseUrlClick: () -> Unit,
     onParameterSettingsClick: () -> Unit,
     onCustomPromptClick: () -> Unit,
+    acceptPrereleaseUpdates: Boolean,
+    onAcceptPrereleaseUpdatesChanged: (Boolean) -> Unit,
     onDismiss: () -> Unit
 ) {
     AlertDialog(
@@ -1218,6 +1214,11 @@ private fun AdvancedSettingsDialog(
                         )
                     }
                 }
+
+                PrereleaseUpdateSetting(
+                    checked = acceptPrereleaseUpdates,
+                    onCheckedChange = onAcceptPrereleaseUpdatesChanged
+                )
             }
         },
         confirmButton = {
@@ -1238,6 +1239,8 @@ private fun SettingsDialog(
     hasBackgroundImage: Boolean,
     onBackgroundImageClick: () -> Unit,
     onAdvancedSettingsClick: () -> Unit,
+    updateState: com.mroldl001.mimochat.ui.chat.viewmodel.UpdateUiState,
+    onCheckForUpdate: () -> Unit,
     onDismiss: () -> Unit
 ) {
     val transition = rememberSettingsTransition()
@@ -1463,6 +1466,11 @@ private fun SettingsDialog(
                         )
                     }
                 }
+
+                UpdateSettingsItem(
+                    state = updateState,
+                    onCheck = onCheckForUpdate
+                )
 
                 val advancedSettingsInteractionSource = remember { MutableInteractionSource() }
                 Row(

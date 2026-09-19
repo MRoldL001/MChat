@@ -3,4 +3,7 @@
   <files-path
     name="attachments"
     path="attachments/" />
+  <files-path
+    name="updates"
+    path="updates/" />
 </paths>

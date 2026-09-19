@@ -53,6 +53,7 @@ import androidx.compose.ui.Modifier
 
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.focus.FocusManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -104,6 +105,7 @@ fun ChatScreen(
     viewModel: ChatViewModel = hiltViewModel(),
     isExpandedScreen: Boolean = false,
     onNavigateToSearch: () -> Unit = {},
+    onNavigateToSettings: () -> Unit = {},
     onNavigateToChat: (Long) -> Unit = {},
     onThemeChanged: (ThemeColor, ThemeMode) -> Unit = { _, _ -> },
     onNavigateFromDrawer: (Boolean) -> Unit = {},
@@ -351,6 +353,7 @@ fun ChatScreen(
                 onThemeChanged(color, mode)
             },
             onNavigateToSearch = onNavigateToSearch,
+            onNavigateToSettings = onNavigateToSettings,
             onApiKeySaved = { key ->
                 viewModel.setApiKey(key)
             },
@@ -380,6 +383,10 @@ fun ChatScreen(
             onResetParameters = {
                 viewModel.resetParameters()
             },
+            onCheckForUpdate = viewModel::checkForUpdate,
+            onAcceptPrereleaseUpdatesChanged = viewModel::setAcceptPrereleaseUpdates,
+            onDownloadUpdate = viewModel::downloadUpdate,
+            onClearUpdateState = viewModel::clearUpdateState,
             onClearError = { viewModel.clearError() }
             , onTakePhoto = takePhoto
             , onSelectFile = pickAttachmentFile
@@ -599,7 +606,7 @@ fun ChatScreen(
                     ChatHistoryHeader(
                         onSettingsBoundsChanged = { settingsAnchorBounds = it },
                         onSearchClick = onNavigateToSearch,
-                        onSettingsClick = { showSettingsDialog = true },
+                        onSettingsClick = onNavigateToSettings,
                         onGitHubClick = {
                             val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/MRoldL001/MIMO-Chat"))
                             context.startActivity(intent)
@@ -624,7 +631,11 @@ fun ChatScreen(
                             )
                         }
                     } else {
-                        Box(modifier = Modifier.weight(1f)) {
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .clipToBounds()
+                        ) {
                             val highlightedChatId = pendingSelectedChatId ?: uiState.currentChat?.id
                             ChatSelectionHighlight(
                                 listState = historyListState,
@@ -840,18 +851,10 @@ fun ChatScreen(
                     }
                 }
 
-                uiState.error?.let { error ->
-                    Snackbar(
-                        modifier = Modifier
-                            .align(Alignment.BottomCenter)
-                            .padding(16.dp),
-                        action = {
-                            TextButton(onClick = { viewModel.clearError() }) {
-                                Text("关闭")
-                            }
-                        }
-                    ) {
-                        Text(error)
+                LaunchedEffect(uiState.error) {
+                    uiState.error?.let { error ->
+                        Toast.makeText(context, error, Toast.LENGTH_LONG).show()
+                        viewModel.clearError()
                     }
                 }
             }
@@ -917,36 +920,47 @@ fun ChatScreen(
     }
 
     if (showSettingsDialog) {
-        SettingsDialog(
-            anchorBounds = settingsAnchorBounds,
+        SettingsPage(
             initialThemeColor = uiState.themeColor,
             initialThemeMode = uiState.themeMode,
-            onApply = { newColor, newMode ->
-                viewModel.setThemeColor(newColor)
-                viewModel.setThemeMode(newMode)
-                onThemeChanged(newColor, newMode)
-                showSettingsDialog = false
+            onThemeChanged = { color, mode ->
+                viewModel.setThemeColor(color)
+                viewModel.setThemeMode(mode)
+                onThemeChanged(color, mode)
             },
             onApiKeyClick = {
-                settingsPageTransition.openWithoutAnimation {
-                    showSettingsDialog = false
-                    showApiKeyDialog = true
-                }
+                showSettingsDialog = false
+                showApiKeyDialog = true
             },
-            onAdvancedSettingsClick = {
-                settingsPageTransition.openWithoutAnimation {
-                    showSettingsDialog = false
-                    showAdvancedSettingsDialog = true
-                }
-            },
-            hasBackgroundImage = uiState.chatBackgroundUri != null,
             onBackgroundImageClick = {
-                settingsPageTransition.openWithoutAnimation {
-                    showSettingsDialog = false
-                    showBackgroundSettingsDialog = true
-                }
+                showSettingsDialog = false
+                showBackgroundSettingsDialog = true
             },
+            updateState = uiState.updateState,
+            onCheckForUpdate = viewModel::checkForUpdate,
+            onParameterSettingsClick = {
+                showSettingsDialog = false
+                showParameterSettingsDialog = true
+            },
+            onCustomPromptClick = {
+                showSettingsDialog = false
+                showCustomPromptDialog = true
+            },
+            onApiBaseUrlClick = {
+                showSettingsDialog = false
+                showApiBaseUrlDialog = true
+            },
+            acceptPrereleaseUpdates = uiState.acceptPrereleaseUpdates,
+            onAcceptPrereleaseUpdatesChanged = viewModel::setAcceptPrereleaseUpdates,
             onDismiss = { showSettingsDialog = false }
+        )
+    }
+
+    (uiState.updateState as? com.mroldl001.mimochat.ui.chat.viewmodel.UpdateUiState.Available)?.let { update ->
+        UpdateReleaseDialog(
+            release = update.release,
+            onDismiss = viewModel::clearUpdateState,
+            onDownload = { viewModel.downloadUpdate(update.release) }
         )
     }
 
@@ -974,26 +988,6 @@ fun ChatScreen(
                 pendingBackgroundCropUri = null
             },
             onDismiss = { pendingBackgroundCropUri = null }
-        )
-    }
-
-    if (showAdvancedSettingsDialog) {
-        AdvancedSettingsDialog(
-            anchorBounds = settingsAnchorBounds,
-            transition = settingsPageTransition,
-            onApiBaseUrlClick = {
-                showAdvancedSettingsDialog = false
-                showApiBaseUrlDialog = true
-            },
-            onParameterSettingsClick = {
-                showAdvancedSettingsDialog = false
-                showParameterSettingsDialog = true
-            },
-            onCustomPromptClick = {
-                showAdvancedSettingsDialog = false
-                showCustomPromptDialog = true
-            },
-            onDismiss = { settingsPageTransition.close { showAdvancedSettingsDialog = false } }
         )
     }
 
@@ -1175,7 +1169,7 @@ private fun EmptyState(modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun ApiKeyDialog(
+internal fun ApiKeyDialog(
     currentKey: String,
     anchorBounds: androidx.compose.ui.geometry.Rect,
     transition: SettingsTransition,
@@ -1232,7 +1226,7 @@ private fun ApiKeyDialog(
 }
 
 @Composable
-private fun CustomSystemPromptDialog(
+internal fun CustomSystemPromptDialog(
     currentPrompt: String,
     anchorBounds: androidx.compose.ui.geometry.Rect,
     transition: SettingsTransition,
@@ -1287,7 +1281,7 @@ private fun CustomSystemPromptDialog(
 }
 
 @Composable
-private fun ParameterSettingsDialog(
+internal fun ParameterSettingsDialog(
     initialTemperature: Float,
     initialTopP: Float,
     initialFrequencyPenalty: Float,
@@ -1756,6 +1750,8 @@ private fun AdvancedSettingsDialog(
     onApiBaseUrlClick: () -> Unit,
     onParameterSettingsClick: () -> Unit,
     onCustomPromptClick: () -> Unit,
+    acceptPrereleaseUpdates: Boolean,
+    onAcceptPrereleaseUpdatesChanged: (Boolean) -> Unit,
     onDismiss: () -> Unit
 ) {
     AlertDialog(
@@ -1893,6 +1889,11 @@ private fun AdvancedSettingsDialog(
                         )
                     }
                 }
+
+                PrereleaseUpdateSetting(
+                    checked = acceptPrereleaseUpdates,
+                    onCheckedChange = onAcceptPrereleaseUpdatesChanged
+                )
             }
         },
         confirmButton = {
@@ -1913,6 +1914,8 @@ private fun SettingsDialog(
     onAdvancedSettingsClick: () -> Unit,
     hasBackgroundImage: Boolean,
     onBackgroundImageClick: () -> Unit,
+    updateState: com.mroldl001.mimochat.ui.chat.viewmodel.UpdateUiState,
+    onCheckForUpdate: () -> Unit,
     onDismiss: () -> Unit
 ) {
     val transition = rememberSettingsTransition()
@@ -2163,6 +2166,11 @@ private fun SettingsDialog(
                         )
                     }
                 }
+
+                UpdateSettingsItem(
+                    state = updateState,
+                    onCheck = onCheckForUpdate
+                )
 
                 // 高级选项
                 val advancedSettingsInteractionSource = remember { MutableInteractionSource() }

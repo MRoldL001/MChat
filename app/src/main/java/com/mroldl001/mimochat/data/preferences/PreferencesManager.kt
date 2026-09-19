@@ -23,6 +23,7 @@ class PreferencesManager @Inject constructor(
         private const val KEY_CHAT_BACKGROUND_OPACITY = "chat_background_opacity"
         private const val KEY_SELECTED_MODEL_ID = "selected_model_id"
         private const val KEY_NOTIFICATION_PERMISSION_REQUESTED = "notification_permission_requested"
+        private const val KEY_ACCEPT_PRERELEASE_UPDATES = "accept_prerelease_updates"
         private const val KEY_TEMPERATURE = "temperature"
         private const val KEY_TOP_P = "top_p"
         private const val KEY_FREQUENCY_PENALTY = "frequency_penalty"
@@ -125,6 +126,14 @@ class PreferencesManager @Inject constructor(
 
     fun setNotificationPermissionRequested(requested: Boolean) {
         prefs.edit().putBoolean(KEY_NOTIFICATION_PERMISSION_REQUESTED, requested).apply()
+    }
+
+    fun getAcceptPrereleaseUpdates(): Boolean {
+        return prefs.getBoolean(KEY_ACCEPT_PRERELEASE_UPDATES, false)
+    }
+
+    fun saveAcceptPrereleaseUpdates(accept: Boolean) {
+        prefs.edit().putBoolean(KEY_ACCEPT_PRERELEASE_UPDATES, accept).apply()
     }
 
     fun getTemperature(): Float {

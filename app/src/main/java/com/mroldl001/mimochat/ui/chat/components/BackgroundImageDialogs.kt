@@ -28,6 +28,7 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Crop
 import androidx.compose.material.icons.filled.Image as ImageIcon
 import androidx.compose.material.icons.filled.Opacity
 import androidx.compose.material.icons.filled.Restore
@@ -112,7 +113,7 @@ internal fun BackgroundImageSettingsDialog(
                 verticalArrangement = Arrangement.spacedBy(6.dp)
             ) {
                 BackgroundSettingRow(
-                    icon = Icons.Default.ImageIcon,
+                    icon = Icons.Default.Crop,
                     title = "选择图片",
                     description = "选择图片后进行裁剪",
                     onClick = onSelectImage

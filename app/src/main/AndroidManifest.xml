@@ -6,6 +6,7 @@
   <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
   <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
   <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+  <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
   <application
     android:name=".MIMOChatApp"
@@ -34,6 +35,11 @@
 
     <service
       android:name=".service.ChatService"
+      android:exported="false"
+      android:foregroundServiceType="dataSync" />
+
+    <service
+      android:name=".service.UpdateDownloadService"
       android:exported="false"
       android:foregroundServiceType="dataSync" />
 

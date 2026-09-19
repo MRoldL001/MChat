@@ -2,6 +2,7 @@ package com.mroldl001.mimochat.ui.chat.viewmodel
 
 import android.app.Application
 import android.content.Intent
+import androidx.core.content.pm.PackageInfoCompat
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.ViewModel
@@ -11,10 +12,14 @@ import com.mroldl001.mimochat.data.api.ContentPart
 import com.mroldl001.mimochat.data.repository.ChatRepository
 import com.mroldl001.mimochat.data.repository.ModelRepository
 import com.mroldl001.mimochat.data.repository.StreamEvent
+import com.mroldl001.mimochat.data.update.GitHubRelease
+import com.mroldl001.mimochat.data.update.GitHubUpdateRepository
+import com.mroldl001.mimochat.data.update.UpdateCheckResult
 import com.mroldl001.mimochat.domain.model.AIModel
 import com.mroldl001.mimochat.domain.model.Chat
 import com.mroldl001.mimochat.domain.model.Message
 import com.mroldl001.mimochat.service.ChatService
+import com.mroldl001.mimochat.service.UpdateDownloadService
 import com.mroldl001.mimochat.ui.theme.ThemeColor
 import com.mroldl001.mimochat.ui.theme.ThemeMode
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -86,6 +91,14 @@ data class StreamState(
     val isActive: Boolean = false
 )
 
+sealed interface UpdateUiState {
+    data object Idle : UpdateUiState
+    data object Checking : UpdateUiState
+    data class Latest(val message: String) : UpdateUiState
+    data class Available(val release: GitHubRelease) : UpdateUiState
+    data class Failed(val message: String) : UpdateUiState
+}
+
 data class ChatUiState(
     val currentChat: Chat? = null,
     val availableModels: List<AIModel> = emptyList(),
@@ -104,7 +117,9 @@ data class ChatUiState(
     val temperature: Float = PreferencesManager.DEFAULT_TEMPERATURE,
     val topP: Float = PreferencesManager.DEFAULT_TOP_P,
     val frequencyPenalty: Float = PreferencesManager.DEFAULT_FREQUENCY_PENALTY,
-    val presencePenalty: Float = PreferencesManager.DEFAULT_PRESENCE_PENALTY
+    val presencePenalty: Float = PreferencesManager.DEFAULT_PRESENCE_PENALTY,
+    val acceptPrereleaseUpdates: Boolean = false,
+    val updateState: UpdateUiState = UpdateUiState.Idle
 )
 
 private const val DEFAULT_CHAT_TITLE = "新对话"
@@ -129,7 +144,8 @@ class ChatViewModel @Inject constructor(
             temperature = preferencesManager.getTemperature(),
             topP = preferencesManager.getTopP(),
             frequencyPenalty = preferencesManager.getFrequencyPenalty(),
-            presencePenalty = preferencesManager.getPresencePenalty()
+            presencePenalty = preferencesManager.getPresencePenalty(),
+            acceptPrereleaseUpdates = preferencesManager.getAcceptPrereleaseUpdates()
         )
     )
     val uiState: StateFlow<ChatUiState> = _uiState.asStateFlow()
@@ -257,6 +273,51 @@ class ChatViewModel @Inject constructor(
                 presencePenalty = PreferencesManager.DEFAULT_PRESENCE_PENALTY
             )
         }
+    }
+
+    fun setAcceptPrereleaseUpdates(accept: Boolean) {
+        preferencesManager.saveAcceptPrereleaseUpdates(accept)
+        _uiState.update { it.copy(acceptPrereleaseUpdates = accept) }
+    }
+
+    fun checkForUpdate() {
+        if (_uiState.value.updateState is UpdateUiState.Checking) return
+        val includePrerelease = _uiState.value.acceptPrereleaseUpdates
+        _uiState.update { it.copy(updateState = UpdateUiState.Checking) }
+        viewModelScope.launch {
+            val packageInfo = application.packageManager.getPackageInfo(application.packageName, 0)
+            val currentVersionCode = PackageInfoCompat.getLongVersionCode(packageInfo)
+            val currentVersionName = packageInfo.versionName ?: currentVersionCode.toString()
+            val state = when (
+                val result = GitHubUpdateRepository.checkForUpdate(
+                    includePrerelease = includePrerelease,
+                    currentVersionCode = currentVersionCode,
+                    currentVersionName = currentVersionName
+                )
+            ) {
+                is UpdateCheckResult.Available -> UpdateUiState.Available(result.release)
+                is UpdateCheckResult.Latest -> UpdateUiState.Latest(
+                    "当前版本 ${result.currentVersion} 已是最新"
+                )
+                is UpdateCheckResult.Failed -> UpdateUiState.Failed(result.message)
+            }
+            _uiState.update { it.copy(updateState = state) }
+        }
+    }
+
+    fun clearUpdateState() {
+        _uiState.update { it.copy(updateState = UpdateUiState.Idle) }
+    }
+
+    fun downloadUpdate(release: GitHubRelease) {
+        application.startForegroundService(
+            Intent(application, UpdateDownloadService::class.java).apply {
+                action = UpdateDownloadService.ACTION_DOWNLOAD
+                putExtra(UpdateDownloadService.EXTRA_DOWNLOAD_URL, release.apkUrl)
+                putExtra(UpdateDownloadService.EXTRA_VERSION_NAME, release.tagName)
+            }
+        )
+        clearUpdateState()
     }
 
     fun setActiveSkill(skill: SkillType?) {

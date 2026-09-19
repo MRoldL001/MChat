@@ -23,7 +23,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.mroldl001.mimochat.domain.model.Chat
@@ -174,20 +173,27 @@ internal fun ChatSelectionHighlight(
 ) {
     if (selectedIndex < 0) return
 
-    val density = LocalDensity.current
-    val animatedIndex by animateFloatAsState(
-        targetValue = selectedIndex.toFloat(),
-        animationSpec = tween(durationMillis = durationMillis, easing = FastOutSlowInEasing),
+    val selectedItemOffset by remember(listState, selectedIndex) {
+        derivedStateOf {
+            listState.layoutInfo.visibleItemsInfo
+                .firstOrNull { it.index == selectedIndex }
+                ?.offset
+        }
+    }
+    val targetOffset = selectedItemOffset ?: return
+    val animatedOffset by animateFloatAsState(
+        targetValue = targetOffset.toFloat(),
+        animationSpec = tween(
+            durationMillis = if (listState.isScrollInProgress) 0 else durationMillis,
+            easing = FastOutSlowInEasing
+        ),
         label = "chatSelectionOffset"
     )
-    val rowHeightPx = with(density) { CHAT_HISTORY_ITEM_HEIGHT.toPx() }
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .graphicsLayer {
-                val scrollOffset = listState.firstVisibleItemIndex * rowHeightPx +
-                    listState.firstVisibleItemScrollOffset
-                translationY = animatedIndex * rowHeightPx - scrollOffset
+                translationY = animatedOffset
             }
             .padding(horizontal = 8.dp)
             .height(CHAT_HISTORY_ITEM_HEIGHT)

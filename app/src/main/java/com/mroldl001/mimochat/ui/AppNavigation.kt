@@ -18,12 +18,14 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import com.mroldl001.mimochat.ui.chat.ChatScreen
 import com.mroldl001.mimochat.ui.search.SearchScreen
+import com.mroldl001.mimochat.ui.settings.SettingsScreen
 import com.mroldl001.mimochat.ui.theme.ThemeColor
 import com.mroldl001.mimochat.ui.theme.ThemeMode
 
 sealed class Screen {
     object Chat : Screen()
     object Search : Screen()
+    object Settings : Screen()
 }
 
 @Composable
@@ -53,7 +55,7 @@ fun AppNavigation(
         targetState = currentScreen,
         transitionSpec = {
             when {
-                targetState is Screen.Search -> {
+                targetState is Screen.Search || targetState is Screen.Settings -> {
                     slideInHorizontally(
                         animationSpec = tween(durationMillis = 300),
                         initialOffsetX = { it }
@@ -88,6 +90,9 @@ fun AppNavigation(
                         onNavigateToSearch = {
                             currentScreen = Screen.Search
                         },
+                        onNavigateToSettings = {
+                            currentScreen = Screen.Settings
+                        },
                         onNavigateToChat = { chatId ->
                             selectedChatId = chatId
                         },
@@ -113,6 +118,13 @@ fun AppNavigation(
                             currentScreen = Screen.Chat
                         },
                         onNavigateFromSearch = onNavigateFromSearch
+                    )
+                }
+
+                is Screen.Settings -> {
+                    SettingsScreen(
+                        onNavigateBack = { currentScreen = Screen.Chat },
+                        onThemeChanged = onThemeChanged
                     )
                 }
             }
