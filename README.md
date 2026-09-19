@@ -162,9 +162,8 @@ MIMO Chat - 第三方小米 MiMo 大模型 Android 客户端
 
 - v1.2.0 **Smells Like Teen Spirit**
   
-  - 现在在过低的安卓版本(≤API31)中动态取色主题
-    会隐藏
-  - 用户消息现在现在支持长按复制
+  - 现在在过低的安卓版本(≤API31)中动态取色主题会隐藏
+  - 用户消息现在支持长按复制
   - 现在在等待消息生成时会生成系统通知保活
   - 现在在无网络时发送的消息不会被拼接进上下文
   - 修复了Pad端欢迎语不随机变化的问题
@@ -214,7 +213,7 @@ MIMO Chat - 第三方小米 MiMo 大模型 Android 客户端
   
   - 增加了返回底部按钮
   
-  - 通过内部实现为输出的代码添加了轻量的代码高亮，Python、JavaScript/TypeScript、Kotlin、Java、C/C++、C#、Go、Rust、HTML/CSS、JSON、SQL、Shell 等常见语言
+  - 通过内部实现为输出的代码添加了轻量的代码高亮，支持Python、JavaScript/TypeScript、Kotlin、Java、C/C++、C#、Go、Rust、HTML/CSS、JSON、SQL、Shell 等常见语言
   
   - 优化了大量动画，现在操作起来更加顺手
   
