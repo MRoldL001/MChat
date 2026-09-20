@@ -275,4 +275,4 @@ MIMO Chat - 第三方小米 MiMo 大模型 Android 客户端
 
 ### 反馈与支持
 
-若在使用中遇到问题，请前往 [Issues](https://github.com/MRoldL001/MIMO-Chat/issues) 反馈，若有能力也可尝试 fork 源码自行修改后发起 PR。bug
+若在使用中遇到问题，请前往 [Issues](https://github.com/MRoldL001/MIMO-Chat/issues) 反馈，若有能力也可尝试 fork 源码自行修改后发起 PR。
