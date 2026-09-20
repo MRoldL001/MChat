@@ -20,9 +20,14 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.Code
+import androidx.compose.material.icons.filled.Coffee
 import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.Css
 import androidx.compose.material.icons.filled.Psychology
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Storage
+import androidx.compose.material.icons.filled.Terminal
 import androidx.compose.material.icons.filled.Web
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -33,6 +38,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
@@ -912,7 +918,8 @@ private fun CodeBlockView(code: String, info: String?) {
     val context = LocalContext.current
     val lines = code.replace("\r\n", "\n").replace('\r', '\n').split("\n")
     val fenceLabel = info?.trim()?.substringBefore(' ').orEmpty()
-    val language = normalizeCodeLanguage(fenceLabel).takeIf { it in supportedCodeLanguages }
+    val normalizedLanguage = normalizeCodeLanguage(fenceLabel)
+    val language = normalizedLanguage.takeIf { it in supportedCodeLanguages }
     val codeLines = lines
     
     val lineCount = codeLines.size
@@ -938,14 +945,25 @@ private fun CodeBlockView(code: String, info: String?) {
             verticalAlignment = Alignment.CenterVertically
         ) {
             fenceLabel.takeIf { it.isNotEmpty() }?.let {
-                Text(
-                    text = fenceLabel,
-                    style = TextStyle(
-                        color = Color.Gray,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    codeLanguageIcon(normalizedLanguage)?.let { icon ->
+                        Icon(
+                            imageVector = icon,
+                            contentDescription = null,
+                            tint = Color.Gray,
+                            modifier = Modifier.size(14.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                    }
+                    Text(
+                        text = fenceLabel,
+                        style = TextStyle(
+                            color = Color.Gray,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold
+                        )
                     )
-                )
+                }
             }
             Spacer(modifier = Modifier.weight(1f))
              
@@ -1006,6 +1024,21 @@ private fun CodeBlockView(code: String, info: String?) {
     }
 }
 
+private fun codeLanguageIcon(language: String?): ImageVector? {
+    if (language == null) return Icons.Default.Code
+    return when (language) {
+        "cpp", "go", "rust" -> Icons.Default.Code
+        else -> codeLanguageVectorIcon(language) ?: when (language) {
+            "java" -> Icons.Default.Coffee
+            "csharp" -> Icons.Default.Code
+            "powershell" -> Icons.Default.Terminal
+            "sql" -> Icons.Default.Storage
+            "scss" -> Icons.Default.Css
+            else -> Icons.Default.Code
+        }
+    }
+}
+
 private val supportedCodeLanguages = setOf(
     "python", "javascript", "typescript", "java", "kotlin", "c", "cpp", "csharp",
     "go", "rust", "swift", "php", "ruby", "shell", "powershell", "sql", "dart",
@@ -1022,10 +1055,39 @@ private fun normalizeCodeLanguage(label: String): String {
         "c#", "cs" -> "csharp"
         "golang" -> "go"
         "rs" -> "rust"
-        "sh", "bash", "zsh" -> "shell"
-        "ps1" -> "powershell"
+        "sh", "zsh" -> "shell"
+        "bash", "pwsh", "ps1" -> "powershell"
         "htm" -> "html"
         "yml" -> "yaml"
+        "pl" -> "perl"
+        "hs" -> "haskell"
+        "ex", "exs" -> "elixir"
+        "erl" -> "erlang"
+        "clj", "cljs" -> "clojure"
+        "jl" -> "julia"
+        "sol" -> "solidity"
+        "gql" -> "graphql"
+        "f90", "f95", "f03" -> "fortran"
+        "cr" -> "crystal"
+        "ml", "mli" -> "ocaml"
+        "fs", "fsi", "fsx" -> "fsharp"
+        "rkt" -> "racket"
+        "lisp", "cl" -> "commonlisp"
+        "adb", "ads" -> "ada"
+        "purs" -> "purescript"
+        "re", "rei" -> "reason"
+        "res", "resi" -> "rescript"
+        "hx" -> "haxe"
+        "ipynb" -> "jupyter"
+        "wl", "nb" -> "wolframmathematica"
+        "tex" -> "latex"
+        "md" -> "markdown"
+        "dockerfile" -> "docker"
+        ".env", "dotenv" -> "env"
+        "tf", "tfvars" -> "terraform"
+        "el" -> "gnuemacs"
+        "mysql" -> "mysql"
+        "postgres", "postgresql", "psql" -> "postgresql"
         "plaintext", "txt" -> "text"
         else -> label.lowercase().substringBefore(' ').trim()
     }

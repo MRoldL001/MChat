@@ -5,6 +5,7 @@ import android.net.Uri
 import android.widget.Toast
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -58,6 +59,7 @@ fun SettingsScreen(
     onNavigateBack: () -> Unit,
     onThemeChanged: (ThemeColor, ThemeMode) -> Unit,
     onNavigateToDisclaimer: () -> Unit,
+    scrollState: ScrollState = rememberScrollState(),
     viewModel: ChatViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -109,7 +111,8 @@ fun SettingsScreen(
         acceptPrereleaseUpdates = uiState.acceptPrereleaseUpdates,
         onAcceptPrereleaseUpdatesChanged = viewModel::setAcceptPrereleaseUpdates,
         onAboutClick = { showAbout = true },
-        onNavigateBack = onNavigateBack
+        onNavigateBack = onNavigateBack,
+        scrollState = scrollState
     )
 
     if (showApiKey) {
@@ -216,7 +219,8 @@ private fun SettingsPageContent(
     acceptPrereleaseUpdates: Boolean,
     onAcceptPrereleaseUpdatesChanged: (Boolean) -> Unit,
     onAboutClick: () -> Unit,
-    onNavigateBack: () -> Unit
+    onNavigateBack: () -> Unit,
+    scrollState: ScrollState
 ) {
     val pageColor by animateColorAsState(
         targetValue = MaterialTheme.colorScheme.background,
@@ -260,11 +264,13 @@ private fun SettingsPageContent(
                 modifier = Modifier
                     .widthIn(max = 560.dp)
                     .fillMaxWidth()
-                    .verticalScroll(rememberScrollState())
+                    .verticalScroll(scrollState)
                     .padding(horizontal = 24.dp, vertical = 12.dp),
                 verticalArrangement = Arrangement.spacedBy(20.dp)
             ) {
                 ShowMeTheCastleBanner()
+
+                SettingsGroupTitle("外观")
 
                 SettingSectionHeader(Icons.Default.Brightness7, "显示模式")
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
@@ -300,10 +306,19 @@ private fun SettingsPageContent(
                 }
 
                 SettingAction(Icons.Default.Image, "聊天背景图", "选择聊天中使用的背景图片", onBackgroundImageClick)
+
+                SettingsGroupTitle("API")
+
                 SettingAction(Icons.Default.Key, "API Key", "配置您的 API 密钥以使用服务", onApiKeyClick)
                 SettingAction(Icons.Default.Link, "API Base URL", "配置 API 服务器地址", onApiBaseUrlClick)
+
+                SettingsGroupTitle("个性化")
+
                 SettingAction(Icons.Default.ChatBubble, "自定义系统提示词", "设置个性化的系统提示词", onCustomPromptClick)
                 SettingAction(Icons.Default.Tune, "参数设置", "调整模型参数", onParameterSettingsClick)
+
+                SettingsGroupTitle("其它")
+
                 UpdateSettingsItem(updateState, onCheckForUpdate)
                 PrereleaseUpdateSetting(acceptPrereleaseUpdates, onAcceptPrereleaseUpdatesChanged)
                 SettingAction(Icons.Default.Info, "关于 MIMO Chat", "应用信息与声明", onAboutClick)

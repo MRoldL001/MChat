@@ -178,6 +178,17 @@ internal fun SettingsPage(
 }
 
 @Composable
+internal fun SettingsGroupTitle(title: String) {
+    Text(
+        text = title,
+        style = MaterialTheme.typography.titleMedium,
+        fontWeight = FontWeight.Bold,
+        color = MaterialTheme.colorScheme.primary,
+        modifier = Modifier.padding(top = 4.dp)
+    )
+}
+
+@Composable
 internal fun SettingSectionHeader(icon: ImageVector, title: String) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         SettingPageIcon(icon)

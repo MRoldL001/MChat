@@ -28,6 +28,7 @@ class PreferencesManager @Inject constructor(
         private const val KEY_TOP_P = "top_p"
         private const val KEY_FREQUENCY_PENALTY = "frequency_penalty"
         private const val KEY_PRESENCE_PENALTY = "presence_penalty"
+        private const val KEY_CHAT_SCROLL_PREFIX = "chat_scroll_"
         const val DEFAULT_API_BASE_URL = "https://api.xiaomimimo.com"
         const val DEFAULT_TEMPERATURE = 0.8f
         const val DEFAULT_TOP_P = 0.95f
@@ -174,6 +175,23 @@ class PreferencesManager @Inject constructor(
             .putFloat(KEY_TOP_P, DEFAULT_TOP_P)
             .putFloat(KEY_FREQUENCY_PENALTY, DEFAULT_FREQUENCY_PENALTY)
             .putFloat(KEY_PRESENCE_PENALTY, DEFAULT_PRESENCE_PENALTY)
+            .apply()
+    }
+
+    fun getChatScrollPosition(chatId: Long): Pair<Int, Int>? {
+        val indexKey = "${KEY_CHAT_SCROLL_PREFIX}${chatId}_index"
+        val offsetKey = "${KEY_CHAT_SCROLL_PREFIX}${chatId}_offset"
+        val index = prefs.getInt(indexKey, -1)
+        val offset = prefs.getInt(offsetKey, -1)
+        return if (index >= 0 && offset >= 0) index to offset else null
+    }
+
+    fun saveChatScrollPosition(chatId: Long, index: Int, offset: Int) {
+        val indexKey = "${KEY_CHAT_SCROLL_PREFIX}${chatId}_index"
+        val offsetKey = "${KEY_CHAT_SCROLL_PREFIX}${chatId}_offset"
+        prefs.edit()
+            .putInt(indexKey, index.coerceAtLeast(0))
+            .putInt(offsetKey, offset.coerceAtLeast(0))
             .apply()
     }
 }

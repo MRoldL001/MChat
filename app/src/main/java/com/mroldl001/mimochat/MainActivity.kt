@@ -147,6 +147,7 @@ private fun MainContent(
                 AppNavigation(
                     isExpandedScreen = isExpandedScreen,
                     initialChatId = initialChatId,
+                    preferencesManager = viewModel.preferencesManager,
                     onThemeChanged = { newColor, newMode ->
                         themeColor = newColor
                         themeMode = newMode

@@ -112,6 +112,9 @@ fun AdaptiveChatLayout(
     isAttachmentEnabled: Boolean = true,
     initialChatId: Long? = null,
     chatScrollPositions: MutableMap<Long, ChatScrollPosition>,
+    loadChatScrollPosition: (Long) -> ChatScrollPosition? = { null },
+    onChatScrollPositionChanged: (Long, Int, Int) -> Unit = { _, _, _ -> },
+    onCurrentChatChanged: (Long?) -> Unit = {},
     suppressInitialScroll: Boolean = false,
     onInitialChatNavigationHandled: () -> Unit = {},
     modifier: Modifier = Modifier
@@ -171,21 +174,16 @@ fun AdaptiveChatLayout(
         }
     }
 
-    DisposableEffect(uiState.currentChat?.id) {
-        val chatId = uiState.currentChat?.id
-        onDispose {
-            if (chatId != null) {
-                chatScrollPositions[chatId] = ChatScrollPosition(
-                    index = listState.firstVisibleItemIndex,
-                    offset = listState.firstVisibleItemScrollOffset
-                )
-            }
-        }
-    }
+    PersistChatScrollPosition(
+        chatId = uiState.currentChat?.id,
+        listState = listState,
+        onPositionChanged = onChatScrollPositionChanged
+    )
 
     LaunchedEffect(uiState.currentChat?.id) {
         val currentChatId = uiState.currentChat?.id
         followStreaming = false
+        if (currentChatId != null) onCurrentChatChanged(currentChatId)
         pendingRestoreChatId = when {
             currentChatId == null -> null
             pendingInitialTopChatId == currentChatId -> null
@@ -266,6 +264,8 @@ fun AdaptiveChatLayout(
             snapshotFlow { listState.layoutInfo.totalItemsCount }
                 .first { it >= messages.size && it > 0 }
             listState.scrollToItem(0)
+            chatScrollPositions[targetChatId] = ChatScrollPosition(0, 0)
+            onChatScrollPositionChanged(targetChatId, 0, 0)
             pendingRestoreChatId = null
             pendingInitialTopChatId = null
             onInitialChatNavigationHandled()
@@ -290,6 +290,9 @@ fun AdaptiveChatLayout(
             .first { it >= totalItems }
 
         val savedPosition = chatScrollPositions[targetChatId]
+            ?: loadChatScrollPosition(targetChatId)?.also {
+                chatScrollPositions[targetChatId] = it
+            }
         automaticStreamScroll = true
         try {
             if (savedPosition != null) {
@@ -526,11 +529,7 @@ fun AdaptiveChatLayout(
                             scrollScope.launch {
                                 automaticStreamScroll = true
                                 try {
-                                    val lastIndex = listState.layoutInfo.totalItemsCount - 1
-                                    if (lastIndex >= 0) {
-                                        listState.animateScrollToItem(lastIndex)
-                                        listState.scrollToBottomContentStable()
-                                    }
+                                    listState.animateScrollToBottomContent()
                                     followStreaming = isStreaming
                                 } finally {
                                     automaticStreamScroll = false

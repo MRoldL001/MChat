@@ -9,6 +9,7 @@ import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.rememberScrollState
 import androidx.activity.compose.BackHandler
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -17,6 +18,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import com.mroldl001.mimochat.data.preferences.PreferencesManager
 import com.mroldl001.mimochat.ui.chat.ChatScreen
 import com.mroldl001.mimochat.ui.chat.components.ChatScrollPosition
 import com.mroldl001.mimochat.ui.search.SearchScreen
@@ -36,6 +38,7 @@ sealed class Screen {
 fun AppNavigation(
     isExpandedScreen: Boolean = false,
     initialChatId: Long? = null,
+    preferencesManager: PreferencesManager,
     onThemeChanged: (ThemeColor, ThemeMode) -> Unit = { _, _ -> },
     onNavigateFromSearch: () -> Unit = {},
     onNavigateFromDrawer: (Boolean) -> Unit = {},
@@ -45,11 +48,21 @@ fun AppNavigation(
     var selectedChatId by remember { mutableStateOf(initialChatId) }
     var suppressInitialChatScroll by remember { mutableStateOf(false) }
     val chatScrollPositions = remember { mutableMapOf<Long, ChatScrollPosition>() }
+    val settingsScrollState = rememberScrollState()
+
+    val loadChatScrollPosition: (Long) -> ChatScrollPosition? = { chatId ->
+        preferencesManager.getChatScrollPosition(chatId)?.let { (index, offset) ->
+            ChatScrollPosition(index, offset)
+        }
+    }
+    val saveChatScrollPosition: (Long, Int, Int) -> Unit = { chatId, index, offset ->
+        chatScrollPositions[chatId] = ChatScrollPosition(index, offset)
+        preferencesManager.saveChatScrollPosition(chatId, index, offset)
+    }
 
     LaunchedEffect(initialChatId) {
         if (initialChatId != null) selectedChatId = initialChatId
     }
-
     LaunchedEffect(Unit) {
         onBackToChat?.invoke {
             currentScreen = Screen.Chat
@@ -66,7 +79,14 @@ fun AppNavigation(
         transitionSpec = {
             when {
                 targetState is Screen.Settings && initialState is Screen.Disclaimer -> {
-                    fadeIn() togetherWith fadeOut()
+                    slideInHorizontally(
+                        animationSpec = tween(durationMillis = 300),
+                        initialOffsetX = { -it / 3 }
+                    ) + fadeIn(animationSpec = tween(durationMillis = 300)) togetherWith
+                            slideOutHorizontally(
+                                animationSpec = tween(durationMillis = 300),
+                                targetOffsetX = { it }
+                            ) + fadeOut(animationSpec = tween(durationMillis = 300))
                 }
                 targetState is Screen.Search || targetState is Screen.Settings || targetState is Screen.Disclaimer -> {
                     slideInHorizontally(
@@ -113,6 +133,11 @@ fun AppNavigation(
                         onNavigateFromDrawer = onNavigateFromDrawer,
                         initialChatId = selectedChatId,
                         chatScrollPositions = chatScrollPositions,
+                        loadChatScrollPosition = loadChatScrollPosition,
+                        onChatScrollPositionChanged = saveChatScrollPosition,
+                        onCurrentChatChanged = { chatId ->
+                            if (chatId != null) selectedChatId = chatId
+                        },
                         suppressInitialScroll = suppressInitialChatScroll,
                         onInitialChatNavigationHandled = {
                             suppressInitialChatScroll = false
@@ -139,7 +164,8 @@ fun AppNavigation(
                     SettingsScreen(
                         onNavigateBack = { currentScreen = Screen.Chat },
                         onThemeChanged = onThemeChanged,
-                        onNavigateToDisclaimer = { currentScreen = Screen.Disclaimer }
+                        onNavigateToDisclaimer = { currentScreen = Screen.Disclaimer },
+                        scrollState = settingsScrollState
                     )
                 }
 

@@ -106,6 +106,9 @@ fun ChatScreen(
     onNavigateFromDrawer: (Boolean) -> Unit = {},
     initialChatId: Long? = null,
     chatScrollPositions: MutableMap<Long, ChatScrollPosition>,
+    loadChatScrollPosition: (Long) -> ChatScrollPosition? = { null },
+    onChatScrollPositionChanged: (Long, Int, Int) -> Unit = { _, _, _ -> },
+    onCurrentChatChanged: (Long?) -> Unit = {},
     suppressInitialScroll: Boolean = false,
     onInitialChatNavigationHandled: () -> Unit = {}
 ) {
@@ -393,6 +396,9 @@ fun ChatScreen(
             , isAttachmentEnabled = supportsMultimodal
             , initialChatId = initialChatId
             , chatScrollPositions = chatScrollPositions
+            , loadChatScrollPosition = loadChatScrollPosition
+            , onChatScrollPositionChanged = onChatScrollPositionChanged
+            , onCurrentChatChanged = onCurrentChatChanged
             , suppressInitialScroll = suppressInitialScroll
             , onInitialChatNavigationHandled = onInitialChatNavigationHandled
         )
@@ -454,22 +460,18 @@ fun ChatScreen(
         derivedStateOf { listState.isNearBottom(nearBottomThresholdPx) }
     }
 
-    // 离开会话时记录精确阅读位置；进入会话后等待它的消息加载完成再恢复。
-    DisposableEffect(uiState.currentChat?.id, listState) {
-        val chatId = uiState.currentChat?.id
-        onDispose {
-            if (chatId != null) {
-                chatScrollPositions[chatId] = ChatScrollPosition(
-                    index = listState.firstVisibleItemIndex,
-                    offset = listState.firstVisibleItemScrollOffset
-                )
-            }
-        }
-    }
+    // 离开会话或用户停止滚动后记录精确阅读位置。
+    PersistChatScrollPosition(
+        chatId = uiState.currentChat?.id,
+        listState = listState,
+        onPositionChanged = onChatScrollPositionChanged
+    )
 
     LaunchedEffect(uiState.currentChat?.id) {
-        pendingRestoreChatId = uiState.currentChat?.id
+        val chatId = uiState.currentChat?.id
+        pendingRestoreChatId = chatId
         followStreaming = false
+        if (chatId != null) onCurrentChatChanged(chatId)
     }
 
     // 发送后只等待新用户消息真正进入列表，然后立即滚到底部。
@@ -543,6 +545,7 @@ fun ChatScreen(
                 .first { it >= messages.size && it > 0 }
             listState.scrollToItem(0)
             chatScrollPositions[targetChatId] = ChatScrollPosition(0, 0)
+            onChatScrollPositionChanged(targetChatId, 0, 0)
             pendingRestoreChatId = null
             followStreaming = false
             pendingInitialTopChatId = null
@@ -564,6 +567,9 @@ fun ChatScreen(
         }
 
         val savedPosition = chatScrollPositions[targetChatId]
+            ?: loadChatScrollPosition(targetChatId)?.also {
+                chatScrollPositions[targetChatId] = it
+            }
         if (messages.isEmpty()) return@LaunchedEffect
         if (messages.lastOrNull()?.chatId != targetChatId) return@LaunchedEffect
 
@@ -820,17 +826,13 @@ fun ChatScreen(
                     FilledIconButton(
                         onClick = {
                             scope.launch {
-                                val lastIndex = listState.layoutInfo.totalItemsCount - 1
-                                if (lastIndex >= 0) {
-                                    automaticStreamScroll = true
-                                    try {
-                                        listState.animateScrollToItem(lastIndex)
-                                        listState.scrollToBottomContentStable()
-                                    } finally {
-                                        automaticStreamScroll = false
-                                    }
-                                    followStreaming = isStreaming
+                                automaticStreamScroll = true
+                                try {
+                                    listState.animateScrollToBottomContent()
+                                } finally {
+                                    automaticStreamScroll = false
                                 }
+                                followStreaming = isStreaming
                             }
                         },
                         modifier = Modifier.size(48.dp),

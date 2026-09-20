@@ -60,10 +60,11 @@ private val openSourceGroups = listOf(
     OpenSourceGroup(
         company = "其它",
         libraries = listOf(
+            OpenSourceLibrary("Simple Icons", "CC0-1.0"),
             OpenSourceLibrary("Coil", "Apache-2.0"),
             OpenSourceLibrary("compose-markdown", "MIT"),
             OpenSourceLibrary("Markwon", "Apache-2.0"),
-            OpenSourceLibrary("JLaTeXMath (sixgodIT fork)", "GPL-2.0-or-later")
+            OpenSourceLibrary("JLaTexMath-android", "GPL-2.0")
         )
     )
 )
@@ -89,9 +90,9 @@ internal fun OpenSourceLibrariesDialog(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .heightIn(max = 520.dp)
+                    .heightIn(max = 360.dp)
                     .verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(18.dp)
+                verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
                 Text(
                     text = "以下为主要运行时依赖，许可证信息以各项目仓库和 Maven 元数据为准。",
@@ -150,6 +151,7 @@ private fun OpenSourceLibraryRow(library: OpenSourceLibrary) {
         )
         Spacer(Modifier.width(12.dp))
         Surface(
+            modifier = Modifier.widthIn(max = 168.dp),
             shape = RoundedCornerShape(50),
             color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
         ) {
