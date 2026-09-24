@@ -16,39 +16,96 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
+import androidx.compose.runtime.saveable.Saver
 import androidx.compose.ui.Modifier
 import com.mroldl001.mimochat.data.preferences.PreferencesManager
 import com.mroldl001.mimochat.ui.chat.ChatScreen
 import com.mroldl001.mimochat.ui.chat.components.ChatScrollPosition
 import com.mroldl001.mimochat.ui.search.SearchScreen
 import com.mroldl001.mimochat.ui.settings.DisclaimerScreen
+import com.mroldl001.mimochat.ui.settings.EasterEggHistoryScreen
+import com.mroldl001.mimochat.ui.settings.ExperimentalFeaturesScreen
 import com.mroldl001.mimochat.ui.settings.SettingsScreen
+import com.mroldl001.mimochat.ui.theme.CodeBlockColorMode
 import com.mroldl001.mimochat.ui.theme.ThemeColor
 import com.mroldl001.mimochat.ui.theme.ThemeMode
+import com.mroldl001.mimochat.ui.settings.AppLocale
 
 sealed class Screen {
     object Chat : Screen()
     object Search : Screen()
     object Settings : Screen()
+    object ExperimentalFeatures : Screen()
+    object EasterEggHistory : Screen()
     object Disclaimer : Screen()
 }
+
+/** 让 Screen 在 recreate() 后通过 rememberSaveable 还原。 */
+private val ScreenSaver = Saver<Screen, String>(
+    save = { screen ->
+        when (screen) {
+            is Screen.Chat -> "chat"
+            is Screen.Search -> "search"
+            is Screen.Settings -> "settings"
+            is Screen.ExperimentalFeatures -> "exp"
+            is Screen.EasterEggHistory -> "egg"
+            is Screen.Disclaimer -> "disclaimer"
+        }
+    },
+    restore = { name ->
+        when (name) {
+            "chat" -> Screen.Chat
+            "search" -> Screen.Search
+            "settings" -> Screen.Settings
+            "exp" -> Screen.ExperimentalFeatures
+            "egg" -> Screen.EasterEggHistory
+            "disclaimer" -> Screen.Disclaimer
+            else -> Screen.Chat
+        }
+    }
+)
 
 @Composable
 fun AppNavigation(
     isExpandedScreen: Boolean = false,
     initialChatId: Long? = null,
     preferencesManager: PreferencesManager,
+    appLanguage: String = AppLocale.SYSTEM,
+    onLanguageSelected: (String) -> Unit = {},
     onThemeChanged: (ThemeColor, ThemeMode) -> Unit = { _, _ -> },
+    onCodeBlockColorModeChanged: (CodeBlockColorMode) -> Unit = {},
     onNavigateFromSearch: () -> Unit = {},
     onNavigateFromDrawer: (Boolean) -> Unit = {},
     onBackToChat: ((() -> Unit) -> Unit)? = null
 ) {
-    var currentScreen by remember { mutableStateOf<Screen>(Screen.Chat) }
+    var currentScreen by rememberSaveable(stateSaver = ScreenSaver) { mutableStateOf<Screen>(Screen.Chat) }
     var selectedChatId by remember { mutableStateOf(initialChatId) }
     var suppressInitialChatScroll by remember { mutableStateOf(false) }
     val chatScrollPositions = remember { mutableMapOf<Long, ChatScrollPosition>() }
-    val settingsScrollState = rememberScrollState()
+    // 设置页滚动位置：recreate()（切换语言）后仍需停留在原位置，故用 rememberSaveable 持久化偏移量
+    var settingsScrollOffset by rememberSaveable { mutableStateOf(0) }
+    val settingsScrollState = rememberScrollState(initial = settingsScrollOffset)
+    var previousScreen by rememberSaveable(stateSaver = ScreenSaver) { mutableStateOf<Screen>(Screen.Chat) }
+    LaunchedEffect(initialChatId) {
+        if (initialChatId != null) selectedChatId = initialChatId
+    }
+    // 实时把当前滚动偏移写回 saveable，recreate 后据此还原
+    LaunchedEffect(settingsScrollState) {
+        snapshotFlow { settingsScrollState.value }.collect { settingsScrollOffset = it }
+    }
+    LaunchedEffect(currentScreen) {
+        // 仅当从聊天页 / 搜索页「打开」设置页时回到顶部；
+        // 从二级页（免责声明 / 实验性功能 / 历史彩蛋）返回，或 recreate（切换语言）后，保留原滚动位置。
+        if (currentScreen is Screen.Settings &&
+            (previousScreen is Screen.Chat || previousScreen is Screen.Search)
+        ) {
+            settingsScrollState.scrollTo(0)
+        }
+        previousScreen = currentScreen
+    }
 
     val loadChatScrollPosition: (Long) -> ChatScrollPosition? = { chatId ->
         preferencesManager.getChatScrollPosition(chatId)?.let { (index, offset) ->
@@ -60,9 +117,6 @@ fun AppNavigation(
         preferencesManager.saveChatScrollPosition(chatId, index, offset)
     }
 
-    LaunchedEffect(initialChatId) {
-        if (initialChatId != null) selectedChatId = initialChatId
-    }
     LaunchedEffect(Unit) {
         onBackToChat?.invoke {
             currentScreen = Screen.Chat
@@ -71,14 +125,20 @@ fun AppNavigation(
 
     BackHandler(enabled = currentScreen != Screen.Chat) {
         suppressInitialChatScroll = false
-        currentScreen = if (currentScreen == Screen.Disclaimer) Screen.Settings else Screen.Chat
+        currentScreen = when (currentScreen) {
+            Screen.Disclaimer, Screen.ExperimentalFeatures, Screen.EasterEggHistory -> Screen.Settings
+            else -> Screen.Chat
+        }
     }
 
     AnimatedContent(
         targetState = currentScreen,
         transitionSpec = {
             when {
-                targetState is Screen.Settings && initialState is Screen.Disclaimer -> {
+                targetState is Screen.Settings &&
+                    (initialState is Screen.Disclaimer ||
+                        initialState is Screen.ExperimentalFeatures ||
+                        initialState is Screen.EasterEggHistory) -> {
                     slideInHorizontally(
                         animationSpec = tween(durationMillis = 300),
                         initialOffsetX = { -it / 3 }
@@ -88,7 +148,11 @@ fun AppNavigation(
                                 targetOffsetX = { it }
                             ) + fadeOut(animationSpec = tween(durationMillis = 300))
                 }
-                targetState is Screen.Search || targetState is Screen.Settings || targetState is Screen.Disclaimer -> {
+                targetState is Screen.Search ||
+                    targetState is Screen.Settings ||
+                    targetState is Screen.Disclaimer ||
+                    targetState is Screen.ExperimentalFeatures ||
+                    targetState is Screen.EasterEggHistory -> {
                     slideInHorizontally(
                         animationSpec = tween(durationMillis = 300),
                         initialOffsetX = { it }
@@ -164,8 +228,28 @@ fun AppNavigation(
                     SettingsScreen(
                         onNavigateBack = { currentScreen = Screen.Chat },
                         onThemeChanged = onThemeChanged,
+                        onCodeBlockColorModeChanged = onCodeBlockColorModeChanged,
                         onNavigateToDisclaimer = { currentScreen = Screen.Disclaimer },
-                        scrollState = settingsScrollState
+                        onNavigateToExperimentalFeatures = { currentScreen = Screen.ExperimentalFeatures },
+                        onNavigateToEasterEggHistory = { currentScreen = Screen.EasterEggHistory },
+                        isExpandedScreen = isExpandedScreen,
+                        scrollState = settingsScrollState,
+                        appLanguage = appLanguage,
+                        onLanguageSelected = onLanguageSelected
+                    )
+                }
+
+                is Screen.ExperimentalFeatures -> {
+                    ExperimentalFeaturesScreen(
+                        onNavigateBack = { currentScreen = Screen.Settings },
+                        isExpandedScreen = isExpandedScreen
+                    )
+                }
+
+                is Screen.EasterEggHistory -> {
+                    EasterEggHistoryScreen(
+                        onNavigateBack = { currentScreen = Screen.Settings },
+                        isExpandedScreen = isExpandedScreen
                     )
                 }
 
@@ -174,6 +258,7 @@ fun AppNavigation(
                         onNavigateBack = { currentScreen = Screen.Settings }
                     )
                 }
+
             }
         }
     }

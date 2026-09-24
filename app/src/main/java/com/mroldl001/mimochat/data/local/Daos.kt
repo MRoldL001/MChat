@@ -51,4 +51,8 @@ interface ChatDao {
     
     @Query("DELETE FROM chats WHERE id = :chatId")
     suspend fun deleteChatById(chatId: Long)
+
+    /** 刷新会话的活跃时间，让最近有往来的会话排到列表最前。 */
+    @Query("UPDATE chats SET updatedAt = :updatedAt WHERE id = :chatId")
+    suspend fun touchChat(chatId: Long, updatedAt: Long)
 }

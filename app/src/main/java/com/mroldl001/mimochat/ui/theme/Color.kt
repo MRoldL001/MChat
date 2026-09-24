@@ -29,3 +29,13 @@ val HatsuneMikuLightPrimary = Color(0xFF39C5BB)
 val HatsuneMikuLightOnPrimary = Color(0xFFFFFFFF)
 val HatsuneMikuDarkPrimary = Color(0xFF26A69A)
 val HatsuneMikuDarkOnPrimary = Color(0xFF004D40)
+
+// 重音红：白天/夜晚同主题色
+val AccentRedPrimary = Color(0xFFD93A49)
+val AccentRedOnPrimary = Color(0xFFFFFFFF)
+
+// 深邃蓝：白天/夜晚有差别（白天深蓝、夜晚浅蓝，参照盎然绿的做法）
+val DeepBlueLightPrimary = Color(0xFF0B57D0)
+val DeepBlueLightOnPrimary = Color(0xFFFFFFFF)
+val DeepBlueDarkPrimary = Color(0xFFA8C7FA)
+val DeepBlueDarkOnPrimary = Color(0xFF062E6F)

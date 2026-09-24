@@ -28,10 +28,7 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Crop
-import androidx.compose.material.icons.filled.Image as ImageIcon
-import androidx.compose.material.icons.filled.Opacity
-import androidx.compose.material.icons.filled.Restore
+import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -63,12 +60,15 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import com.mroldl001.mimochat.R
 import com.mroldl001.mimochat.data.preferences.PreferencesManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -105,17 +105,17 @@ internal fun BackgroundImageSettingsDialog(
         },
         containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
         shape = RoundedCornerShape(28.dp),
-        icon = { SettingsDialogIcon(Icons.Default.ImageIcon) },
-        title = { Text("聊天背景图") },
+        icon = { SettingsDialogIcon(Icons.Outlined.Image) },
+        title = { AutoFitText(stringResource(R.string.chat_background_title), style = MaterialTheme.typography.headlineSmall.localeScaled()) },
         text = {
             Column(
                 modifier = Modifier.fillMaxWidth(),
                 verticalArrangement = Arrangement.spacedBy(6.dp)
             ) {
                 BackgroundSettingRow(
-                    icon = Icons.Default.Crop,
-                    title = "选择图片",
-                    description = "选择图片后进行裁剪",
+                    icon = Icons.Outlined.Crop,
+                    title = stringResource(R.string.bg_select_image),
+                    description = stringResource(R.string.bg_select_image_desc),
                     onClick = onSelectImage
                 )
 
@@ -125,7 +125,7 @@ internal fun BackgroundImageSettingsDialog(
                         .padding(vertical = 10.dp),
                     verticalAlignment = Alignment.Top
                 ) {
-                    SettingIcon(icon = Icons.Default.Opacity)
+                    SettingIcon(icon = Icons.Outlined.Opacity)
                     Spacer(modifier = Modifier.width(16.dp))
                     Column(modifier = Modifier.weight(1f)) {
                         Row(
@@ -133,7 +133,7 @@ internal fun BackgroundImageSettingsDialog(
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text("更改背景透明度", style = MaterialTheme.typography.titleMedium)
+                            AutoFitText(stringResource(R.string.bg_change_opacity), style = MaterialTheme.typography.titleMedium.localeScaled())
                             OutlinedTextField(
                                 shape = RoundedCornerShape(16.dp),
                                 value = opacityText,
@@ -154,9 +154,9 @@ internal fun BackgroundImageSettingsDialog(
                         }
                         if (opacityError) {
                             Text(
-                                text = "请输入 0 到 100 之间的数值",
+                                text = stringResource(R.string.bg_opacity_error),
                                 color = MaterialTheme.colorScheme.error,
-                                style = MaterialTheme.typography.bodySmall
+                                style = MaterialTheme.typography.bodySmall.localeScaled()
                             )
                         }
                         Slider(
@@ -182,9 +182,9 @@ internal fun BackgroundImageSettingsDialog(
                 }
 
                 BackgroundSettingRow(
-                    icon = Icons.Default.Restore,
-                    title = "恢复默认背景",
-                    description = "移除背景图片并恢复默认透明度",
+                    icon = Icons.Outlined.Restore,
+                    title = stringResource(R.string.bg_restore_default),
+                    description = stringResource(R.string.bg_restore_default_desc),
                     enabled = hasBackgroundImage || temporaryOpacity != PreferencesManager.DEFAULT_CHAT_BACKGROUND_OPACITY,
                     onClick = {
                         temporaryOpacity = PreferencesManager.DEFAULT_CHAT_BACKGROUND_OPACITY
@@ -205,7 +205,11 @@ internal fun BackgroundImageSettingsDialog(
                 },
                 enabled = !opacityError
             ) {
-                Text("完成")
+                AutoFitText(
+                    stringResource(R.string.common_done),
+                    style = MaterialTheme.typography.labelLarge.localeScaled(),
+                    textAlign = TextAlign.Center
+                )
             }
         }
     )
@@ -236,14 +240,14 @@ private fun BackgroundSettingRow(
         SettingIcon(icon = icon, enabled = enabled)
         Spacer(modifier = Modifier.width(16.dp))
         Column(modifier = Modifier.weight(1f)) {
-            Text(
+            AutoFitText(
                 text = title,
-                style = MaterialTheme.typography.titleMedium,
+                style = MaterialTheme.typography.titleMedium.localeScaled(),
                 color = if (enabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
             )
             Text(
                 text = description,
-                style = MaterialTheme.typography.bodySmall,
+                style = MaterialTheme.typography.bodySmall.localeScaled(),
                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = if (enabled) 1f else 0.38f)
             )
         }
@@ -317,12 +321,19 @@ fun BackgroundCropDialog(
                         onClick = onDismiss,
                         enabled = !saving,
                         modifier = Modifier.align(Alignment.CenterStart)
-                    ) { Text("取消") }
-                    Text(
-                        text = "裁剪背景图",
-                        style = MaterialTheme.typography.titleLarge,
+                    ) {
+                        AutoFitText(
+                            stringResource(R.string.common_cancel),
+                            style = MaterialTheme.typography.labelLarge.localeScaled(),
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                    AutoFitText(
+                        text = stringResource(R.string.bg_crop_title),
+                        style = MaterialTheme.typography.titleLarge.localeScaled(),
                         modifier = Modifier.align(Alignment.Center),
-                        color = MaterialTheme.colorScheme.onBackground
+                        color = MaterialTheme.colorScheme.onBackground,
+                        textAlign = TextAlign.Center
                     )
                     TextButton(
                         modifier = Modifier.align(Alignment.CenterEnd),
@@ -342,7 +353,11 @@ fun BackgroundCropDialog(
                             }
                         }
                     ) {
-                        Text("完成")
+                        AutoFitText(
+                            stringResource(R.string.common_done),
+                            style = MaterialTheme.typography.labelLarge.localeScaled(),
+                            textAlign = TextAlign.Center
+                        )
                     }
                 }
 
@@ -421,13 +436,17 @@ fun BackgroundCropDialog(
                             }
                         }
                         !loadFinished -> CircularProgressIndicator()
-                        else -> Text("无法读取所选图片", color = MaterialTheme.colorScheme.error)
+                        else -> Text(
+                            stringResource(R.string.bg_load_failed),
+                            color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.bodyMedium.localeScaled()
+                        )
                     }
                 }
 
                 Text(
-                    text = "拖动图片调整位置，双指缩放",
-                    style = MaterialTheme.typography.bodyMedium,
+                    text = stringResource(R.string.bg_crop_hint),
+                    style = MaterialTheme.typography.bodyMedium.localeScaled(),
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier
                         .align(Alignment.CenterHorizontally)

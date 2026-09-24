@@ -52,6 +52,26 @@
         android:name="android.support.FILE_PROVIDER_PATHS"
         android:resource="@xml/file_paths" />
     </provider>
+
+    <!-- 一并停掉 ProfileInstaller 的启动项：
+         它与应用内自更新、加密存储无关，只负责首次启动的 profile 预编译，
+         移除后不再发送无人接收的广播，也避免启动期异常 -->
+    <provider
+      android:name="androidx.startup.InitializationProvider"
+      android:authorities="${applicationId}.androidx-startup"
+      android:exported="false"
+      tools:node="merge">
+      <meta-data
+        android:name="androidx.profileinstaller.ProfileInstallerInitializer"
+        tools:node="remove" />
+    </provider>
+
+    <!-- 移除传递依赖 androidx.profileinstaller 注入的 receiver：
+         它声明了系统级权限 android.permission.DUMP，本项目并未使用，
+         保留会被安全软件按「高敏权限」判为灰软件 -->
+    <receiver
+      android:name="androidx.profileinstaller.ProfileInstallReceiver"
+      tools:node="remove" />
   </application>
 
 </manifest>

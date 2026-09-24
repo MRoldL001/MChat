@@ -2,6 +2,9 @@ package com.mroldl001.mimochat.data.preferences
 
 import android.content.Context
 import android.content.SharedPreferences
+import androidx.security.crypto.EncryptedSharedPreferences
+import androidx.security.crypto.MasterKey
+import com.mroldl001.mimochat.ui.theme.CodeBlockColorMode
 import com.mroldl001.mimochat.ui.theme.ThemeColor
 import com.mroldl001.mimochat.ui.theme.ThemeMode
 import javax.inject.Inject
@@ -14,8 +17,13 @@ class PreferencesManager @Inject constructor(
 ) {
     companion object {
         private const val PREFS_NAME = "mimochat_prefs"
+        /** API Key 单独存放：Keystore 主密钥 + AES256-GCM 加密。 */
+        private const val SECURE_PREFS_NAME = "mimochat_secure_prefs"
         private const val KEY_THEME_COLOR = "theme_color"
         private const val KEY_THEME_MODE = "theme_mode"
+        private const val KEY_CUSTOM_THEME_COLOR = "custom_theme_color"
+        private const val KEY_CODE_BLOCK_COLOR_MODE = "code_block_color_mode"
+        private const val KEY_APP_LANGUAGE = "app_language"
         private const val KEY_API_KEY = "api_key"
         private const val KEY_API_BASE_URL = "api_base_url"
         private const val KEY_CUSTOM_SYSTEM_PROMPT = "custom_system_prompt"
@@ -24,6 +32,9 @@ class PreferencesManager @Inject constructor(
         private const val KEY_SELECTED_MODEL_ID = "selected_model_id"
         private const val KEY_NOTIFICATION_PERMISSION_REQUESTED = "notification_permission_requested"
         private const val KEY_ACCEPT_PRERELEASE_UPDATES = "accept_prerelease_updates"
+        private const val KEY_SHOW_USAGE = "show_usage"
+        /** 控制台登录 Cookie（api-platform_serviceToken / userId），属敏感信息，优先加密存储。 */
+        private const val KEY_USAGE_COOKIE = "usage_cookie"
         private const val KEY_TEMPERATURE = "temperature"
         private const val KEY_TOP_P = "top_p"
         private const val KEY_FREQUENCY_PENALTY = "frequency_penalty"
@@ -35,10 +46,55 @@ class PreferencesManager @Inject constructor(
         const val DEFAULT_FREQUENCY_PENALTY = 0.0f
         const val DEFAULT_PRESENCE_PENALTY = 0.0f
         const val DEFAULT_CHAT_BACKGROUND_OPACITY = 0.28f
+        const val DEFAULT_CUSTOM_THEME_COLOR_HEX = "#000000"
     }
 
     private val prefs: SharedPreferences by lazy {
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    }
+
+    /**
+     * 敏感项（API Key）专属存储：Keystore 主密钥 + AES256-GCM。
+     * 首次创建要初始化 Keystore，有几十毫秒开销，因此保持懒加载；
+     * 设备不支持或 Keystore 异常时返回 null，调用方降级到普通 prefs。
+     */
+    private val securePrefs: SharedPreferences? by lazy {
+        runCatching {
+            val masterKey = MasterKey.Builder(context)
+                .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
+                .build()
+            EncryptedSharedPreferences.create(
+                context,
+                SECURE_PREFS_NAME,
+                masterKey,
+                EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+                EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
+            )
+        }.getOrNull()
+    }
+
+    private fun readSecureApiKey(): String? {
+        val secure = securePrefs ?: return null
+        return runCatching { secure.getString(KEY_API_KEY, null) }.getOrNull()
+    }
+
+    private fun writeSecureApiKey(key: String): Boolean {
+        val secure = securePrefs ?: return false
+        return runCatching {
+            secure.edit().putString(KEY_API_KEY, key).apply()
+            true
+        }.getOrDefault(false)
+    }
+
+    private fun readApiKey(): String {
+        readSecureApiKey()?.let { return it }
+
+        // 迁移：把升级前明文保存的 Key 搬进加密存储。
+        val legacy = prefs.getString(KEY_API_KEY, null).orEmpty()
+        if (legacy.isNotBlank() && writeSecureApiKey(legacy)) {
+            prefs.edit().remove(KEY_API_KEY).apply()
+        }
+        return legacy
     }
 
     fun getThemeColor(): ThemeColor {
@@ -52,6 +108,40 @@ class PreferencesManager @Inject constructor(
 
     fun saveThemeColor(color: ThemeColor) {
         prefs.edit().putString(KEY_THEME_COLOR, color.name).apply()
+    }
+
+    fun getCustomThemeColorHex(): String {
+        return prefs.getString(KEY_CUSTOM_THEME_COLOR, DEFAULT_CUSTOM_THEME_COLOR_HEX)
+            ?: DEFAULT_CUSTOM_THEME_COLOR_HEX
+    }
+
+    fun saveCustomThemeColorHex(hex: String) {
+        prefs.edit().putString(KEY_CUSTOM_THEME_COLOR, hex).apply()
+    }
+
+    fun getCodeBlockColorMode(): CodeBlockColorMode {
+        val name = prefs.getString(KEY_CODE_BLOCK_COLOR_MODE, CodeBlockColorMode.DARK.name)
+        return try {
+            CodeBlockColorMode.valueOf(name ?: CodeBlockColorMode.DARK.name)
+        } catch (e: IllegalArgumentException) {
+            CodeBlockColorMode.DARK
+        }
+    }
+
+    fun saveCodeBlockColorMode(mode: CodeBlockColorMode) {
+        prefs.edit().putString(KEY_CODE_BLOCK_COLOR_MODE, mode.name).apply()
+    }
+
+    /**
+     * 应用显示语言，默认 "system"（跟随手机系统语言）。
+     * 取值见 ui.settings.AppLocale：system / zh-CN / zh-TW / en / ja。
+     */
+    fun getAppLanguage(): String {
+        return prefs.getString(KEY_APP_LANGUAGE, "system") ?: "system"
+    }
+
+    fun saveAppLanguage(languageCode: String) {
+        prefs.edit().putString(KEY_APP_LANGUAGE, languageCode).apply()
     }
 
     fun getThemeMode(): ThemeMode {
@@ -68,11 +158,16 @@ class PreferencesManager @Inject constructor(
     }
 
     fun getApiKey(): String {
-        return prefs.getString(KEY_API_KEY, "") ?: ""
+        return readApiKey()
     }
 
     fun saveApiKey(key: String) {
-        prefs.edit().putString(KEY_API_KEY, key).apply()
+        if (writeSecureApiKey(key)) {
+            // 清掉可能残留的明文副本
+            if (prefs.contains(KEY_API_KEY)) prefs.edit().remove(KEY_API_KEY).apply()
+        } else {
+            prefs.edit().putString(KEY_API_KEY, key).apply()
+        }
     }
 
     fun getApiBaseUrl(): String {
@@ -135,6 +230,52 @@ class PreferencesManager @Inject constructor(
 
     fun saveAcceptPrereleaseUpdates(accept: Boolean) {
         prefs.edit().putBoolean(KEY_ACCEPT_PRERELEASE_UPDATES, accept).apply()
+    }
+
+    fun getShowUsage(): Boolean {
+        return prefs.getBoolean(KEY_SHOW_USAGE, true)
+    }
+
+    fun saveShowUsage(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_SHOW_USAGE, enabled).apply()
+    }
+
+    /**
+     * 控制台登录 Cookie。小米的用量接口只认这个（API Key 打不通控制台接口），
+     * 属凭证级数据，因此和 API Key 一样优先写入加密存储。
+     */
+    fun getUsageCookie(): String {
+        val secure = securePrefs
+        if (secure != null) {
+            val value = runCatching { secure.getString(KEY_USAGE_COOKIE, null) }.getOrNull()
+            if (!value.isNullOrBlank()) return value
+        }
+        return prefs.getString(KEY_USAGE_COOKIE, null).orEmpty()
+    }
+
+    fun saveUsageCookie(cookie: String) {
+        val secure = securePrefs
+        if (secure != null && cookie.isNotBlank()) {
+            val written = runCatching {
+                secure.edit().putString(KEY_USAGE_COOKIE, cookie).apply()
+                true
+            }.getOrDefault(false)
+            if (written) {
+                // 清掉可能残留的明文副本
+                if (prefs.contains(KEY_USAGE_COOKIE)) prefs.edit().remove(KEY_USAGE_COOKIE).apply()
+                return
+            }
+        }
+        if (cookie.isBlank()) {
+            secure?.let { runCatching { it.edit().remove(KEY_USAGE_COOKIE).apply() } }
+            prefs.edit().remove(KEY_USAGE_COOKIE).apply()
+        } else {
+            prefs.edit().putString(KEY_USAGE_COOKIE, cookie).apply()
+        }
+    }
+
+    fun clearUsageCookie() {
+        saveUsageCookie("")
     }
 
     fun getTemperature(): Float {

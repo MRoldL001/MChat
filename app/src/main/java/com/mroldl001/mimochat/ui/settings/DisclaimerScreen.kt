@@ -4,11 +4,12 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
@@ -16,6 +17,7 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.jeziellago.compose.markdowntext.MarkdownText
+import com.mroldl001.mimochat.R
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -26,10 +28,10 @@ internal fun DisclaimerScreen(
         containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             TopAppBar(
-                title = { Text("免责声明") },
+                title = { Text(stringResource(R.string.about_disclaimer)) },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
+                        Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = stringResource(R.string.back))
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -52,48 +54,48 @@ internal fun DisclaimerScreen(
                     .padding(horizontal = 24.dp, vertical = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(24.dp)
             ) {
-                DisclaimerSection("非官方声明") {
+                DisclaimerSection(stringResource(R.string.disclaimer_section_non_official)) {
                     Text(
                         text = buildAnnotatedString {
-                            append("本应用（MIMO Chat）为第三方开发的开源客户端，")
+                            append(stringResource(R.string.disclaimer_non_official_lead))
                             withStyle(SpanStyle(fontWeight = FontWeight.Bold)) {
-                                append("与小米公司（Xiaomi Corporation）及其关联公司（下称小米公司）无任何隶属、授权或合作关系")
+                                append(stringResource(R.string.disclaimer_non_official_emphasis))
                             }
-                            append("。")
+                            append(stringResource(R.string.disclaimer_non_official_tail))
                         }
                     )
                 }
 
-                DisclaimerSection("知识产权") {
+                DisclaimerSection(stringResource(R.string.disclaimer_section_ip)) {
                     Text(
                         text = buildAnnotatedString {
-                            append("“小米”、“Xiaomi”、“MiMo” 等商标及图形标识归小米公司所有。本应用使用上述标识仅用于描述功能兼容性（")
+                            append(stringResource(R.string.disclaimer_ip_lead))
                             withStyle(SpanStyle(fontWeight = FontWeight.Bold)) {
-                                append("即指示性合理使用")
+                                append(stringResource(R.string.disclaimer_ip_emphasis))
                             }
-                            append("）。")
+                            append(stringResource(R.string.disclaimer_ip_tail))
                         }
                     )
                 }
 
-                DisclaimerSection("隐私保护") {
-                    Text("本应用所有数据均存储在本地设备，对话直接通过 API 与小米服务器通信，开发者不收集或存储任何用户数据。")
+                DisclaimerSection(stringResource(R.string.disclaimer_section_privacy)) {
+                    Text(stringResource(R.string.disclaimer_privacy))
                 }
 
-                DisclaimerSection("风险承担") {
+                DisclaimerSection(stringResource(R.string.disclaimer_section_risk)) {
                     Text(
                         text = buildAnnotatedString {
                             withStyle(SpanStyle(fontWeight = FontWeight.Bold)) {
-                                append("本应用按“as-is”原则提供，不包含任何明示或暗示的保证")
+                                append(stringResource(R.string.disclaimer_risk_emphasis))
                             }
-                            append("。用户需自行承担使用本应用带来的风险，包括但不限于数据丢失、隐私泄露或设备损坏。开发者与小米公司不对本应用的合法性、安全性及功能性负责。")
+                            append(stringResource(R.string.disclaimer_risk_tail))
                         }
                     )
                 }
 
-                DisclaimerSection("反馈与支持") {
+                DisclaimerSection(stringResource(R.string.disclaimer_section_feedback)) {
                     MarkdownText(
-                        markdown = "若在使用中遇到问题，请前往 [Issues](https://github.com/MRoldL001/MIMO-Chat/issues) 反馈，若有能力也可尝试 fork 源码自行修改后发起 PR。",
+                        markdown = stringResource(R.string.disclaimer_feedback),
                         modifier = Modifier.fillMaxWidth(),
                         linkColor = MaterialTheme.colorScheme.primary,
                         style = MaterialTheme.typography.bodyLarge.copy(

@@ -1,5 +1,7 @@
 
 package com.mroldl001.mimochat.ui.chat.components
+import com.mroldl001.mimochat.R
+import androidx.compose.ui.res.stringResource
 
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.animateColorAsState
@@ -70,20 +72,27 @@ fun ModelSelector(
             contentAlignment = Alignment.CenterStart
         ) {
             Crossfade(
-                targetState = currentModel?.name ?: "选择模型",
+                targetState = currentModel?.name ?: stringResource(R.string.select_model),
                 animationSpec = tween(
                     durationMillis = 180,
                     easing = FastOutSlowInEasing
                 ),
                 label = "selected_model_transition"
             ) { modelName ->
+                val isProUltra = currentModel?.id?.contains("ultraspeed", ignoreCase = true) == true
                 val suffixColor = MaterialTheme.colorScheme.primary
-                val styledName = remember(modelName, suffixColor) {
+                val neonBrush = rememberNeonFlowBrush(suffixColor)
+                val styledName = remember(modelName, suffixColor, neonBrush, isProUltra) {
                     buildAnnotatedString {
                         append(modelName)
                         modelSuffixPattern.find(modelName)?.groups?.get(1)?.let { suffix ->
+                            val spanStyle = if (isProUltra) {
+                                SpanStyle(brush = neonBrush, fontWeight = FontWeight.ExtraBold)
+                            } else {
+                                SpanStyle(color = suffixColor, fontWeight = FontWeight.ExtraBold)
+                            }
                             addStyle(
-                                SpanStyle(color = suffixColor, fontWeight = FontWeight.ExtraBold),
+                                spanStyle,
                                 start = suffix.range.first,
                                 end = suffix.range.last + 1
                             )
@@ -104,7 +113,7 @@ fun ModelSelector(
         )
         Icon(
             imageVector = Icons.Default.ArrowDropDown,
-            contentDescription = "选择模型",
+            contentDescription = stringResource(R.string.select_model),
             tint = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier
                 .padding(start = 4.dp)
@@ -129,7 +138,7 @@ fun ModelSelector(
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Text(
-                        text = "选择模型",
+                        text = stringResource(R.string.select_model),
                         style = MaterialTheme.typography.headlineSmall,
                         fontWeight = FontWeight.Bold,
                         modifier = Modifier.padding(vertical = 8.dp)
@@ -208,7 +217,7 @@ private fun ModelItem(
         Text(
             text = model.name,
             style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Medium,
+            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
             color = textColor
         )
     }

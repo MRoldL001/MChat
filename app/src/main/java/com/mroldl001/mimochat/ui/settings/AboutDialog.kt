@@ -12,6 +12,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Public
+import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -26,6 +27,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.mroldl001.mimochat.R
@@ -64,47 +66,48 @@ internal fun AboutDialog(
             ) {
                 Image(
                     painter = painterResource(R.mipmap.ic_launcher_round),
-                    contentDescription = "MIMO Chat 图标",
+                    contentDescription = stringResource(R.string.about_app_icon_desc),
                     modifier = Modifier
                         .size(72.dp)
                         .clip(CircleShape)
                 )
                 Text(
-                    text = "MIMO Chat",
+                    text = "MChat",
                     style = MaterialTheme.typography.headlineSmall,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.primary
                 )
                 Text(
-                    text = "版本 ${versionName.ifBlank { "未知" }}",
+                    text = stringResource(R.string.about_version) + " " + versionName.ifBlank { stringResource(R.string.about_unknown) },
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(top = 4.dp)
                 )
                 Spacer(Modifier.height(22.dp))
                 AboutInfoRow(
-                    icon = Icons.Default.Public,
-                    title = "作者博客",
-                    description = "作者 MRoldL001 的个人博客",
+                    icon = Icons.Outlined.Public,
+                    title = stringResource(R.string.about_author_blog),
+                    description = stringResource(R.string.about_author_blog_desc),
                     onClick = { uriHandler.openUri("https://mroldl001.top") }
                 )
                 AboutInfoRow(
-                    icon = Icons.Default.Code,
-                    title = "开源库",
-                    description = "查看本应用用到的开源库",
+                    icon = Icons.Outlined.Code,
+                    title = stringResource(R.string.about_open_source),
+                    description = stringResource(R.string.about_open_source_desc),
                     onClick = { showOpenSource = true }
                 )
                 AboutInfoRow(
-                    icon = Icons.Default.Info,
-                    title = "免责声明",
-                    description = "应用信息、知识产权与风险声明",
+                    icon = Icons.Outlined.Info,
+                    title = stringResource(R.string.about_disclaimer),
+                    description = stringResource(R.string.about_disclaimer_desc),
                     onClick = onDisclaimerClick
                 )
+                Spacer(Modifier.height(16.dp))
             }
         },
         confirmButton = {
             TextButton(onClick = onDismiss) {
-                Text("关闭")
+                Text(stringResource(R.string.about_close))
             }
         },
         dismissButton = {}

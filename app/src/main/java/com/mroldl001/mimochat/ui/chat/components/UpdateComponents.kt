@@ -18,15 +18,14 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Science
 import androidx.compose.material.icons.filled.SystemUpdate
+import androidx.compose.material.icons.outlined.*
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -39,6 +38,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.res.stringResource
+import com.mroldl001.mimochat.R
 import com.mroldl001.mimochat.data.update.GitHubRelease
 import com.mroldl001.mimochat.ui.chat.viewmodel.UpdateUiState
 
@@ -62,38 +63,20 @@ internal fun UpdateSettingsItem(
                 .padding(vertical = 12.dp)
         ) {
             AnimatedUpdateIcon(
-                icon = Icons.Default.SystemUpdate,
+                icon = Icons.Outlined.SystemUpdate,
                 loading = state is UpdateUiState.Checking
             )
             Spacer(modifier = Modifier.width(16.dp))
             Column {
                 Text(
-                    text = "检查更新",
-                    style = MaterialTheme.typography.titleMedium
+                    text = stringResource(R.string.check_update),
+                    style = MaterialTheme.typography.titleMedium,
+                    color = animateThemeColor(MaterialTheme.colorScheme.onSurface, "update_item_title")
                 )
                 Text(
-                    text = "从 Github Releases 获取最新版本",
+                    text = stringResource(R.string.check_update_desc),
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-        }
-
-        val message = when (state) {
-            is UpdateUiState.Failed -> "检查失败：${state.message}"
-            else -> null
-        }
-        if (message != null) {
-            Surface(
-                color = MaterialTheme.colorScheme.surfaceContainerHighest,
-                shape = RoundedCornerShape(12.dp),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text(
-                    text = message,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
+                    color = animateThemeColor(MaterialTheme.colorScheme.onSurfaceVariant, "update_item_desc")
                 )
             }
         }
@@ -150,14 +133,18 @@ internal fun PrereleaseUpdateSetting(
             .padding(top = 12.dp, bottom = 4.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        AnimatedUpdateIcon(icon = Icons.Default.Science)
+        AnimatedUpdateIcon(icon = Icons.Outlined.NewReleases)
         Spacer(modifier = Modifier.width(16.dp))
         Column(modifier = Modifier.weight(1f)) {
-            Text("接受测试版更新", style = MaterialTheme.typography.titleMedium)
             Text(
-                "测试版并不稳定，但可以提前体验新功能",
+                stringResource(R.string.prerelease_update_title),
+                style = MaterialTheme.typography.titleMedium,
+                color = animateThemeColor(MaterialTheme.colorScheme.onSurface, "prerelease_title")
+            )
+            Text(
+                stringResource(R.string.prerelease_update_desc),
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = animateThemeColor(MaterialTheme.colorScheme.onSurfaceVariant, "prerelease_desc")
             )
         }
         Spacer(modifier = Modifier.width(12.dp))
@@ -175,7 +162,7 @@ internal fun UpdateReleaseDialog(
         modifier = Modifier.settingsDialogWidth(),
         onDismissRequest = onDismiss,
         containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-        icon = { SettingsDialogIcon(Icons.Default.SystemUpdate) },
+        icon = { SettingsDialogIcon(Icons.Outlined.SystemUpdate) },
         title = {
             Text(release.name)
         },
@@ -186,7 +173,7 @@ internal fun UpdateReleaseDialog(
                     .heightIn(max = 360.dp)
                     .verticalScroll(rememberScrollState())
             ) {
-                Text("发行版说明", fontWeight = FontWeight.Bold)
+                Text(stringResource(R.string.update_release_notes), fontWeight = FontWeight.Bold)
                 Text(
                     text = release.notes,
                     style = MaterialTheme.typography.bodyMedium,
@@ -195,10 +182,10 @@ internal fun UpdateReleaseDialog(
             }
         },
         confirmButton = {
-            TextButton(onClick = onDownload) { Text("下载并安装") }
+            TextButton(onClick = onDownload) { Text(stringResource(R.string.download_and_install)) }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("取消") }
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.common_cancel)) }
         }
     )
 }

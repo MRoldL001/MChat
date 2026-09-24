@@ -2,14 +2,16 @@ package com.mroldl001.mimochat.ui.settings
 
 import android.content.Intent
 import android.net.Uri
-import android.widget.Toast
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.ScrollState
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -17,8 +19,9 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.outlined.*
+import androidx.compose.material.icons.automirrored.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -36,6 +39,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.res.stringResource
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.mroldl001.mimochat.data.preferences.PreferencesManager
@@ -45,21 +49,34 @@ import com.mroldl001.mimochat.ui.chat.ParameterSettingsDialog
 import com.mroldl001.mimochat.ui.chat.components.*
 import com.mroldl001.mimochat.ui.chat.viewmodel.ChatViewModel
 import com.mroldl001.mimochat.ui.chat.viewmodel.UpdateUiState
+import com.mroldl001.mimochat.ui.theme.CodeBlockColorMode
 import com.mroldl001.mimochat.ui.theme.ThemeColor
 import com.mroldl001.mimochat.ui.theme.ThemeMode
 import com.mroldl001.mimochat.ui.theme.supportsDynamicColor
+import com.mroldl001.mimochat.ui.theme.themePreviewColorScheme
+import com.mroldl001.mimochat.R
+import com.mroldl001.mimochat.ui.settings.AppLocale
+import com.mroldl001.mimochat.ui.settings.LanguageSettingsDialog
 import coil.compose.AsyncImage
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
+import java.net.HttpURLConnection
 import java.net.URL
+import java.net.URLEncoder
 
 @Composable
 fun SettingsScreen(
     onNavigateBack: () -> Unit,
     onThemeChanged: (ThemeColor, ThemeMode) -> Unit,
+    onCodeBlockColorModeChanged: (CodeBlockColorMode) -> Unit = {},
     onNavigateToDisclaimer: () -> Unit,
+    onNavigateToExperimentalFeatures: () -> Unit,
+    onNavigateToEasterEggHistory: () -> Unit,
+    isExpandedScreen: Boolean = false,
     scrollState: ScrollState = rememberScrollState(),
+    appLanguage: String = AppLocale.SYSTEM,
+    onLanguageSelected: (String) -> Unit = {},
     viewModel: ChatViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -71,6 +88,9 @@ fun SettingsScreen(
     var showPrompt by remember { mutableStateOf(false) }
     var showApiUrl by remember { mutableStateOf(false) }
     var showAbout by remember { mutableStateOf(false) }
+    var showCustomColor by remember { mutableStateOf(false) }
+    var showLanguageDialog by remember { mutableStateOf(false) }
+    var customColorHex by remember { mutableStateOf(viewModel.getCustomThemeColorHex()) }
     var pendingCropUri by rememberSaveable { mutableStateOf<String?>(null) }
 
     val backgroundPicker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
@@ -83,14 +103,6 @@ fun SettingsScreen(
         deleteStoredChatBackground(context, uiState.chatBackgroundUri)
         viewModel.setChatBackgroundUri(null)
         viewModel.setChatBackgroundOpacity(PreferencesManager.DEFAULT_CHAT_BACKGROUND_OPACITY)
-    }
-
-    LaunchedEffect(uiState.updateState) {
-        val updateState = uiState.updateState
-        if (updateState is UpdateUiState.Latest) {
-            Toast.makeText(context, updateState.message, Toast.LENGTH_SHORT).show()
-            viewModel.clearUpdateState()
-        }
     }
 
     SettingsPageContent(
@@ -108,11 +120,24 @@ fun SettingsScreen(
         onParameterSettingsClick = { showParameters = true },
         onCustomPromptClick = { showPrompt = true },
         onApiBaseUrlClick = { showApiUrl = true },
-        acceptPrereleaseUpdates = uiState.acceptPrereleaseUpdates,
-        onAcceptPrereleaseUpdatesChanged = viewModel::setAcceptPrereleaseUpdates,
         onAboutClick = { showAbout = true },
+        onEasterEggHistoryClick = onNavigateToEasterEggHistory,
         onNavigateBack = onNavigateBack,
-        scrollState = scrollState
+        onExperimentalFeaturesClick = onNavigateToExperimentalFeatures,
+        customColorHex = customColorHex,
+        onCustomColorClicked = { showCustomColor = true },
+        onLanguageClick = { showLanguageDialog = true },
+        codeBlockColorMode = uiState.codeBlockColorMode,
+        onCodeBlockColorModeSelected = { mode ->
+            viewModel.setCodeBlockColorMode(mode)
+            onCodeBlockColorModeChanged(mode)
+        },
+        isExpandedScreen = isExpandedScreen,
+        scrollState = scrollState,
+        appLanguage = appLanguage,
+        onLanguageSelected = onLanguageSelected,
+        showUsage = uiState.showUsage,
+        onShowUsageChanged = viewModel::setShowUsage
     )
 
     if (showApiKey) {
@@ -194,6 +219,28 @@ fun SettingsScreen(
             }
         )
     }
+    if (showCustomColor) {
+        CustomColorDialog(
+            initialHex = viewModel.getCustomThemeColorHex(),
+            onCancel = { showCustomColor = false },
+            onSave = { hex ->
+                viewModel.setCustomThemeColorHex(hex)
+                customColorHex = hex
+                onThemeChanged(ThemeColor.CUSTOM, uiState.themeMode)
+                showCustomColor = false
+            }
+        )
+    }
+    if (showLanguageDialog) {
+        LanguageSettingsDialog(
+            currentLanguage = appLanguage,
+            onLanguageSelected = { lang ->
+                onLanguageSelected(lang)
+                showLanguageDialog = false
+            },
+            onDismiss = { showLanguageDialog = false }
+        )
+    }
     (uiState.updateState as? UpdateUiState.Available)?.let { update ->
         UpdateReleaseDialog(
             release = update.release,
@@ -216,22 +263,37 @@ private fun SettingsPageContent(
     onParameterSettingsClick: () -> Unit,
     onCustomPromptClick: () -> Unit,
     onApiBaseUrlClick: () -> Unit,
-    acceptPrereleaseUpdates: Boolean,
-    onAcceptPrereleaseUpdatesChanged: (Boolean) -> Unit,
     onAboutClick: () -> Unit,
+    onEasterEggHistoryClick: () -> Unit,
     onNavigateBack: () -> Unit,
-    scrollState: ScrollState
+    onExperimentalFeaturesClick: () -> Unit,
+        customColorHex: String,
+        onCustomColorClicked: () -> Unit,
+        onLanguageClick: () -> Unit,
+    codeBlockColorMode: CodeBlockColorMode,
+    onCodeBlockColorModeSelected: (CodeBlockColorMode) -> Unit,
+    isExpandedScreen: Boolean,
+    scrollState: ScrollState,
+    appLanguage: String,
+    onLanguageSelected: (String) -> Unit,
+    showUsage: Boolean = false,
+    onShowUsageChanged: (Boolean) -> Unit = {}
 ) {
     val pageColor by animateColorAsState(
         targetValue = MaterialTheme.colorScheme.background,
         animationSpec = tween(durationMillis = 450),
         label = "settings_page_color"
     )
+    val previewDark = when (themeMode) {
+        ThemeMode.DARK -> true
+        ThemeMode.LIGHT -> false
+        ThemeMode.FOLLOW_SYSTEM -> isSystemInDarkTheme()
+    }
     Scaffold(
         containerColor = pageColor,
         topBar = {
             TopAppBar(
-                title = { Text("设置") },
+                title = { Text(stringResource(R.string.settings_title)) },
                 navigationIcon = {
                     val backInteractionSource = remember { MutableInteractionSource() }
                     Box(
@@ -245,11 +307,13 @@ private fun SettingsPageContent(
                             ),
                         contentAlignment = Alignment.Center
                     ) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
+                        Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = stringResource(R.string.back))
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = pageColor
+                    containerColor = pageColor,
+                    titleContentColor = animateThemeColor(MaterialTheme.colorScheme.onSurface, "settings_title"),
+                    navigationIconContentColor = animateThemeColor(MaterialTheme.colorScheme.onSurface, "settings_back_icon")
                 )
             )
         }
@@ -258,77 +322,215 @@ private fun SettingsPageContent(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues),
-            contentAlignment = Alignment.TopCenter
+            contentAlignment = Alignment.TopStart
         ) {
+            val columnModifier = if (isExpandedScreen) {
+                Modifier.fillMaxWidth()
+            } else {
+                Modifier.widthIn(max = 560.dp).fillMaxWidth()
+            }
             Column(
-                modifier = Modifier
-                    .widthIn(max = 560.dp)
-                    .fillMaxWidth()
+                modifier = columnModifier
                     .verticalScroll(scrollState)
                     .padding(horizontal = 24.dp, vertical = 12.dp),
                 verticalArrangement = Arrangement.spacedBy(20.dp)
             ) {
-                ShowMeTheCastleBanner()
+                SteelBallRunBanner()
 
-                SettingsGroupTitle("外观")
+                SettingsGroupTitle(stringResource(R.string.group_appearance))
 
-                SettingSectionHeader(Icons.Default.Brightness7, "显示模式")
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                    PageThemeModeOption(themeMode == ThemeMode.LIGHT, "白天", Color.White) { onThemeChanged(themeColor, ThemeMode.LIGHT) }
-                    PageThemeModeOption(themeMode == ThemeMode.DARK, "夜间", Color.Black) { onThemeChanged(themeColor, ThemeMode.DARK) }
-                    PageThemeModeOption(themeMode == ThemeMode.FOLLOW_SYSTEM, "跟随系统", Color.Gray) { onThemeChanged(themeColor, ThemeMode.FOLLOW_SYSTEM) }
+                SettingSectionHeader(Icons.Outlined.Brightness7, stringResource(R.string.display_mode))
+                // 当前主题为自定义色彩时，显示模式预览也要用用户设置的自定义色（否则回退成默认黑色）
+                val displayModeCustomHex = if (themeColor == ThemeColor.CUSTOM) customColorHex else null
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = if (isExpandedScreen) {
+                        Arrangement.spacedBy(12.dp, Alignment.Start)
+                    } else {
+                        Arrangement.SpaceEvenly
+                    }
+                ) {
+                    ThemePreviewCard(
+                        label = stringResource(R.string.preview_day),
+                        scheme = themePreviewColorScheme(themeColor, dark = false, customColorHex = displayModeCustomHex),
+                        selected = themeMode == ThemeMode.LIGHT
+                    ) { onThemeChanged(themeColor, ThemeMode.LIGHT) }
+                    ThemePreviewCard(
+                        label = stringResource(R.string.preview_night),
+                        scheme = themePreviewColorScheme(themeColor, dark = true, customColorHex = displayModeCustomHex),
+                        selected = themeMode == ThemeMode.DARK
+                    ) { onThemeChanged(themeColor, ThemeMode.DARK) }
+                    ThemePreviewCard(
+                        label = stringResource(R.string.preview_follow_system),
+                        scheme = themePreviewColorScheme(themeColor, dark = false, customColorHex = displayModeCustomHex),
+                        bottomScheme = themePreviewColorScheme(themeColor, dark = true, customColorHex = displayModeCustomHex),
+                        selected = themeMode == ThemeMode.FOLLOW_SYSTEM
+                    ) { onThemeChanged(themeColor, ThemeMode.FOLLOW_SYSTEM) }
                 }
 
-                SettingSectionHeader(Icons.Default.Palette, "主题颜色")
+                SettingSectionHeader(Icons.Outlined.Palette, stringResource(R.string.theme_color))
                 val colors = buildList {
                     add(ThemeColor.WHITE)
+                    add(ThemeColor.CUSTOM)
                     if (supportsDynamicColor()) add(ThemeColor.AUTO_COLOR)
                     add(ThemeColor.HATSUNE_MIKU)
+                    add(ThemeColor.TETO_RED)
                     add(ThemeColor.MI_ORANGE)
                     add(ThemeColor.GREEN)
                     add(ThemeColor.PURPLE)
+                    add(ThemeColor.DEEP_BLUE)
                 }
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    colors.chunked(3).forEach { rowColors ->
-                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                            rowColors.forEach { option ->
-                                PageThemeColorOption(
-                                    selected = themeColor == option,
+                if (isExpandedScreen) {
+                    LazyRow(
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        items(colors, key = { it.name }) { option ->
+                            ThemePreviewCard(
+                                label = themeColorLabel(option),
+                                scheme = themePreviewColorScheme(option, dark = previewDark, customColorHex = if (option == ThemeColor.CUSTOM) customColorHex else null),
+                                selected = themeColor == option,
+                                width = 104.dp
+                            ) { if (option == ThemeColor.CUSTOM) onCustomColorClicked() else onThemeChanged(option, themeMode) }
+                        }
+                    }
+                } else {
+                    // 与显示模式行的首卡左对齐：SpaceEvenly 的首卡左侧留白 = 剩余空间 / 4
+                    BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+                        val themeRowStartPadding = ((maxWidth - 100.dp * 3) / 4).coerceAtLeast(0.dp)
+                        LazyRow(
+                            contentPadding = PaddingValues(start = themeRowStartPadding),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            items(colors, key = { it.name }) { option ->
+                                ThemePreviewCard(
                                     label = themeColorLabel(option),
-                                    color = themeColorValue(option),
-                                    isAutoColor = option == ThemeColor.AUTO_COLOR,
-                                    onClick = { onThemeChanged(option, themeMode) }
-                                )
+                                    scheme = themePreviewColorScheme(option, dark = previewDark, customColorHex = if (option == ThemeColor.CUSTOM) customColorHex else null),
+                                    selected = themeColor == option,
+                                    width = 104.dp
+                                ) { if (option == ThemeColor.CUSTOM) onCustomColorClicked() else onThemeChanged(option, themeMode) }
                             }
-                            repeat(3 - rowColors.size) { Spacer(Modifier.width(80.dp)) }
                         }
                     }
                 }
 
-                SettingAction(Icons.Default.Image, "聊天背景图", "选择聊天中使用的背景图片", onBackgroundImageClick)
+                SettingSectionHeader(Icons.Outlined.Code, stringResource(R.string.code_block_color))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = if (isExpandedScreen) {
+                        Arrangement.spacedBy(12.dp, Alignment.Start)
+                    } else {
+                        Arrangement.SpaceEvenly
+                    }
+                ) {
+                    CodeBlockPreviewCard(
+                        label = stringResource(R.string.code_block_dark),
+                        dark = true,
+                        selected = codeBlockColorMode == CodeBlockColorMode.DARK
+                    ) { onCodeBlockColorModeSelected(CodeBlockColorMode.DARK) }
+                    CodeBlockPreviewCard(
+                        label = stringResource(R.string.code_block_light),
+                        dark = false,
+                        selected = codeBlockColorMode == CodeBlockColorMode.LIGHT
+                    ) { onCodeBlockColorModeSelected(CodeBlockColorMode.LIGHT) }
+                    CodeBlockPreviewCard(
+                        label = stringResource(R.string.code_block_follow),
+                        dark = previewDark,
+                        // 上浅下深硬分割，直观表达「跟随切换」
+                        split = true,
+                        selected = codeBlockColorMode == CodeBlockColorMode.FOLLOW
+                    ) { onCodeBlockColorModeSelected(CodeBlockColorMode.FOLLOW) }
+                }
 
-                SettingsGroupTitle("API")
+                SettingAction(Icons.Outlined.Image, stringResource(R.string.chat_background), stringResource(R.string.chat_background_desc), onBackgroundImageClick)
 
-                SettingAction(Icons.Default.Key, "API Key", "配置您的 API 密钥以使用服务", onApiKeyClick)
-                SettingAction(Icons.Default.Link, "API Base URL", "配置 API 服务器地址", onApiBaseUrlClick)
+                SettingsGroupTitle(stringResource(R.string.group_api))
 
-                SettingsGroupTitle("个性化")
+                SettingAction(Icons.Outlined.VpnKey, stringResource(R.string.api_key), stringResource(R.string.api_key_desc), onApiKeyClick)
+                SettingAction(Icons.Outlined.Link, stringResource(R.string.api_base_url), stringResource(R.string.api_base_url_desc), onApiBaseUrlClick)
 
-                SettingAction(Icons.Default.ChatBubble, "自定义系统提示词", "设置个性化的系统提示词", onCustomPromptClick)
-                SettingAction(Icons.Default.Tune, "参数设置", "调整模型参数", onParameterSettingsClick)
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { onShowUsageChanged(!showUsage) }
+                        .padding(vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    SettingPageIcon(Icons.Outlined.AccountBalanceWallet)
+                    Spacer(Modifier.width(16.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            stringResource(R.string.usage_setting_title),
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            stringResource(R.string.usage_setting_desc),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Spacer(Modifier.width(12.dp))
+                    Switch(checked = showUsage, onCheckedChange = onShowUsageChanged)
+                }
 
-                SettingsGroupTitle("其它")
+                SettingsGroupTitle(stringResource(R.string.group_experience))
 
+                SettingAction(
+                    Icons.Outlined.Translate,
+                    stringResource(R.string.language),
+                    AppLocale.label(appLanguage),
+                    onClick = onLanguageClick
+                )
+                SettingAction(Icons.Outlined.Chat, stringResource(R.string.custom_system_prompt), stringResource(R.string.custom_system_prompt_desc), onCustomPromptClick)
+                SettingAction(Icons.Outlined.Tune, stringResource(R.string.parameter_settings), stringResource(R.string.parameter_settings_desc), onParameterSettingsClick)
+
+                SettingsGroupTitle(stringResource(R.string.group_other))
+
+                SettingAction(Icons.Outlined.Science, stringResource(R.string.experimental_features), stringResource(R.string.experimental_features_desc), onExperimentalFeaturesClick)
                 UpdateSettingsItem(updateState, onCheckForUpdate)
-                PrereleaseUpdateSetting(acceptPrereleaseUpdates, onAcceptPrereleaseUpdatesChanged)
-                SettingAction(Icons.Default.Info, "关于 MIMO Chat", "应用信息与声明", onAboutClick)
+                SettingAction(Icons.Outlined.Egg, stringResource(R.string.history_easter_egg), stringResource(R.string.history_easter_egg_desc), onEasterEggHistoryClick)
+                SettingAction(Icons.Outlined.Info, stringResource(R.string.about_mchat), stringResource(R.string.about_mchat_desc), onAboutClick)
             }
         }
     }
 }
 
+private suspend fun fetchAniListCover(title: String): String? = withContext(Dispatchers.IO) {
+    runCatching {
+        val query = "query (\$search: String) { Media (search: \$search, type: ANIME) { coverImage { extraLarge large } } }"
+        val payload = JSONObject().apply {
+            put("query", query)
+            put("variables", JSONObject().apply { put("search", title) })
+        }.toString()
+        val connection = URL("https://graphql.anilist.co").openConnection() as HttpURLConnection
+        try {
+            connection.apply {
+                requestMethod = "POST"
+                connectTimeout = 5_000
+                readTimeout = 5_000
+                doOutput = true
+                setRequestProperty("Content-Type", "application/json")
+                setRequestProperty("Accept", "application/json")
+                setRequestProperty("User-Agent", "Mozilla/5.0")
+            }
+            connection.outputStream.use { it.write(payload.toByteArray(Charsets.UTF_8)) }
+            if (connection.responseCode !in 200..299) return@runCatching null
+            val body = connection.inputStream.bufferedReader().use { it.readText() }
+            val cover = JSONObject(body)
+                .optJSONObject("data")?.optJSONObject("Media")
+                ?.optJSONObject("coverImage")
+            cover?.optString("extraLarge")?.takeIf { it.isNotBlank() }
+                ?: cover?.optString("large")?.takeIf { it.isNotBlank() }
+        } finally {
+            connection.disconnect()
+        }
+    }.getOrNull()
+}
+
 @Composable
-private fun ShowMeTheCastleBanner() {
+private fun SteelBallRunBanner() {
     val context = LocalContext.current
     val versionName = remember(context) {
         context.packageManager.getPackageInfo(context.packageName, 0).versionName.orEmpty()
@@ -357,23 +559,7 @@ private fun ShowMeTheCastleBanner() {
         label = "castle_card_accent_color"
     )
     val coverUrl by produceState<String?>(initialValue = null) {
-        value = withContext(Dispatchers.IO) {
-            runCatching {
-                val connection = URL(
-                    "https://music.163.com/api/song/detail/?id=2630817670&ids=%5B2630817670%5D"
-                ).openConnection().apply {
-                    connectTimeout = 5_000
-                    readTimeout = 5_000
-                    setRequestProperty("User-Agent", "Mozilla/5.0")
-                    setRequestProperty("Referer", "https://music.163.com/")
-                }
-                val body = connection.getInputStream().bufferedReader().use { it.readText() }
-                val song = JSONObject(body).getJSONArray("songs").getJSONObject(0)
-                (song.optJSONObject("al") ?: song.optJSONObject("album"))
-                    ?.optString("picUrl")
-                    ?.takeIf { it.isNotBlank() }
-            }.getOrNull()
-        }
+        value = fetchAniListCover("JoJo's Bizarre Adventure: Steel Ball Run")
     }
     val interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
     Surface(
@@ -385,7 +571,10 @@ private fun ShowMeTheCastleBanner() {
                 indication = null
             ) {
                 context.startActivity(
-                    Intent(Intent.ACTION_VIEW, Uri.parse("https://music.163.com/song?id=2630817670"))
+                    Intent(
+                        Intent.ACTION_VIEW,
+                        Uri.parse("https://zh.moegirl.org.cn/" + URLEncoder.encode("飙马野郎", "UTF-8"))
+                    )
                 )
             },
         shape = RoundedCornerShape(24.dp),
@@ -400,18 +589,18 @@ private fun ShowMeTheCastleBanner() {
                 modifier = Modifier
                     .size(64.dp)
                     .clip(CircleShape)
-                    .background(cardContentColor.copy(alpha = 0.12f)),
+                    .background(accentColor.copy(alpha = 0.15f)),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
-                    Icons.Default.MusicNote,
+                    Icons.Outlined.Egg,
                     contentDescription = null,
                     tint = accentColor
                 )
                 coverUrl?.let { imageUrl ->
                     AsyncImage(
                         model = imageUrl,
-                        contentDescription = "Show me the castle 封面",
+                        contentDescription = stringResource(R.string.banner_cover_desc),
                         contentScale = ContentScale.Crop,
                         modifier = Modifier.fillMaxSize()
                     )
@@ -456,7 +645,7 @@ private fun ShowMeTheCastleBanner() {
                     )
                 }
                 Text(
-                    text = "上传附件，打开相机，让 MiMo Chat 看到一座由全新 UI 与动效砌成的雄伟城堡",
+                    text = stringResource(R.string.easter_egg_sbr_desc),
                     style = MaterialTheme.typography.bodyMedium,
                     color = cardContentColor.copy(alpha = 0.82f)
                 )

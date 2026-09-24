@@ -14,8 +14,8 @@ android {
         applicationId = "com.mroldl001.mimochat"
         minSdk = 26
         targetSdk = 36
-        versionCode = 215
-        versionName = "2.1.5-Show me the castle"
+        versionCode = 221
+        versionName = "2.2.0-STEEL BALL RUN"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -57,8 +57,7 @@ dependencies {
     implementation("androidx.compose.ui:ui-tooling-preview")
     implementation("androidx.compose.material3:material3")
     implementation("androidx.compose.material:material-icons-extended")
-    implementation("androidx.compose.material3:material3-window-size-class")
-    
+
     implementation("com.google.dagger:hilt-android:2.50")
     ksp("com.google.dagger:hilt-compiler:2.50")
     implementation("androidx.hilt:hilt-navigation-compose:1.2.0")
@@ -76,6 +75,7 @@ dependencies {
     
     implementation("com.google.code.gson:gson:2.10.1")
     implementation("io.coil-kt:coil-compose:2.7.0")
+    implementation("androidx.security:security-crypto:1.1.0-alpha06")
 
     implementation("com.github.jeziellago:compose-markdown:0.7.2")
     implementation("io.noties.markwon:core:4.6.2")

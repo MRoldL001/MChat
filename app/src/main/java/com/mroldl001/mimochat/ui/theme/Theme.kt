@@ -1,6 +1,7 @@
 package com.mroldl001.mimochat.ui.theme
 
 import android.app.Activity
+import android.content.Context
 import android.os.Build
 
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -11,8 +12,11 @@ import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
@@ -25,11 +29,14 @@ fun supportsDynamicColor(): Boolean {
 
 enum class ThemeColor {
     WHITE,
+    CUSTOM,
     HATSUNE_MIKU,
+    TETO_RED,
     AUTO_COLOR,
     MI_ORANGE,
     GREEN,
-    PURPLE
+    PURPLE,
+    DEEP_BLUE
 }
 
 enum class ThemeMode {
@@ -37,6 +44,20 @@ enum class ThemeMode {
     DARK,
     FOLLOW_SYSTEM
 }
+
+/** 代码块配色：深色（黑底）/ 浅色（白底）/ 跟随当前显示模式 */
+enum class CodeBlockColorMode {
+    DARK,
+    LIGHT,
+    FOLLOW
+}
+
+/**
+ * 代码块是否使用深色配色（黑底白字）。
+ * 由 MIMOChatTheme 依据 CodeBlockColorMode 与当前明暗模式解析后提供，
+ * 聊天界面的代码块直接读取，无需层层透传。
+ */
+val LocalCodeBlockDark = compositionLocalOf { true }
 
 private fun calculateLightContainerColor(primary: Color): Color {
     return primary.copy(alpha = 0.12f)
@@ -206,12 +227,129 @@ private val HatsuneMikuDarkColors = darkColorSchemeWithPrimary(
     onPrimary = HatsuneMikuDarkOnPrimary
 )
 
+private val AccentRedLightColors = lightColorSchemeWithPrimary(
+    primary = AccentRedPrimary,
+    onPrimary = AccentRedOnPrimary
+)
+
+private val AccentRedDarkColors = darkColorSchemeWithPrimary(
+    primary = AccentRedPrimary,
+    onPrimary = AccentRedOnPrimary
+)
+
+private val DeepBlueLightColors = lightColorSchemeWithPrimary(
+    primary = DeepBlueLightPrimary,
+    onPrimary = DeepBlueLightOnPrimary
+)
+
+private val DeepBlueDarkColors = darkColorSchemeWithPrimary(
+    primary = DeepBlueDarkPrimary,
+    onPrimary = DeepBlueDarkOnPrimary
+)
+
+/**
+ * 自定义主题色：从 HEX 解析主色，按相对亮度决定黑/白文字。
+ * 非法 HEX 回退为黑色（自定义色彩默认值）。
+ */
+private fun customColorScheme(dark: Boolean, hex: String): ColorScheme {
+    val primary = parseCustomHex(hex) ?: Color(0xFF000000)
+    val onPrimary = if (primary.luminance() > 0.5f) Color.Black else Color.White
+    return if (dark) {
+        darkColorSchemeWithPrimary(primary, onPrimary)
+    } else {
+        lightColorSchemeWithPrimary(primary, onPrimary)
+    }
+}
+
+private fun parseCustomHex(hex: String): Color? {
+    val h = hex.removePrefix("#").filter { ch ->
+        ch in '0'..'9' || ch in 'a'..'f' || ch in 'A'..'F'
+    }
+    if (h.length != 6) return null
+    return runCatching {
+        val r = h.substring(0, 2).toInt(16)
+        val g = h.substring(2, 4).toInt(16)
+        val b = h.substring(4, 6).toInt(16)
+        Color(0xFF000000.toInt() or (r shl 16) or (g shl 8) or b)
+    }.getOrNull()
+}
+
+private fun autoLightColorScheme(context: Context): ColorScheme {
+    val lightScheme = dynamicLightColorScheme(context)
+    return lightScheme.copy(
+        primaryContainer = calculateLightContainerColor(lightScheme.primary),
+        onPrimaryContainer = Color(0xFF000000),
+        surfaceVariant = calculateSurfaceVariantColor(lightScheme.primary, true)
+    )
+}
+
+private fun autoDarkColorScheme(context: Context): ColorScheme {
+    val lightScheme = dynamicLightColorScheme(context)
+    val darkScheme = dynamicDarkColorScheme(context)
+    val brightPrimary = brightenColor(lightScheme.primary)
+    val brightSecondary = brightenColor(lightScheme.secondary)
+    val brightTertiary = brightenColor(lightScheme.tertiary)
+    return darkScheme.copy(
+        primary = brightPrimary,
+        onPrimary = Color(0xFF1C1B1F),
+        primaryContainer = brightPrimary.copy(alpha = 0.24f),
+        onPrimaryContainer = Color(0xFFFFFFFF),
+        inversePrimary = lightScheme.primary,
+        secondary = brightSecondary,
+        onSecondary = Color(0xFF1C1B1F),
+        secondaryContainer = calculateDarkContainerColor(brightSecondary),
+        onSecondaryContainer = Color.White,
+        tertiary = brightTertiary,
+        onTertiary = Color(0xFF1C1B1F),
+        tertiaryContainer = calculateDarkContainerColor(brightTertiary),
+        onTertiaryContainer = Color.White,
+        background = Color(0xFF1C1B1F),
+        onBackground = Color(0xFFE6E1E5),
+        surface = Color(0xFF1C1B1F),
+        onSurface = Color(0xFFE6E1E5),
+        surfaceVariant = calculateSurfaceVariantColor(brightPrimary, false),
+        onSurfaceVariant = Color(0xFFCAC4D0)
+    )
+}
+
+/**
+ * 取指定主题在指定明暗模式下的配色，供设置页的主题预览卡片使用。
+ * 预览卡片内部所有颜色都从返回的 ColorScheme 动态取，不硬编码。
+ */
+@Composable
+fun themePreviewColorScheme(
+    themeColor: ThemeColor,
+    dark: Boolean,
+    customColorHex: String? = null
+): ColorScheme {
+    val context = LocalContext.current
+    val effectiveColor = if (themeColor == ThemeColor.AUTO_COLOR && !supportsDynamicColor()) {
+        ThemeColor.WHITE
+    } else {
+        themeColor
+    }
+    val scheme = when (effectiveColor) {
+        ThemeColor.AUTO_COLOR -> if (dark) autoDarkColorScheme(context) else autoLightColorScheme(context)
+        ThemeColor.WHITE -> if (dark) WhiteDarkColors else WhiteLightColors
+        ThemeColor.HATSUNE_MIKU -> if (dark) HatsuneMikuDarkColors else HatsuneMikuLightColors
+        ThemeColor.TETO_RED -> if (dark) AccentRedDarkColors else AccentRedLightColors
+        ThemeColor.MI_ORANGE -> if (dark) MiOrangeDarkColors else MiOrangeLightColors
+        ThemeColor.GREEN -> if (dark) GreenDarkColors else GreenLightColors
+        ThemeColor.PURPLE -> if (dark) PurpleDarkColors else PurpleLightColors
+        ThemeColor.DEEP_BLUE -> if (dark) DeepBlueDarkColors else DeepBlueLightColors
+        ThemeColor.CUSTOM -> customColorScheme(dark, customColorHex ?: "#000000")
+    }
+    return scheme.withNeutralSurfaces(dark)
+}
+
 @Suppress("DEPRECATION")
 @Composable
 fun MIMOChatTheme(
     themeColor: ThemeColor = ThemeColor.WHITE,
     themeMode: ThemeMode = ThemeMode.FOLLOW_SYSTEM,
     dynamicColor: Boolean = false,
+    customColorHex: String? = null,
+    codeBlockColorMode: CodeBlockColorMode = CodeBlockColorMode.DARK,
     content: @Composable () -> Unit
 ) {
     val context = LocalContext.current
@@ -223,48 +361,18 @@ fun MIMOChatTheme(
 
     val colorScheme = when (themeColor) {
         ThemeColor.AUTO_COLOR -> {
-            val lightScheme = dynamicLightColorScheme(context)
-            if (darkTheme) {
-                val darkScheme = dynamicDarkColorScheme(context)
-                val brightPrimary = brightenColor(lightScheme.primary)
-                val brightSecondary = brightenColor(lightScheme.secondary)
-                val brightTertiary = brightenColor(lightScheme.tertiary)
-                darkScheme.copy(
-                    primary = brightPrimary,
-                    onPrimary = Color(0xFF1C1B1F),
-                    primaryContainer = brightPrimary.copy(alpha = 0.24f),
-                    onPrimaryContainer = Color(0xFFFFFFFF),
-                    inversePrimary = lightScheme.primary,
-                    secondary = brightSecondary,
-                    onSecondary = Color(0xFF1C1B1F),
-                    secondaryContainer = calculateDarkContainerColor(brightSecondary),
-                    onSecondaryContainer = Color.White,
-                    tertiary = brightTertiary,
-                    onTertiary = Color(0xFF1C1B1F),
-                    tertiaryContainer = calculateDarkContainerColor(brightTertiary),
-                    onTertiaryContainer = Color.White,
-                    background = Color(0xFF1C1B1F),
-                    onBackground = Color(0xFFE6E1E5),
-                    surface = Color(0xFF1C1B1F),
-                    onSurface = Color(0xFFE6E1E5),
-                    surfaceVariant = calculateSurfaceVariantColor(brightPrimary, false),
-                    onSurfaceVariant = Color(0xFFCAC4D0)
-                )
-            } else {
-                lightScheme.copy(
-                    primaryContainer = calculateLightContainerColor(lightScheme.primary),
-                    onPrimaryContainer = Color(0xFF000000),
-                    surfaceVariant = calculateSurfaceVariantColor(lightScheme.primary, true)
-                )
-            }
+            if (darkTheme) autoDarkColorScheme(context) else autoLightColorScheme(context)
         }
         else -> {
             when (themeColor) {
                 ThemeColor.WHITE -> if (darkTheme) WhiteDarkColors else WhiteLightColors
                 ThemeColor.HATSUNE_MIKU -> if (darkTheme) HatsuneMikuDarkColors else HatsuneMikuLightColors
+                ThemeColor.TETO_RED -> if (darkTheme) AccentRedDarkColors else AccentRedLightColors
                 ThemeColor.MI_ORANGE -> if (darkTheme) MiOrangeDarkColors else MiOrangeLightColors
                 ThemeColor.GREEN -> if (darkTheme) GreenDarkColors else GreenLightColors
                 ThemeColor.PURPLE -> if (darkTheme) PurpleDarkColors else PurpleLightColors
+                ThemeColor.DEEP_BLUE -> if (darkTheme) DeepBlueDarkColors else DeepBlueLightColors
+                ThemeColor.CUSTOM -> customColorScheme(darkTheme, customColorHex ?: "#000000")
                 else -> WhiteLightColors
             }
         }
@@ -287,7 +395,15 @@ fun MIMOChatTheme(
 
     MaterialTheme(
         colorScheme = resolvedColorScheme,
-        typography = Typography,
-        content = content
-    )
+        typography = Typography
+    ) {
+        val codeBlockDark = when (codeBlockColorMode) {
+            CodeBlockColorMode.DARK -> true
+            CodeBlockColorMode.LIGHT -> false
+            CodeBlockColorMode.FOLLOW -> darkTheme
+        }
+        CompositionLocalProvider(LocalCodeBlockDark provides codeBlockDark) {
+            content()
+        }
+    }
 }

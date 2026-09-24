@@ -1,0 +1,252 @@
+<resources>
+  <string name="app_name">MChat</string>
+
+  <!-- 設定：外観 -->
+  <string name="settings_title">設定</string>
+  <string name="back">戻る</string>
+  <string name="group_appearance">外観</string>
+  <string name="display_mode">表示モード</string>
+  <string name="preview_day">ライト</string>
+  <string name="preview_night">ダーク</string>
+  <string name="preview_follow_system">システムに合わせる</string>
+  <string name="theme_color">テーマカラー</string>
+  <string name="theme_default">デフォルト</string>
+  <string name="theme_custom">カスタムカラー</string>
+  <string name="theme_auto_color">モネカラー</string>
+  <string name="theme_hatsune_miku">ミクグリーン</string>
+  <string name="theme_teto_red">テトレッド</string>
+  <string name="theme_mi_orange">ミオレンジ</string>
+  <string name="theme_green">ビビッドグリーン</string>
+  <string name="theme_purple">ローラン紫</string>
+  <string name="theme_deep_blue">ディープブルー</string>
+  <string name="code_block_color">コードブロックの色</string>
+  <string name="code_block_dark">ダークコードブロック</string>
+  <string name="code_block_light">ライトコードブロック</string>
+  <string name="code_block_follow">表示モードに合わせる</string>
+  <string name="chat_background">チャット背景</string>
+  <string name="chat_background_desc">チャットの背景画像を選択</string>
+
+  <!-- 設定：API -->
+  <string name="group_api">API</string>
+  <string name="api_key">API Key</string>
+  <string name="api_key_desc">API キーを設定してチャットを開始</string>
+  <string name="api_base_url">API Base URL</string>
+  <string name="api_base_url_desc">API サーバーのアドレスを設定</string>
+
+  <!-- 残り使用量 -->
+  <string name="usage_setting_title">残り使用量を表示</string>
+  <string name="usage_setting_desc">サイドバーにアカウントの残り使用量を表示します</string>
+  <string name="usage_loading">読み込み中...</string>
+  <string name="usage_credits_value">残りクレジット %1$s</string>
+  <string name="usage_balance_value">残高 %1$s</string>
+  <string name="usage_plan_credits">プラン残高 %1$s</string>
+  <string name="usage_recharge_balance">チャージ残高 %1$s</string>
+  <string name="usage_no_key">API キーを設定すると使用量を表示できます</string>
+  <string name="usage_no_plan">使用量データを取得できませんでした</string>
+  <string name="usage_error">取得に失敗しました。タップして再試行</string>
+  <string name="usage_login_title">MiMo コンソールにログイン</string>
+  <string name="usage_login_prompt">ログインして使用量を表示</string>
+  <string name="usage_login_hint">ログイン成功後に自動で取得され、自動的に戻ります。</string>
+  <string name="usage_login_load_failed">ページの読み込みに失敗しました。再試行してください。</string>
+  <string name="usage_expired">セッションの有効期限が切れました。再度ログインしてください。</string>
+  <string name="retry">再試行</string>
+
+  <!-- 設定：体験 -->
+  <string name="group_experience">体験</string>
+  <string name="language">言語</string>
+  <string name="language_desc">アプリの表示言語を選択</string>
+  <string name="language_dialog_title">表示言語</string>
+  <string name="language_system">システムに合わせる</string>
+  <string name="language_zh_cn">簡体字中国語</string>
+  <string name="language_zh_tw">繁体字中国語</string>
+  <string name="language_en">英語</string>
+  <string name="language_ja">日本語</string>
+  <string name="custom_system_prompt">カスタムシステムプロンプト</string>
+  <string name="custom_system_prompt_desc">パーソナライズしたシステムプロンプトを設定</string>
+  <string name="parameter_settings">パラメータ設定</string>
+  <string name="parameter_settings_desc">モデルのパラメータを調整</string>
+
+  <!-- 設定：その他 -->
+  <string name="group_other">その他</string>
+  <string name="experimental_features">実験的機能</string>
+  <string name="experimental_features_desc">まだ安定していない先進機能</string>
+  <string name="history_easter_egg">歴史のイースターエッグ</string>
+  <string name="history_easter_egg_desc">MChat と共に歩んだ軌跡</string>
+  <string name="easter_egg_v2_0_desc">その偏執狂は今も MIMO Chat を更新し続けている。彼は私を全く新しい Android 16 へと移行させた</string>
+  <string name="easter_egg_v1_2_desc">まるでティーンエイジャーがやりそうなことのようだ。バックグラウンドの生存維持を最適化した MIMO Chat のようだ</string>
+  <string name="easter_egg_v1_0_desc">これはきっと素晴らしい遠征になるだろう！千里の道も一歩から</string>
+  <string name="easter_egg_sbr_desc">LESSON4：敬意を払え、敬意を払え、そしてMChatの新たな段階へ</string>
+  <string name="about_mchat">MChat について</string>
+  <string name="about_mchat_desc">アプリ情報と告知</string>
+  <string name="check_update">アップデートを確認</string>
+  <string name="check_update_desc">GitHub Releases から最新版を取得</string>
+  <string name="prerelease_update_title">プレリリース更新を受け入れる</string>
+  <string name="prerelease_update_desc">プレリリース版は不安定な場合がありますが、新機能をいち早く体験できます</string>
+
+  <!-- 更新ダイアログ -->
+  <string name="update_release_notes">リリースノート</string>
+  <string name="download_and_install">ダウンロードしてインストール</string>
+  <string name="common_cancel">キャンセル</string>
+
+  <!-- バナー -->
+  <string name="banner_castle_desc">ファイルを添付し、カメラを開き、MChat に全新 UI とモーションで築かれた雄大な城を見せてください</string>
+  <string name="banner_cover_desc">Show me the castle のカバー</string>
+
+  <!-- 約について -->
+  <string name="about_app_icon_desc">MChat アイコン</string>
+  <string name="about_version">バージョン</string>
+  <string name="about_unknown">不明</string>
+  <string name="about_author_blog">作者のブログ</string>
+  <string name="about_author_blog_desc">作者 MRoldL001 の個人ブログ</string>
+  <string name="about_open_source">オープンソースライブラリ</string>
+  <string name="about_open_source_desc">このアプリが使用している OSS ライブラリを表示</string>
+  <string name="about_disclaimer">免責事項</string>
+  <string name="about_disclaimer_desc">アプリ情報、知的財産、リスクに関する告知</string>
+  <string name="about_close">閉じる</string>
+  <string name="about_ai_translation">UI の翻訳は AI によって生成されており、不正確な場合があります（AI 翻訳）</string>
+
+  <!-- チャット / サイドバー / 共通 -->
+  <string name="chat_history">会話履歴</string>
+  <string name="new_chat">新規チャット</string>
+  <string name="no_chat_history">会話履歴がありません</string>
+  <string name="delete">削除</string>
+  <string name="menu">メニュー</string>
+  <string name="sidebar_search">検索</string>
+  <string name="sidebar_settings">設定</string>
+  <string name="sidebar_github">GitHub</string>
+
+  <!-- スキル -->
+  <string name="skill_web">ウェブ</string>
+  <string name="skill_thinking">思考</string>
+  <string name="skill_poet">詩人</string>
+  <string name="skill_learning">学習</string>
+
+  <!-- モデル選択 -->
+  <string name="select_model">モデルを選択</string>
+
+  <!-- 入力バー -->
+  <string name="add_attachment">添付を追加</string>
+  <string name="input_message_hint">メッセージを入力...</string>
+  <string name="stop_generating">生成を停止</string>
+  <string name="send">送信</string>
+  <string name="collapse_attachment_menu">添付メニューを閉じる</string>
+  <string name="take_photo">写真を撮る</string>
+  <string name="select_file">ファイルを選択</string>
+
+  <!-- 思考 / 検索 -->
+  <string name="thinking_process">思考プロセス</string>
+  <string name="search_results">検索結果</string>
+  <string name="collapse">閉じる</string>
+  <string name="expand">展開</string>
+  <string name="thinking_status">考え中...</string>
+
+  <!-- 共通ダイアログ -->
+  <string name="save">保存</string>
+  <string name="confirm">確認</string>
+  <string name="hint">お知らせ</string>
+  <string name="ok">OK</string>
+  <string name="no_api_key">API Key が設定されていません</string>
+  <string name="jump_to_bottom">一番下へ</string>
+  <string name="confirm_delete">削除の確認</string>
+  <string name="confirm_delete_message">本当に削除しますか？</string>
+  <string name="restore_default">デフォルトに戻す</string>
+  <string name="common_done">完了</string>
+
+  <!-- API Base URL ダイアログ -->
+  <string name="api_url_dialog_desc">接続タイプを選択するか、カスタムアドレスを入力してください</string>
+  <string name="api_url_standard_desc">従量課金は標準APIを利用</string>
+  <string name="api_url_subscription_desc">月額プランはサブスクリプションAPIを利用</string>
+  <string name="api_url_standard_label">標準API</string>
+  <string name="api_url_subscription_label">サブスクリプションAPI</string>
+  <string name="api_url_server_address">サーバーアドレス</string>
+
+  <!-- チャット背景画像 -->
+  <string name="chat_background_title">チャット背景画像</string>
+  <string name="bg_select_image">画像を選択</string>
+  <string name="bg_select_image_desc">画像を選択してトリミングします</string>
+  <string name="bg_change_opacity">背景の不透明度を変更</string>
+  <string name="bg_opacity_error">0〜100の数値を入力してください</string>
+  <string name="bg_restore_default">デフォルト背景に戻す</string>
+  <string name="bg_restore_default_desc">背景画像を削除し、デフォルトの不透明度に戻します</string>
+  <string name="bg_crop_title">背景画像をトリミング</string>
+  <string name="bg_crop_hint">ドラッグで位置を調整、ピンチで拡大縮小</string>
+  <string name="bg_load_failed">選択した画像を読み込めませんでした</string>
+  <string name="restore_default_confirm">本当にパラメータをデフォルトに戻しますか？</string>
+
+  <!-- カスタムシステムプロンプトダイアログ -->
+  <string name="custom_prompt_hint">カスタムシステムプロンプトを入力してください</string>
+  <string name="custom_prompt_label">システムプロンプト</string>
+  <string name="custom_prompt_placeholder">ここにカスタムプロンプトを入力...</string>
+
+  <!-- API Key ダイアログ -->
+  <string name="api_key_monthly_tip">月額プランのユーザーは、詳細設定で API Base URL をサブスクリプション用エンドポイントに変更してください</string>
+
+  <!-- パラメータ設定 -->
+  <string name="param_temp_hint">0 から 2.0 の間の数値を入力してください</string>
+  <string name="param_temp_desc">モデル出力のランダム性を制御します。0 の場合はほぼ決定的な結果になり、値が大きいほど創造的で多様な出力になります</string>
+  <string name="param_topp_hint">0.0 から 1.0 の間の数値を入力してください</string>
+  <string name="param_topp_desc">核サンプリングとも呼ばれます。モデルは累積確率が top_p に達する最小のトークン集合からサンプリングします。通常は temperature または top_p のいずれかのみを調整してください</string>
+  <string name="param_freq_hint">-2.0 から 2.0 の間の数値を入力してください</string>
+  <string name="param_freq_desc">生成テキストでの出現頻度に基づいてトークンをペナルティします。正の値は繰り返しを減らします</string>
+  <string name="param_rep_hint">-2.0 から 2.0 の間の数値を入力してください</string>
+  <string name="param_rep_desc">トークンがすでに出現したかどうか（頻度は考慮せず）に基づいてペナルティします。正の値はモデルが新しい話題を導入することを促します</string>
+
+  <!-- トースト -->
+  <string name="toast_attachment_type">現在サポートされているのは画像・音声・動画の添付のみです</string>
+  <string name="toast_file_too_large">ファイルが大きすぎます：Base64 エンコード後のサイズは 50MB を超えてはいけません</string>
+  <string name="toast_file_unreadable">選択したファイルを読み取れません</string>
+  <string name="toast_photo_file_failed">写真ファイルを作成できません</string>
+  <string name="toast_camera_failed">カメラを開けません</string>
+  <string name="attachment_selected">添付を選択しました</string>
+
+  <!-- 通知 -->
+  <string name="notif_chat_channel_name">チャットサービス</string>
+  <string name="notif_chat_channel_desc">会話の進行を維持します</string>
+  <string name="notif_chat_reply">MChatが返信中です</string>
+  <string name="notif_update_channel_name">アプリ更新</string>
+  <string name="notif_update_channel_desc">アプリ更新のダウンロード進捗を表示</string>
+  <string name="notif_downloading">%1$s をダウンロード中</string>
+  <string name="notif_downloading_indeterminate">インストールパッケージを取得中</string>
+  <string name="notif_download_complete">%1$s のダウンロード完了</string>
+  <string name="notif_install_update">タップして更新をインストール</string>
+  <string name="notif_update_failed">更新のダウンロードに失敗</string>
+  <string name="notif_retry_later">後でもう一度お試しください</string>
+
+  <!-- 免責事項 -->
+  <string name="disclaimer_section_non_official">非公式声明</string>
+  <string name="disclaimer_section_ip">知的財産権</string>
+  <string name="disclaimer_section_privacy">プライバシー保護</string>
+  <string name="disclaimer_section_risk">リスク負担</string>
+  <string name="disclaimer_section_feedback">フィードバックとサポート</string>
+  <string name="disclaimer_non_official_lead">本アプリ（MChat）はサードパーティが開発したオープンソースクライアントであり、</string>
+  <string name="disclaimer_non_official_emphasis">小米公司（Xiaomi Corporation）およびその関連会社（以下「小米」という）とは、いかなる所属・授权・提携関係もありません</string>
+  <string name="disclaimer_non_official_tail">。</string>
+  <string name="disclaimer_ip_lead">&quot;小米&quot;、&quot;Xiaomi&quot;、&quot;MiMo&quot; などの商標およびロゴは小米公司に帰属します。本アプリは機能互換性を示す目的のみでこれらの標識を使用しています（</string>
+  <string name="disclaimer_ip_emphasis">すなわち指定使用の公正利用</string>
+  <string name="disclaimer_ip_tail">）。</string>
+  <string name="disclaimer_privacy">本アプリのすべてのデータはローカル端末に保存され、会話は API を通じて直接小米のサーバーと通信します。開発者はいかなるユーザーデータも収集・保存しません。</string>
+  <string name="disclaimer_risk_emphasis">本アプリは「as-is」の原則で提供され、いかなる明示または黙示の保証も含みません</string>
+  <string name="disclaimer_risk_tail">。ユーザーは本アプリの利用に伴うリスク（データ損失、プライバシー漏洩、デバイス損傷など）を自身で負担するものとします。開発者および小米公司は本アプリの合法性、安全性、機能性について責任を負いません。</string>
+  <string name="disclaimer_feedback">ご利用中に問題が発生した場合は、[Issues](https://github.com/MRoldL001/MChat/issues) までご報告ください。可能であればソースコードを fork して修正し、PR を送信することも歓迎します。</string>
+
+  <!-- オープンソース -->
+  <string name="open_source_intro">以下は本アプリの実行時依存ライブラリです。ライセンス情報は各プロジェクトのリポジトリおよび Maven メタデータに準拠します。</string>
+  <string name="open_source_other">その他</string>
+
+  <!-- ウェルカム -->
+  <string name="welcome_prefix">MChatはこちら、</string>
+  <string name="welcome_tip_1">今日は何をしますか？</string>
+  <string name="welcome_tip_2">いいアイデアはありますか？</string>
+  <string name="welcome_tip_3">一緒にタスクを片付けましょう！</string>
+  <string name="welcome_tip_4">何かお手伝いできることはありますか？</string>
+  <string name="toast_link_failed">リンクを開けません</string>
+  <string name="toast_code_copied">コードをコピーしました</string>
+  <string name="copy_code">コードをコピー</string>
+  <string name="error_no_network">ネットワーク接続がありません</string>
+  <string name="error_create_chat_failed">チャットの作成に失敗しました</string>
+  <string name="error_set_api_key">先に API Key を設定してください</string>
+  <string name="toast_version_latest">現在のバージョン %1$s は最新です</string>
+  <string name="toast_check_update_failed">確認に失敗しました：%1$s</string>
+  <string name="error_stream_interrupted">ストリーミング接続が予期せず中断されました</string>
+  <string name="error_stream_failed">ストリーミング出力に失敗しました</string>
+</resources>

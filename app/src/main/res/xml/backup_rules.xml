@@ -7,7 +7,10 @@
 -->
 <full-backup-content>
   <!--
-   <include domain="sharedpref" path="."/>
-   <exclude domain="sharedpref" path="device.xml"/>
--->
+     SharedPreferences 不再进入备份：
+     - mimochat_secure_prefs 里的 API Key 由 Keystore 主密钥加密，换设备后无法解密，备份无意义；
+     - 排除整个 sharedpref 域，避免历史版本残留的明文 api_key 随备份外泄。
+     数据库（聊天记录）仍然保留备份。
+  -->
+  <exclude domain="sharedpref" path="."/>
 </full-backup-content>

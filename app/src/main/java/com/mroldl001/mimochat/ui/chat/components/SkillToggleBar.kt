@@ -1,5 +1,7 @@
 package com.mroldl001.mimochat.ui.chat.components
+import com.mroldl001.mimochat.R
 
+import androidx.compose.ui.res.stringResource
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
@@ -53,7 +55,7 @@ fun SkillToggleBar(
     ) {
         SkillToggleChip(
             icon = Icons.Default.Public,
-            label = "联网",
+            label = stringResource(R.string.skill_web),
             isActive = isWebSearchEnabled,
             isDisabled = isGenerating,
             onClick = { onWebSearchToggle(!isWebSearchEnabled) }
@@ -63,7 +65,7 @@ fun SkillToggleBar(
 
         SkillToggleChip(
             icon = Icons.Default.Psychology,
-            label = "思考",
+            label = stringResource(R.string.skill_thinking),
             isActive = isThinkingActive,
             isDisabled = isGenerating,
             onClick = {
@@ -80,7 +82,7 @@ fun SkillToggleBar(
 
         SkillToggleChip(
             icon = Icons.Default.Edit,
-            label = "诗人",
+            label = stringResource(R.string.skill_poet),
             isActive = isPoetActive,
             isDisabled = isGenerating,
             onClick = {
@@ -97,7 +99,7 @@ fun SkillToggleBar(
 
         SkillToggleChip(
             icon = Icons.Default.School,
-            label = "学习",
+            label = stringResource(R.string.skill_learning),
             isActive = isLearningActive,
             isDisabled = isGenerating,
             onClick = {

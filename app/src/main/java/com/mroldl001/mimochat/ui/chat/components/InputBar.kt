@@ -1,4 +1,6 @@
 package com.mroldl001.mimochat.ui.chat.components
+import com.mroldl001.mimochat.R
+import androidx.compose.ui.res.stringResource
 
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
@@ -15,12 +17,14 @@ import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.FolderOpen
+import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.RoundRect
 import androidx.compose.ui.geometry.Size
@@ -176,10 +180,10 @@ fun InputBar(
                         .size(48.dp)
                         .alpha(attachmentAlpha)
                 ) {
-                    Icon(Icons.Default.Add, contentDescription = "添加附件")
+                    Icon(Icons.Outlined.Add, contentDescription = stringResource(R.string.add_attachment))
                 }
-                val opaqueMenuColor = MaterialTheme.colorScheme.surfaceVariant
-                    .compositeOver(MaterialTheme.colorScheme.surface)
+                // 白色面板 + 阴影；暗色主题下 surfaceContainerLowest 为近黑底，文字用 onSurface 自动取反
+                val opaqueMenuColor = MaterialTheme.colorScheme.surfaceContainerLowest
                 if (attachmentMenuMounted) {
                     Popup(
                         popupPositionProvider = attachmentMenuPositionProvider,
@@ -213,7 +217,7 @@ fun InputBar(
                 value = messageText,
                 onValueChange = { messageText = it },
                 modifier = Modifier.weight(1f),
-                placeholder = { Text("输入消息...") },
+                placeholder = { Text(stringResource(R.string.input_message_hint)) },
                 enabled = !isGenerating,
                 maxLines = 4,
                 shape = RoundedCornerShape(24.dp)
@@ -230,7 +234,7 @@ fun InputBar(
                 ) {
                     Icon(
                         imageVector = Icons.Default.Stop,
-                        contentDescription = "停止生成"
+                        contentDescription = stringResource(R.string.stop_generating)
                     )
                 }
             } else {
@@ -272,7 +276,7 @@ fun InputBar(
                 ) {
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.Send,
-                        contentDescription = "发送"
+                        contentDescription = stringResource(R.string.send)
                     )
                 }
             }
@@ -316,10 +320,9 @@ private fun AttachmentContainerTransformMenu(
                     this.scaleY = scaleY
                     translationY = sourceOffsetY * (1f - clampedProgress)
                     transformOrigin = TransformOrigin(0f, 1f)
-                    shape = morphShape
-                    clip = true
                 }
-                .background(containerColor)
+                .shadow(elevation = 8.dp, shape = morphShape, clip = true)
+                .background(containerColor, morphShape)
         ) {
             Column(
                 modifier = Modifier
@@ -331,13 +334,13 @@ private fun AttachmentContainerTransformMenu(
                     .padding(vertical = 8.dp)
             ) {
                 AttachmentMenuItem(
-                    text = "拍摄照片",
-                    icon = Icons.Default.CameraAlt,
+                    text = stringResource(R.string.take_photo),
+                    icon = Icons.Outlined.CameraAlt,
                     onClick = onTakePhoto
                 )
                 AttachmentMenuItem(
-                    text = "选取文件",
-                    icon = Icons.Default.FolderOpen,
+                    text = stringResource(R.string.select_file),
+                    icon = Icons.Outlined.FolderOpen,
                     onClick = onSelectFile
                 )
             }
@@ -355,8 +358,8 @@ private fun AttachmentContainerTransformMenu(
         ) {
             Box(contentAlignment = Alignment.Center) {
                 Icon(
-                    imageVector = Icons.Default.Add,
-                    contentDescription = "收起附件菜单"
+                    imageVector = Icons.Outlined.Add,
+                    contentDescription = stringResource(R.string.collapse_attachment_menu)
                 )
             }
         }
@@ -400,21 +403,23 @@ private fun AttachmentMenuItem(
         text = {
             Text(
                 text = text,
-                style = MaterialTheme.typography.titleMedium
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurface
             )
         },
         leadingIcon = {
             Surface(
                 modifier = Modifier.size(40.dp),
-                shape = RoundedCornerShape(14.dp),
-                color = MaterialTheme.colorScheme.primaryContainer
-                    .compositeOver(MaterialTheme.colorScheme.surface),
-                contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                shape = CircleShape,
+                color = MaterialTheme.colorScheme.primary
+                    .copy(alpha = 0.12f)
+                    .compositeOver(MaterialTheme.colorScheme.surfaceContainerHigh)
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     Icon(
                         imageVector = icon,
                         contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.size(22.dp)
                     )
                 }

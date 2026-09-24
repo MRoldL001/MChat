@@ -1,180 +1,63 @@
 package com.mroldl001.mimochat.ui.chat.components
 
-import android.graphics.drawable.ColorDrawable
-import android.os.Build
-import android.view.WindowManager
-import androidx.activity.compose.BackHandler
 import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.*
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.graphics.luminance
-import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
-import androidx.compose.ui.window.DialogWindowProvider
-import androidx.core.view.WindowCompat
-import com.mroldl001.mimochat.ui.chat.viewmodel.UpdateUiState
+import androidx.compose.ui.res.stringResource
+import com.mroldl001.mimochat.R
 import com.mroldl001.mimochat.ui.theme.ThemeColor
-import com.mroldl001.mimochat.ui.theme.ThemeMode
-import com.mroldl001.mimochat.ui.theme.supportsDynamicColor
 
-@Suppress("DEPRECATION")
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-internal fun SettingsPage(
-    initialThemeColor: ThemeColor,
-    initialThemeMode: ThemeMode,
-    onThemeChanged: (ThemeColor, ThemeMode) -> Unit,
-    onApiKeyClick: () -> Unit,
-    onBackgroundImageClick: () -> Unit,
-    updateState: UpdateUiState,
-    onCheckForUpdate: () -> Unit,
-    onParameterSettingsClick: () -> Unit,
-    onCustomPromptClick: () -> Unit,
-    onApiBaseUrlClick: () -> Unit,
-    acceptPrereleaseUpdates: Boolean,
-    onAcceptPrereleaseUpdatesChanged: (Boolean) -> Unit,
-    onDismiss: () -> Unit
-) {
-    var themeColor by rememberSaveable { mutableStateOf(initialThemeColor) }
-    var themeMode by rememberSaveable { mutableStateOf(initialThemeMode) }
-    val pageColor = MaterialTheme.colorScheme.surfaceContainerHigh
+internal fun animateThemeColor(
+    target: Color,
+    label: String
+): Color {
+    val color by animateColorAsState(
+        targetValue = target,
+        animationSpec = tween(durationMillis = 450),
+        label = label
+    )
+    return color
+}
 
-    BackHandler(onBack = onDismiss)
-    Dialog(
-        onDismissRequest = onDismiss,
-        properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = true)
-    ) {
-        val dialogView = LocalView.current
-        SideEffect {
-            val window = (dialogView.parent as? DialogWindowProvider)?.window ?: return@SideEffect
-            window.clearFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND)
-            window.setBackgroundDrawable(ColorDrawable(pageColor.toArgb()))
-            window.statusBarColor = pageColor.toArgb()
-            window.navigationBarColor = pageColor.toArgb()
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                window.isStatusBarContrastEnforced = false
-                window.isNavigationBarContrastEnforced = false
-            }
-            WindowCompat.getInsetsController(window, window.decorView).apply {
-                isAppearanceLightStatusBars = pageColor.luminance() > 0.5f
-                isAppearanceLightNavigationBars = pageColor.luminance() > 0.5f
-            }
-        }
-
-        Surface(modifier = Modifier.fillMaxSize(), color = pageColor) {
-            Column(
-                modifier = Modifier.fillMaxSize()
-            ) {
-                TopAppBar(
-                    title = { Text("设置") },
-                    navigationIcon = {
-                        IconButton(onClick = onDismiss) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
-                        }
-                    },
-                    colors = TopAppBarDefaults.topAppBarColors(containerColor = pageColor)
-                )
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.TopCenter
-                ) {
-                    Column(
-                        modifier = Modifier
-                            .widthIn(max = 560.dp)
-                            .fillMaxWidth()
-                            .verticalScroll(rememberScrollState())
-                            .padding(horizontal = 24.dp, vertical = 12.dp),
-                        verticalArrangement = Arrangement.spacedBy(20.dp)
-                    ) {
-                        SettingSectionHeader(Icons.Default.Brightness7, "显示模式")
-                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                            PageThemeModeOption(themeMode == ThemeMode.LIGHT, "白天", Color.White) {
-                                themeMode = ThemeMode.LIGHT
-                                onThemeChanged(themeColor, themeMode)
-                            }
-                            PageThemeModeOption(themeMode == ThemeMode.DARK, "夜间", Color.Black) {
-                                themeMode = ThemeMode.DARK
-                                onThemeChanged(themeColor, themeMode)
-                            }
-                            PageThemeModeOption(themeMode == ThemeMode.FOLLOW_SYSTEM, "跟随系统", Color.Gray) {
-                                themeMode = ThemeMode.FOLLOW_SYSTEM
-                                onThemeChanged(themeColor, themeMode)
-                            }
-                        }
-
-                        SettingSectionHeader(Icons.Default.Palette, "主题颜色")
-                        val colors = buildList {
-                            add(ThemeColor.WHITE)
-                            if (supportsDynamicColor()) add(ThemeColor.AUTO_COLOR)
-                            add(ThemeColor.HATSUNE_MIKU)
-                            add(ThemeColor.MI_ORANGE)
-                            add(ThemeColor.GREEN)
-                            add(ThemeColor.PURPLE)
-                        }
-                        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                            colors.chunked(3).forEach { rowColors ->
-                                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                                    rowColors.forEach { option ->
-                                        PageThemeColorOption(
-                                            selected = themeColor == option,
-                                            label = themeColorLabel(option),
-                                            color = themeColorValue(option),
-                                            isAutoColor = option == ThemeColor.AUTO_COLOR,
-                                            onClick = {
-                                                themeColor = option
-                                                onThemeChanged(themeColor, themeMode)
-                                            }
-                                        )
-                                    }
-                                    repeat(3 - rowColors.size) { Spacer(Modifier.width(80.dp)) }
-                                }
-                            }
-                        }
-
-                        SettingAction(Icons.Default.Key, "API Key", "配置您的 API 密钥以使用服务", onApiKeyClick)
-                        SettingAction(Icons.Default.Image, "聊天背景图", "选择聊天中使用的背景图片", onBackgroundImageClick)
-                        UpdateSettingsItem(state = updateState, onCheck = onCheckForUpdate)
-
-                        SettingAction(Icons.Default.Tune, "参数设置", "调整模型参数", onParameterSettingsClick)
-                        SettingAction(Icons.Default.ChatBubble, "自定义系统提示词", "设置个性化的系统提示词", onCustomPromptClick)
-                        SettingAction(Icons.Default.Link, "API Base URL", "配置 API 服务器地址", onApiBaseUrlClick)
-                        PrereleaseUpdateSetting(
-                            checked = acceptPrereleaseUpdates,
-                            onCheckedChange = onAcceptPrereleaseUpdatesChanged
-                        )
-                    }
-                }
-            }
-        }
-    }
+@Composable
+internal fun animatePreviewColors(scheme: ColorScheme, label: String): ColorScheme {
+    val spec = tween<Color>(durationMillis = 450)
+    val surface by animateColorAsState(scheme.surface, animationSpec = spec, label = "${label}_surface")
+    val inverseSurface by animateColorAsState(scheme.inverseSurface, animationSpec = spec, label = "${label}_inverse_surface")
+    val primary by animateColorAsState(scheme.primary, animationSpec = spec, label = "${label}_primary")
+    val primaryContainer by animateColorAsState(scheme.primaryContainer, animationSpec = spec, label = "${label}_primary_container")
+    val surfaceContainerHighest by animateColorAsState(
+        scheme.surfaceContainerHighest,
+        animationSpec = spec,
+        label = "${label}_surface_container_highest"
+    )
+    return scheme.copy(
+        surface = surface,
+        inverseSurface = inverseSurface,
+        primary = primary,
+        primaryContainer = primaryContainer,
+        surfaceContainerHighest = surfaceContainerHighest
+    )
 }
 
 @Composable
@@ -183,7 +66,7 @@ internal fun SettingsGroupTitle(title: String) {
         text = title,
         style = MaterialTheme.typography.titleMedium,
         fontWeight = FontWeight.Bold,
-        color = MaterialTheme.colorScheme.primary,
+        color = animateThemeColor(MaterialTheme.colorScheme.primary, "settings_group_title"),
         modifier = Modifier.padding(top = 4.dp)
     )
 }
@@ -193,7 +76,12 @@ internal fun SettingSectionHeader(icon: ImageVector, title: String) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         SettingPageIcon(icon)
         Spacer(Modifier.width(16.dp))
-        Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+        Text(
+            title,
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.SemiBold,
+            color = animateThemeColor(MaterialTheme.colorScheme.onSurface, "settings_section_header")
+        )
     }
 }
 
@@ -210,14 +98,22 @@ internal fun SettingAction(icon: ImageVector, title: String, description: String
         SettingPageIcon(icon)
         Spacer(Modifier.width(16.dp))
         Column {
-            Text(title, style = MaterialTheme.typography.titleMedium)
-            Text(description, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(
+                title,
+                style = MaterialTheme.typography.titleMedium,
+                color = animateThemeColor(MaterialTheme.colorScheme.onSurface, "settings_action_title")
+            )
+            Text(
+                description,
+                style = MaterialTheme.typography.bodySmall,
+                color = animateThemeColor(MaterialTheme.colorScheme.onSurfaceVariant, "settings_action_desc")
+            )
         }
     }
 }
 
 @Composable
-private fun SettingPageIcon(icon: ImageVector) {
+internal fun SettingPageIcon(icon: ImageVector) {
     val iconColor by animateColorAsState(
         targetValue = MaterialTheme.colorScheme.primary,
         animationSpec = tween(durationMillis = 450),
@@ -240,104 +136,322 @@ private fun SettingPageIcon(icon: ImageVector) {
 }
 
 @Composable
-internal fun PageThemeModeOption(selected: Boolean, label: String, color: Color, onClick: () -> Unit) {
-    val interactionSource = remember { MutableInteractionSource() }
-    val borderColor by animateColorAsState(
-        themeOptionBorderColor(selected),
-        spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMediumLow),
-        label = "page_mode_border"
-    )
-    val checkScale by animateFloatAsState(
-        if (selected) 1f else 0f,
-        spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow),
-        label = "page_mode_check"
-    )
-    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(80.dp)) {
-        Box(
-            modifier = Modifier
-                .size(36.dp)
-                .border(2.dp, borderColor, CircleShape)
-                .clip(CircleShape)
-                .background(color)
-                .clickable(interactionSource = interactionSource, indication = null, onClick = onClick),
-            contentAlignment = Alignment.Center
-        ) {
-            if (checkScale > 0f) {
-                Icon(
-                    Icons.Default.Check,
-                    contentDescription = null,
-                    tint = if (color == Color.White) Color.Black else Color.White,
-                    modifier = Modifier.size(20.dp).graphicsLayer { scaleX = checkScale; scaleY = checkScale }
-                )
-            }
-        }
-        Spacer(Modifier.height(4.dp))
-        Text(label, style = MaterialTheme.typography.bodySmall)
-    }
-}
-
-@Composable
-internal fun PageThemeColorOption(
-    selected: Boolean,
+internal fun ThemePreviewCard(
     label: String,
-    color: Color,
-    isAutoColor: Boolean,
+    scheme: ColorScheme,
+    selected: Boolean,
+    modifier: Modifier = Modifier,
+    width: Dp = 100.dp,
+    bottomScheme: ColorScheme? = null,
     onClick: () -> Unit
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val borderColor by animateColorAsState(
-        themeOptionBorderColor(selected),
-        spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMediumLow),
-        label = "page_color_border"
+        targetValue = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant,
+        animationSpec = tween(durationMillis = 450),
+        label = "theme_preview_border"
     )
-    val checkScale by animateFloatAsState(
-        if (selected) 1f else 0f,
-        spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow),
-        label = "page_color_check"
+    val borderWidth by animateDpAsState(
+        targetValue = if (selected) 3.dp else 1.dp,
+        animationSpec = tween(durationMillis = 450),
+        label = "theme_preview_border_width"
     )
-    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(80.dp)) {
-        Box(
+    val labelColor = animateThemeColor(MaterialTheme.colorScheme.onSurface, "theme_preview_label")
+    val topColors = animatePreviewColors(scheme, "theme_preview_top")
+    val lowerColors = bottomScheme?.let { animatePreviewColors(it, "theme_preview_bottom") } ?: topColors
+    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = modifier) {
+        Surface(
             modifier = Modifier
-                .size(36.dp)
-                .border(2.dp, borderColor, CircleShape)
-                .clip(CircleShape)
-                .background(
-                    if (isAutoColor) Brush.sweepGradient(
-                        0f to Color(0xFF9BC4E2), 0.25f to Color(0xFFD4A373),
-                        0.5f to Color(0xFFE7D8C9), 0.75f to Color(0xFF8FA6CB), 1f to Color(0xFF9BC4E2)
-                    ) else Brush.linearGradient(listOf(color, color), start = Offset.Zero, end = Offset.Infinite)
-                )
+                .width(width)
+                .height(172.dp)
                 .clickable(interactionSource = interactionSource, indication = null, onClick = onClick),
-            contentAlignment = Alignment.Center
+            shape = RoundedCornerShape(20.dp),
+            color = topColors.surface,
+            border = BorderStroke(borderWidth, borderColor)
         ) {
-            if (checkScale > 0f) {
-                Icon(
-                    Icons.Default.Check,
-                    contentDescription = null,
-                    tint = if (color == Color.White) Color.Black else Color.White,
-                    modifier = Modifier.size(20.dp).graphicsLayer { scaleX = checkScale; scaleY = checkScale }
-                )
+            Box(modifier = Modifier.fillMaxSize()) {
+                // 背景层：bottomScheme 不为空时下半部分硬分割覆盖
+                if (bottomScheme != null) {
+                    Column(modifier = Modifier.fillMaxSize()) {
+                        Spacer(modifier = Modifier.weight(1f))
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .weight(1f)
+                                .background(lowerColors.surface)
+                        )
+                    }
+                }
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(10.dp)
+                ) {
+                    // 顶栏：标题胶囊
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth(0.62f)
+                            .height(10.dp)
+                            .clip(RoundedCornerShape(5.dp))
+                            .background(topColors.inverseSurface)
+                    )
+                    Spacer(Modifier.height(12.dp))
+                    // 用户气泡（右）
+                    Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.CenterEnd) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth(0.55f)
+                                .height(15.dp)
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(topColors.primary)
+                        )
+                    }
+                    Spacer(Modifier.height(6.dp))
+                    // AI 气泡（左）
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth(0.68f)
+                            .height(24.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(topColors.surfaceContainerHighest)
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    // 技能按钮（只画一个）——位于分割线下半部分，取 lowerColors
+                    Row(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(lowerColors.primaryContainer)
+                            .padding(horizontal = 6.dp, vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(7.dp)
+                                .clip(CircleShape)
+                                .background(lowerColors.primary)
+                        )
+                        Spacer(Modifier.width(4.dp))
+                        Box(
+                            modifier = Modifier
+                                .width(16.dp)
+                                .height(3.dp)
+                                .clip(RoundedCornerShape(2.dp))
+                                .background(lowerColors.primary.copy(alpha = 0.55f))
+                        )
+                    }
+                    Spacer(Modifier.weight(1f))
+                    // 输入栏：加号 + 输入胶囊 + 发送钮——同样取 lowerColors
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            modifier = Modifier
+                                .size(13.dp)
+                                .clip(CircleShape)
+                                .background(lowerColors.primary)
+                        )
+                        Spacer(Modifier.width(5.dp))
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(13.dp)
+                                .clip(RoundedCornerShape(7.dp))
+                                .background(lowerColors.surfaceContainerHighest)
+                        )
+                        Spacer(Modifier.width(5.dp))
+                        Box(
+                            modifier = Modifier
+                                .size(13.dp)
+                                .clip(CircleShape)
+                                .background(lowerColors.primary.copy(alpha = 0.7f))
+                        )
+                    }
+                }
             }
         }
-        Spacer(Modifier.height(4.dp))
-        Text(label, style = MaterialTheme.typography.bodySmall)
+        Spacer(Modifier.height(6.dp))
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodySmall,
+            color = labelColor,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.width(width)
+        )
     }
 }
 
-internal fun themeColorLabel(color: ThemeColor): String = when (color) {
-    ThemeColor.WHITE -> "默认"
-    ThemeColor.AUTO_COLOR -> "莫奈取色"
-    ThemeColor.HATSUNE_MIKU -> "初音绿"
-    ThemeColor.MI_ORANGE -> "小米橙"
-    ThemeColor.GREEN -> "盎然绿"
-    ThemeColor.PURPLE -> "罗兰紫"
+/**
+ * 代码块配色预览卡：代码块顶满整张卡（无内边距、无空白框），
+ * 行条用 SpaceBetween 均匀铺满卡高，超出部分被卡圆角裁剪。
+ * split = true 时为「随显示模式切换」：上浅下深硬分割（同一张卡内无缝拼接）。
+ */
+@Composable
+internal fun CodeBlockPreviewCard(
+    label: String,
+    dark: Boolean,
+    selected: Boolean,
+    modifier: Modifier = Modifier,
+    width: Dp = 100.dp,
+    split: Boolean = false,
+    onClick: () -> Unit
+) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val borderColor by animateColorAsState(
+        targetValue = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant,
+        animationSpec = tween(durationMillis = 450),
+        label = "code_preview_border"
+    )
+    val borderWidth by animateDpAsState(
+        targetValue = if (selected) 3.dp else 1.dp,
+        animationSpec = tween(durationMillis = 450),
+        label = "code_preview_border_width"
+    )
+    val labelColor = animateThemeColor(MaterialTheme.colorScheme.onSurface, "code_preview_label")
+    val surfaceColor = animateThemeColor(MaterialTheme.colorScheme.surface, "code_preview_surface")
+    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = modifier) {
+        Surface(
+            modifier = Modifier
+                .width(width)
+                .height(80.dp)
+                .clickable(interactionSource = interactionSource, indication = null, onClick = onClick),
+            shape = RoundedCornerShape(20.dp),
+            color = surfaceColor,
+            border = BorderStroke(borderWidth, borderColor)
+        ) {
+            if (split) {
+                // 与其它卡同一套行条布局，只是底色上浅下深硬分割（分割线穿过某行条也无妨）
+                Box(modifier = Modifier.fillMaxSize()) {
+                    Column(modifier = Modifier.fillMaxSize()) {
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .fillMaxWidth()
+                                .background(codeBlockPalette(false).background)
+                        )
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .fillMaxWidth()
+                                .background(codeBlockPalette(true).background)
+                        )
+                    }
+                    MiniCodeBlock(
+                        dark = false,
+                        sharp = true,
+                        lines = 4,
+                        transparent = true,
+                        darkFromLine = 3,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                }
+            } else {
+                MiniCodeBlock(dark = dark, sharp = true, lines = 4, modifier = Modifier.fillMaxSize())
+            }
+        }
+        Spacer(Modifier.height(6.dp))
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodySmall,
+            color = labelColor,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.width(width)
+        )
+    }
 }
 
-internal fun themeColorValue(color: ThemeColor): Color = when (color) {
-    ThemeColor.WHITE -> Color.White
-    ThemeColor.AUTO_COLOR -> Color.Transparent
-    ThemeColor.HATSUNE_MIKU -> Color(0xFF39C5BB)
-    ThemeColor.MI_ORANGE -> Color(0xFFFF7E00)
-    ThemeColor.GREEN -> Color(0xFF006E2A)
-    ThemeColor.PURPLE -> Color(0xFF6650A4)
+/**
+ * 迷你代码块：左侧行号条 + 顶栏语言条 + lines 行代码色条，
+ * 行条 SpaceBetween 均匀铺满给定高度；上下 18dp 边距让代码行向中间收拢。
+ * - sharp = true：不带圆角（顶满卡片）
+ * - transparent = true：不画底色（由外层画硬分割背景）
+ * - darkFromLine：从第 index 条（顶栏为 0）起改用深色配色，用于分割卡
+ */
+@Composable
+private fun MiniCodeBlock(
+    dark: Boolean,
+    modifier: Modifier = Modifier,
+    sharp: Boolean = false,
+    lines: Int = 4,
+    transparent: Boolean = false,
+    darkFromLine: Int? = null
+) {
+    val base = codeBlockPalette(dark)
+    val lightPalette = if (darkFromLine != null) codeBlockPalette(false) else base
+    val darkPalette = if (darkFromLine != null) codeBlockPalette(true) else base
+    val paletteAt: (Int) -> CodeBlockPalette = { index ->
+        if (darkFromLine != null && index >= darkFromLine) darkPalette else lightPalette
+    }
+    val shape = if (sharp) RectangleShape else RoundedCornerShape(8.dp)
+    Row(
+        modifier = modifier
+            .then(if (transparent) Modifier else Modifier.background(base.background))
+            .clip(shape)
+            // 上下大边距：行条整体向中间收拢，不贴卡的上下边缘
+            .padding(horizontal = 8.dp, vertical = 18.dp)
+    ) {
+        Column(
+            modifier = Modifier.width(8.dp).fillMaxHeight(),
+            verticalArrangement = Arrangement.SpaceBetween
+        ) {
+            repeat(lines) { index ->
+                Box(
+                    modifier = Modifier
+                        .width(5.dp)
+                        .height(3.dp)
+                        .clip(RoundedCornerShape(2.dp))
+                        .background(paletteAt(index + 1).muted.copy(alpha = 0.6f))
+                )
+            }
+        }
+        Spacer(modifier = Modifier.width(6.dp))
+        Column(
+            modifier = Modifier.weight(1f).fillMaxHeight(),
+            verticalArrangement = Arrangement.SpaceBetween
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth(0.45f)
+                    .height(3.dp)
+                    .clip(RoundedCornerShape(2.dp))
+                    .background(paletteAt(0).muted)
+            )
+            repeat(lines) { index ->
+                val palette = paletteAt(index + 1)
+                val color = when (index % 5) {
+                    0 -> palette.keyword
+                    1 -> palette.string
+                    2 -> palette.number
+                    3 -> palette.text
+                    else -> palette.function
+                }
+                val widthFraction = when (index % 5) {
+                    0 -> 0.85f
+                    1 -> 0.55f
+                    2 -> 0.7f
+                    3 -> 0.4f
+                    else -> 0.6f
+                }
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth(widthFraction)
+                        .height(3.dp)
+                        .clip(RoundedCornerShape(2.dp))
+                        .background(color)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+internal fun themeColorLabel(color: ThemeColor): String {
+    return when (color) {
+        ThemeColor.WHITE -> stringResource(R.string.theme_default)
+        ThemeColor.CUSTOM -> stringResource(R.string.theme_custom)
+        ThemeColor.AUTO_COLOR -> stringResource(R.string.theme_auto_color)
+        ThemeColor.HATSUNE_MIKU -> stringResource(R.string.theme_hatsune_miku)
+        ThemeColor.TETO_RED -> stringResource(R.string.theme_teto_red)
+        ThemeColor.MI_ORANGE -> stringResource(R.string.theme_mi_orange)
+        ThemeColor.GREEN -> stringResource(R.string.theme_green)
+        ThemeColor.PURPLE -> stringResource(R.string.theme_purple)
+        ThemeColor.DEEP_BLUE -> stringResource(R.string.theme_deep_blue)
+    }
 }

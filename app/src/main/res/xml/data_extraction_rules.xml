@@ -5,15 +5,14 @@
 -->
 <data-extraction-rules>
   <cloud-backup>
-    <!-- TODO: Use <include> and <exclude> to control what is backed up.
-        <include .../>
-        <exclude .../>
-        -->
-  </cloud-backup>
-  <!--
-    <device-transfer>
-        <include .../>
-        <exclude .../>
-    </device-transfer>
+    <!--
+       SharedPreferences 不进云备份：
+       加密后的 API Key 依赖本机 Keystore 主密钥，换机无法解密；
+       同时防止旧版本遗留的明文 api_key 被带走。聊天记录（database）仍备份。
     -->
+    <exclude domain="sharedpref" path="."/>
+  </cloud-backup>
+  <device-transfer>
+    <exclude domain="sharedpref" path="."/>
+  </device-transfer>
 </data-extraction-rules>

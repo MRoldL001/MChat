@@ -80,8 +80,9 @@ lint-results*.html
 .DS_Store
 Thumbs.db
 
-# Trae IDE files
+# agent files
 .trae/
+.workbuddy/
 docs/
 
 # Backup files

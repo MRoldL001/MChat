@@ -1,3 +1,252 @@
 <resources>
-  <string name="app_name">MIMO Chat</string>
+  <string name="app_name">MChat</string>
+
+  <!-- 设置页：外观 -->
+  <string name="settings_title">设置</string>
+  <string name="back">返回</string>
+  <string name="group_appearance">外观</string>
+  <string name="display_mode">显示模式</string>
+  <string name="preview_day">白天</string>
+  <string name="preview_night">夜间</string>
+  <string name="preview_follow_system">跟随系统</string>
+  <string name="theme_color">主题色彩</string>
+  <string name="theme_default">默认</string>
+  <string name="theme_custom">自定义色彩</string>
+  <string name="theme_auto_color">莫奈取色</string>
+  <string name="theme_hatsune_miku">初音绿</string>
+  <string name="theme_teto_red">重音红</string>
+  <string name="theme_mi_orange">米柚橙</string>
+  <string name="theme_green">盎然绿</string>
+  <string name="theme_purple">罗兰紫</string>
+  <string name="theme_deep_blue">深邃蓝</string>
+  <string name="code_block_color">代码块配色</string>
+  <string name="code_block_dark">深色代码块</string>
+  <string name="code_block_light">浅色代码块</string>
+  <string name="code_block_follow">随显示模式切换</string>
+  <string name="chat_background">聊天背景图</string>
+  <string name="chat_background_desc">选择聊天中使用的背景图片</string>
+
+  <!-- 设置页：API -->
+  <string name="group_api">API</string>
+  <string name="api_key">API Key</string>
+  <string name="api_key_desc">配置API 密钥以开始聊天</string>
+  <string name="api_base_url">API Base URL</string>
+  <string name="api_base_url_desc">配置 API 服务器地址</string>
+
+  <!-- 剩余用量 -->
+  <string name="usage_setting_title">查看剩余用量</string>
+  <string name="usage_setting_desc">在侧边栏显示账户剩余用量</string>
+  <string name="usage_loading">查询中...</string>
+  <string name="usage_credits_value">剩余积分 %1$s</string>
+  <string name="usage_balance_value">余额 %1$s</string>
+  <string name="usage_plan_credits">套餐余额 %1$s</string>
+  <string name="usage_recharge_balance">充值余额 %1$s</string>
+  <string name="usage_no_key">配置 API 密钥后查看用量</string>
+  <string name="usage_no_plan">未读取到用量数据</string>
+  <string name="usage_error">查询失败，点击重试</string>
+  <string name="usage_login_title">登录小米 MiMo 控制台</string>
+  <string name="usage_login_prompt">登录后查看剩余用量</string>
+  <string name="usage_login_hint">登录成功后会自动获取用量并自动返回</string>
+  <string name="usage_login_load_failed">页面加载失败，请重试</string>
+  <string name="usage_expired">登录态已过期，请重新登录</string>
+  <string name="retry">重试</string>
+
+  <!-- 设置页：体验 -->
+  <string name="group_experience">体验</string>
+  <string name="language">语言</string>
+  <string name="language_desc">选择应用显示语言</string>
+  <string name="language_dialog_title">显示语言</string>
+  <string name="language_system">跟随系统</string>
+  <string name="language_zh_cn">简体中文</string>
+  <string name="language_zh_tw">繁體中文</string>
+  <string name="language_en">English</string>
+  <string name="language_ja">日本語</string>
+  <string name="custom_system_prompt">自定义系统提示词</string>
+  <string name="custom_system_prompt_desc">设置个性化的系统提示词</string>
+  <string name="parameter_settings">参数设置</string>
+  <string name="parameter_settings_desc">调整模型参数</string>
+
+  <!-- 设置页：其它 -->
+  <string name="group_other">其它</string>
+  <string name="experimental_features">实验性功能</string>
+  <string name="experimental_features_desc">尚未稳定的前瞻特性</string>
+  <string name="history_easter_egg">历史彩蛋</string>
+  <string name="history_easter_egg_desc">MChat 与你一起走过的点点滴滴</string>
+  <string name="easter_egg_v2_0_desc">那个偏执狂依旧在更新 MIMO Chat，他将我迁移到了全新的 Android 16</string>
+  <string name="easter_egg_v1_2_desc">闻起来就像青少年会干的事，闻起来就像优化了后台保活机制的 MIMO Chat</string>
+  <string name="easter_egg_v1_0_desc">这或许会是一次伟大的远征！千里之行，始于足下</string>
+  <string name="easter_egg_sbr_desc">LESSON4: 表达敬意吧，表达出敬意，然后迈向 MChat 的另一个全新阶段</string>
+  <string name="about_mchat">关于 MChat</string>
+  <string name="about_mchat_desc">应用信息与声明</string>
+  <string name="check_update">检查更新</string>
+  <string name="check_update_desc">从 GitHub Releases 获取最新版本</string>
+  <string name="prerelease_update_title">接受测试版更新</string>
+  <string name="prerelease_update_desc">测试版并不稳定，但可以提前体验新功能</string>
+
+  <!-- 更新弹窗 -->
+  <string name="update_release_notes">发行版说明</string>
+  <string name="download_and_install">下载并安装</string>
+  <string name="common_cancel">取消</string>
+
+  <!-- 横幅 -->
+  <string name="banner_castle_desc">上传附件，打开相机，让 MChat 看到一座由全新 UI 与动效砌成的雄伟城堡</string>
+  <string name="banner_cover_desc">Show me the castle 封面</string>
+
+  <!-- 关于页 -->
+  <string name="about_app_icon_desc">MChat 图标</string>
+  <string name="about_version">版本</string>
+  <string name="about_unknown">未知</string>
+  <string name="about_author_blog">作者博客</string>
+  <string name="about_author_blog_desc">作者 MRoldL001 的个人博客</string>
+  <string name="about_open_source">开源库</string>
+  <string name="about_open_source_desc">查看本应用用到的开源库</string>
+  <string name="about_disclaimer">免责声明</string>
+  <string name="about_disclaimer_desc">应用信息、知识产权与风险声明</string>
+  <string name="about_close">关闭</string>
+  <string name="about_ai_translation">界面翻译由 AI 生成，可能存在不准确之处（AI 翻译）</string>
+
+  <!-- 聊天 / 侧边栏 / 通用 -->
+  <string name="chat_history">对话历史</string>
+  <string name="new_chat">新对话</string>
+  <string name="no_chat_history">暂无对话记录</string>
+  <string name="delete">删除</string>
+  <string name="menu">菜单</string>
+  <string name="sidebar_search">搜索</string>
+  <string name="sidebar_settings">设置</string>
+  <string name="sidebar_github">GitHub</string>
+
+  <!-- 技能 -->
+  <string name="skill_web">联网</string>
+  <string name="skill_thinking">思考</string>
+  <string name="skill_poet">诗人</string>
+  <string name="skill_learning">学习</string>
+
+  <!-- 模型选择 -->
+  <string name="select_model">选择模型</string>
+
+  <!-- 输入栏 -->
+  <string name="add_attachment">添加附件</string>
+  <string name="input_message_hint">输入消息...</string>
+  <string name="stop_generating">停止生成</string>
+  <string name="send">发送</string>
+  <string name="collapse_attachment_menu">收起附件菜单</string>
+  <string name="take_photo">拍摄照片</string>
+  <string name="select_file">选取文件</string>
+
+  <!-- 思考 / 搜索 -->
+  <string name="thinking_process">思考过程</string>
+  <string name="search_results">搜索结果</string>
+  <string name="collapse">收起</string>
+  <string name="expand">展开</string>
+  <string name="thinking_status">正在思考...</string>
+
+  <!-- 通用弹窗 -->
+  <string name="save">保存</string>
+  <string name="confirm">确认</string>
+  <string name="hint">提示</string>
+  <string name="ok">确定</string>
+  <string name="no_api_key">未设置API Key</string>
+  <string name="jump_to_bottom">跳转到底部</string>
+  <string name="confirm_delete">确认删除</string>
+  <string name="confirm_delete_message">你真的要删除吗？</string>
+  <string name="restore_default">恢复默认</string>
+  <string name="common_done">完成</string>
+
+  <!-- API Base URL 弹窗 -->
+  <string name="api_url_dialog_desc">选择接口类型，或输入自定义地址</string>
+  <string name="api_url_standard_desc">按量付费使用标准接口</string>
+  <string name="api_url_subscription_desc">月度套餐使用订阅接口</string>
+  <string name="api_url_standard_label">标准接口</string>
+  <string name="api_url_subscription_label">订阅接口</string>
+  <string name="api_url_server_address">服务器地址</string>
+
+  <!-- 聊天背景图 -->
+  <string name="chat_background_title">聊天背景图</string>
+  <string name="bg_select_image">选择图片</string>
+  <string name="bg_select_image_desc">选择图片后进行裁剪</string>
+  <string name="bg_change_opacity">更改背景透明度</string>
+  <string name="bg_opacity_error">请输入 0 到 100 之间的数值</string>
+  <string name="bg_restore_default">恢复默认背景</string>
+  <string name="bg_restore_default_desc">移除背景图片并恢复默认透明度</string>
+  <string name="bg_crop_title">裁剪背景图</string>
+  <string name="bg_crop_hint">拖动图片调整位置，双指缩放</string>
+  <string name="bg_load_failed">无法读取所选图片</string>
+  <string name="restore_default_confirm">你真的要恢复默认参数吗？</string>
+
+  <!-- 系统提示词弹窗 -->
+  <string name="custom_prompt_hint">请输入自定义的系统提示词</string>
+  <string name="custom_prompt_label">系统提示词</string>
+  <string name="custom_prompt_placeholder">在此输入您的自定义提示词...</string>
+
+  <!-- API Key 弹窗 -->
+  <string name="api_key_monthly_tip">月度套餐用户请在高级选项内将 API Base URL 改为订阅接口</string>
+
+  <!-- 参数设置 -->
+  <string name="param_temp_hint">请输入 0 到 2.0 之间的数值</string>
+  <string name="param_temp_desc">控制模型输出的随机性。值为 0 时输出接近确定性结果，值越高则输出越具创意和多样性</string>
+  <string name="param_topp_hint">请输入 0.0 到 1.0 之间的数值</string>
+  <string name="param_topp_desc">也称为核采样。模型会从累积概率达到 top_p 的最小 Token 集合中进行采样。一般建议只调整 temperature 或 top_p 其中之一</string>
+  <string name="param_freq_hint">请输入 -2.0 到 2.0 之间的数值</string>
+  <string name="param_freq_desc">根据 Token 在已生成文本中出现的频率进行惩罚。正值可以减少重复</string>
+  <string name="param_rep_hint">请输入 -2.0 到 2.0 之间的数值</string>
+  <string name="param_rep_desc">根据 Token 是否已在生成的文本中出现过进行惩罚，不考虑出现频率。正值鼓励模型引入新话题</string>
+
+  <!-- 提示 Toast -->
+  <string name="toast_attachment_type">当前仅支持图片、音频和视频附件</string>
+  <string name="toast_file_too_large">文件过大：Base64 编码后不能超过 50MB</string>
+  <string name="toast_file_unreadable">无法读取所选文件</string>
+  <string name="toast_photo_file_failed">无法创建照片文件</string>
+  <string name="toast_camera_failed">无法打开相机</string>
+  <string name="attachment_selected">已选择附件</string>
+
+  <!-- 通知 -->
+  <string name="notif_chat_channel_name">对话服务</string>
+  <string name="notif_chat_channel_desc">保持对话在进行中</string>
+  <string name="notif_chat_reply">MChat正在回复你</string>
+  <string name="notif_update_channel_name">软件更新</string>
+  <string name="notif_update_channel_desc">显示软件更新下载进度</string>
+  <string name="notif_downloading">正在下载 %1$s</string>
+  <string name="notif_downloading_indeterminate">正在获取安装包</string>
+  <string name="notif_download_complete">%1$s 下载完成</string>
+  <string name="notif_install_update">点击安装更新</string>
+  <string name="notif_update_failed">更新下载失败</string>
+  <string name="notif_retry_later">请稍后重试</string>
+
+  <!-- 免责声明 -->
+  <string name="disclaimer_section_non_official">非官方声明</string>
+  <string name="disclaimer_section_ip">知识产权</string>
+  <string name="disclaimer_section_privacy">隐私保护</string>
+  <string name="disclaimer_section_risk">风险承担</string>
+  <string name="disclaimer_section_feedback">反馈与支持</string>
+  <string name="disclaimer_non_official_lead">本应用（MChat）为第三方开发的开源客户端，</string>
+  <string name="disclaimer_non_official_emphasis">与小米公司（Xiaomi Corporation）及其关联公司（下称小米公司）无任何隶属、授权或合作关系</string>
+  <string name="disclaimer_non_official_tail">。</string>
+  <string name="disclaimer_ip_lead">&quot;小米&quot;、&quot;Xiaomi&quot;、&quot;MiMo&quot; 等商标及图形标识归小米公司所有。本应用使用上述标识仅用于描述功能兼容性（</string>
+  <string name="disclaimer_ip_emphasis">即指示性合理使用</string>
+  <string name="disclaimer_ip_tail">）。</string>
+  <string name="disclaimer_privacy">本应用所有数据均存储在本地设备，对话直接通过 API 与小米服务器通信，开发者不收集或存储任何用户数据。</string>
+  <string name="disclaimer_risk_emphasis">本应用按“as-is”原则提供，不包含任何明示或暗示的保证</string>
+  <string name="disclaimer_risk_tail">。用户需自行承担使用本应用带来的风险，包括但不限于数据丢失、隐私泄露或设备损坏。开发者与小米公司不对本应用的合法性、安全性及功能性负责。</string>
+  <string name="disclaimer_feedback">若在使用中遇到问题，请前往 [Issues](https://github.com/MRoldL001/MChat/issues) 反馈，若有能力也可尝试 fork 源码自行修改后发起 PR。</string>
+
+  <!-- 开源库 -->
+  <string name="open_source_intro">以下为本应用运行时依赖，许可证信息以各项目仓库和 Maven 元数据为准。</string>
+  <string name="open_source_other">其它</string>
+
+  <!-- 欢迎语 -->
+  <string name="welcome_prefix">MChat在这里，</string>
+  <string name="welcome_tip_1">今天你要做什么？</string>
+  <string name="welcome_tip_2">有什么好主意？</string>
+  <string name="welcome_tip_3">一起完成任务吧！</string>
+  <string name="welcome_tip_4">有什么可以帮你的？</string>
+  <string name="toast_link_failed">无法打开链接</string>
+  <string name="toast_code_copied">代码已复制</string>
+  <string name="copy_code">复制代码</string>
+  <string name="error_no_network">无网络连接</string>
+  <string name="error_create_chat_failed">创建对话失败</string>
+  <string name="error_set_api_key">请先设置 API Key</string>
+  <string name="toast_version_latest">当前版本 %1$s 已是最新</string>
+  <string name="toast_check_update_failed">检查失败：%1$s</string>
+  <string name="error_stream_interrupted">流式连接意外中断</string>
+  <string name="error_stream_failed">流式输出失败</string>
 </resources>

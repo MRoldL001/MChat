@@ -43,6 +43,35 @@ class ChatRepository @Inject constructor(
 ) {
     private val gson = Gson()
     private val searchResultsType = object : TypeToken<List<WebSearchResult>>() {}.type
+
+    /**
+     * 根据当前软件语言设置返回用于提示词的语言名（简体中文/繁體中文/English/日本語）。
+     * "system" 跟随手机系统语言（用 Locale 推断）；不支持的语言回退到 English。
+     */
+    private fun currentAppLanguageName(): String {
+        val code = preferencesManager.getAppLanguage()
+        val effectiveCode = if (code == "system") {
+            val sys = java.util.Locale.getDefault()
+            when (sys.language.lowercase()) {
+                "zh" -> if (sys.script.equals("Hant", ignoreCase = true) ||
+                    sys.country.equals("TW", ignoreCase = true) ||
+                    sys.country.equals("HK", ignoreCase = true) ||
+                    sys.country.equals("MO", ignoreCase = true)
+                ) "zh-TW" else "zh-CN"
+                "en" -> "en"
+                "ja" -> "ja"
+                else -> "en"
+            }
+        } else code
+        return when (effectiveCode) {
+            "zh-CN" -> "简体中文"
+            "zh-TW" -> "繁體中文"
+            "en" -> "English"
+            "ja" -> "日本語"
+            else -> "English"
+        }
+    }
+
     fun getAllChats(): Flow<List<Chat>> {
         return chatDao.getAllChats().map { entities ->
             entities.map { it.toDomain() }
@@ -110,7 +139,10 @@ class ChatRepository @Inject constructor(
     }
 
     suspend fun saveMessage(message: Message): Long {
-        return messageDao.insertMessage(message.toEntity())
+        val messageId = messageDao.insertMessage(message.toEntity())
+        // 会话列表按 updatedAt 倒序，写入消息后必须刷新，否则列表顺序等同于创建顺序。
+        chatDao.touchChat(message.chatId, System.currentTimeMillis())
+        return messageId
     }
 
     suspend fun updateMessage(message: Message) {
@@ -324,14 +356,15 @@ class ChatRepository @Inject constructor(
     ): Result<String> {
         return withContext(Dispatchers.IO) {
             try {
+                val langName = currentAppLanguageName()
                 val promptMessages = listOf(
                     MessageRequest(
                         role = "system",
-                        content = "你是一个对话标题生成助手。请根据用户的第一条消息，生成一个简洁的中文标题（不超过10个字）。你必须输出标题，不能输出其他内容。"
+                        content = "你是一个对话标题生成助手。请根据用户的第一条消息，生成一个简洁的标题（不超过10个字），并使用 $langName 输出。你必须只输出标题本身，不能输出其他任何内容。"
                     ),
                     MessageRequest(
                         role = "user",
-                        content = "请为以下对话生成标题：$firstMessage"
+                        content = "请为以下对话生成标题（请使用$langName）：$firstMessage"
                     )
                 )
 
@@ -388,6 +421,7 @@ class ChatRepository @Inject constructor(
     ): ChatCompletionRequest {
         val effectiveThinking = if (thinkingEnabled) ThinkingConfig("enabled") else ThinkingConfig("disabled")
 
+        val langName = currentAppLanguageName()
         val systemPromptParts = mutableListOf<String>()
 
         val dateFormatter = java.text.SimpleDateFormat("yyyy年MM月dd日", java.util.Locale.getDefault())
@@ -401,6 +435,7 @@ class ChatRepository @Inject constructor(
             用户询问你模型版本时，告诉它。
             你是MiMo（中文名称也是MiMo），是小米公司研发的AI智能助手。
             今天的日期：${dateStr} ${weekStr}，你的知识截止日期是2024年12月。
+            【语言要求】除非用户使用其它语言明确提出要求，否则请默认使用${langName}回复。
 
             【输出格式要求】
             1. 当你需要输出单纯的美元符号（如表示金钱单位）时，请使用行内代码包裹，例如：`$`
@@ -457,10 +492,10 @@ class ChatRepository @Inject constructor(
             messages = requestMessages,
             stream = stream,
             thinking = effectiveThinking,
-            tools = if (webSearchEnabled && (modelId == "mimo-v2.5" || modelId == "mimo-v2.5-pro")) {
+            tools = if (webSearchEnabled && modelId in setOf("mimo-v2.5", "mimo-v2.5-pro", "mimo-v2.6-pro-ultraspeed", "mimo-v2.6-pro", "mimo-v2.6-flash")) {
                 listOf(ToolConfig(type = "web_search", maxKeyword = 3, forceSearch = false, limit = 5))
             } else null,
-            toolChoice = if (webSearchEnabled && (modelId == "mimo-v2.5" || modelId == "mimo-v2.5-pro")) "auto" else null,
+            toolChoice = if (webSearchEnabled && modelId in setOf("mimo-v2.5", "mimo-v2.5-pro", "mimo-v2.6-pro-ultraspeed", "mimo-v2.6-pro", "mimo-v2.6-flash")) "auto" else null,
             temperature = preferencesManager.getTemperature().toDouble(),
             topP = preferencesManager.getTopP().toDouble(),
             maxCompletionTokens = 8192,

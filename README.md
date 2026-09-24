@@ -4,7 +4,7 @@
 
 <br/>
 
-MIMO Chat - 第三方小米 MiMo 大模型 Android 客户端
+MChat - 第三方小米 MiMo 大模型 Android 客户端
 
 [![MiMo](https://img.shields.io/badge/MiMo-console-FF7E00?style=for-the-badge&logo=xiaomi&logoColor=white)](https://platform.xiaomimimo.com/console/balance)
 [![README](https://img.shields.io/badge/MiMo-README-FF7E00?style=for-the-badge&logo=xiaomi&logoColor=white)](https://mimo.xiaomi.com/index)
@@ -26,13 +26,12 @@ MIMO Chat - 第三方小米 MiMo 大模型 Android 客户端
 ## ✨ 功能
 
 - 多模型切换支持
-- 代码块渲染与较完整的 LaTeX 公式渲染(*包含化学公式等额外扩展*)
-- 对于思考模式与过程展示、联网搜索支持与来源展示、多模态的支持
-- 对话历史管理
-- 多种主题可选（包含 Material You 莫奈取色）与系统深色模式跟随，以及更换聊天页背景图片
+- 表格渲染、可切换风格的代码块渲染与较完整的 LaTeX 公式渲染(*包含化学公式等额外扩展*)
+- 对思考模式与过程展示、联网搜索支持与来源展示、多模态对话的支持
+- 完善的对话历史管理
+- 多种主题可选（包含 Material You 莫奈取色与自定义颜色）与系统深色模式跟随，以及更换聊天页背景图片
 - 自定义系统提示词与模型参数调整
 - 手机端与 Pad 端自适应布局
-- 实时通知保活
 
 ## 🚀 快速开始
 
@@ -40,7 +39,7 @@ MIMO Chat - 第三方小米 MiMo 大模型 Android 客户端
 
 #### 方式一：从 GitHub Releases 下载（推荐）
 
-1. 访问本项目的 [Releases](https://github.com/MRoldL001/MIMO-Chat/releases)
+1. 访问本项目的 [Releases](https://github.com/MRoldL001/MChat/releases)
 2. 下载最新的 `.apk` 文件
 3. 在手机上安装（可能需要允许未知来源应用）
 
@@ -80,10 +79,13 @@ MIMO Chat - 第三方小米 MiMo 大模型 Android 客户端
 | ------ | --------- |
 | 默认（白色） | 黑白系       |
 | 莫奈取色   | 跟随系统主题色   |
-| 小米橙    | `#FF7E00` |
+| 自定义色彩  | 自定义       |
 | 初音绿    | `#39C5BB` |
+| 重音红    | `#D93A49` |
+| 米柚橙    | `#FF7E00` |
 | 盎然绿    | `#006E2A` |
 | 罗兰紫    | `#6650A4` |
+| 深邃蓝    | `0B57D0`  |
 
 ## 📖 使用说明
 
@@ -199,7 +201,7 @@ MIMO Chat - 第三方小米 MiMo 大模型 Android 客户端
 - v2.0.1
   
   - 修复了有关流式传输的累积 bug
-  - 修复了 [Issue#2](https://github.com/MRoldL001/MIMO-Chat/issues/2) 搜索到内容后点击跳转到对应聊天页会自动滚动到底部的问题
+  - 修复了 [Issue#2](https://github.com/MRoldL001/MChat/issues/2) 搜索到内容后点击跳转到对应聊天页会自动滚动到底部的问题
   - 修复了搜索结果没有网站logo的问题
   - 更改了切换模型列表的设计与动画，以符合Material You 的标准设计风格
 
@@ -247,19 +249,33 @@ MIMO Chat - 第三方小米 MiMo 大模型 Android 客户端
   - 开源协议现在更新为 GPL-2.0
   - 所有已知 bug 均已被修复，新功能蓄势待发！
 
-- v2.1.5
+- v2.2.0 **STEEL BALL RUN**
   
-  - 为代码块加入了大量特定语言的 icon
-  - 修复了重新启动应用时无法返回到上次阅读的地方的问题
-  - 修复了从免责声明页返回时不会返回到设置页上次阅读到的位置的问题
-  - 修复了点击回到底部按钮偶现抽搐的问题
-  - 这次是真的没有 bug 了！
+  - 更换了全新的应用名与 icon
+  - 更新模型列表以与 MiMo 官方保持同步
+  - 加入三种新语言——繁体中文、英语和日语，暂时使用 AI 翻译
+  - 重构了显示模式与主题选择的设计
+  - 加入了两个新主题与自定义色彩
+  - 加入了实验性功能设置页
+  - 加入了历史彩蛋页
+  - 加入了深浅色代码块切换功能
+  - 加入了查看剩余用量功能（可能不工作）
+  - 统一了设置页 icon 的风格
+  - 
+  - 优化了平板设置页的设计
+  - 现在 API Key 将会加密存储
+  - 现在对话列表会按时间分类
+  - 现在代码块行号在左右滑动时会被冻结
+  - 现在对话页里的时间将会更详细，对话记录里的时间只会保留年月日
+  - 修复了多次点击新建对话时，对话历史的背景色不会移动到最新对话的问题
+  - 修复了某些更新提示依然不以系统弹窗显示的遗留问题
+  - 修复了对话列表排序功能失效的问题
 
 ## 📄 免责声明
 
 ### 非官方声明
 
-本应用（MIMO Chat）为第三方开发的开源客户端，**与小米公司（Xiaomi Corporation）及其关联公司(下称小米公司)无任何隶属、授权或合作关系**。
+本应用（MChat）为第三方开发的开源客户端，**与小米公司（Xiaomi Corporation）及其关联公司(下称小米公司)无任何隶属、授权或合作关系**。
 
 ### 知识产权
 
@@ -275,4 +291,4 @@ MIMO Chat - 第三方小米 MiMo 大模型 Android 客户端
 
 ### 反馈与支持
 
-若在使用中遇到问题，请前往 [Issues](https://github.com/MRoldL001/MIMO-Chat/issues) 反馈，若有能力也可尝试 fork 源码自行修改后发起 PR。
+若在使用中遇到问题，请前往 [Issues](https://github.com/MRoldL001/MChat/issues) 反馈，若有能力也可尝试 fork 源码自行修改后发起 PR。

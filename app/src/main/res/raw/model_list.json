@@ -1,6 +1,27 @@
 {
   "models": [
     {
+      "id": "mimo-v2.6-pro-ultraspeed",
+      "name": "MiMo V2.6 Pro-Ultraspeed",
+      "description": "极速推理，兼顾质量与低延迟",
+      "type": "llm",
+      "capabilities": ["chat", "multimodal", "reasoning", "coding", "web_search", "function_calling", "structured_output"]
+    },
+    {
+      "id": "mimo-v2.6-pro",
+      "name": "MiMo V2.6 Pro",
+      "description": "复杂推理、深度分析与长文档处理",
+      "type": "llm",
+      "capabilities": ["chat", "multimodal", "reasoning", "coding", "web_search", "function_calling", "structured_output"]
+    },
+    {
+      "id": "mimo-v2.6-flash",
+      "name": "MiMo V2.6 Flash",
+      "description": "文本生成、图片/音频/视频理解",
+      "type": "llm",
+      "capabilities": ["chat", "multimodal", "reasoning", "coding", "web_search", "function_calling", "structured_output"]
+    },
+    {
       "id": "mimo-v2.5-pro",
       "name": "MiMo V2.5 Pro",
       "description": "复杂推理、深度分析与长文档处理",

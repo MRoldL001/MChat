@@ -1,4 +1,5 @@
 package com.mroldl001.mimochat.ui.chat.components
+import com.mroldl001.mimochat.R
 
 import android.content.ClipData
 import android.content.ClipboardManager
@@ -7,6 +8,7 @@ import android.content.Intent
 import android.net.Uri
 import android.text.util.Linkify
 import android.widget.Toast
+import androidx.compose.ui.res.stringResource
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -30,7 +32,9 @@ import androidx.compose.material.icons.filled.Storage
 import androidx.compose.material.icons.filled.Terminal
 import androidx.compose.material.icons.filled.Web
 import androidx.compose.material3.*
+import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.runtime.*
+import com.mroldl001.mimochat.ui.theme.LocalCodeBlockDark
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -398,14 +402,14 @@ fun ThinkingCard(
                 )
                 Spacer(modifier = Modifier.width(6.dp))
                 Text(
-                    text = "思考过程",
+                    text = stringResource(R.string.thinking_process),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Spacer(modifier = Modifier.width(4.dp))
                 Icon(
                     imageVector = Icons.Default.ArrowDropDown,
-                    contentDescription = if (isExpanded) "收起" else "展开",
+                    contentDescription = if (isExpanded) stringResource(R.string.collapse) else stringResource(R.string.expand),
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier
                         .size(18.dp)
@@ -472,14 +476,14 @@ fun SearchResultsCard(
                 )
                 Spacer(modifier = Modifier.width(6.dp))
                 Text(
-                    text = "搜索结果",
+                    text = stringResource(R.string.search_results),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Spacer(modifier = Modifier.width(4.dp))
                 Icon(
                     imageVector = Icons.Default.ArrowDropDown,
-                    contentDescription = if (isExpanded) "收起" else "展开",
+                    contentDescription = if (isExpanded) stringResource(R.string.collapse) else stringResource(R.string.expand),
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier
                         .size(18.dp)
@@ -532,7 +536,7 @@ private fun SearchResultItem(result: WebSearchResult) {
                     val intent = Intent(Intent.ACTION_VIEW, Uri.parse(result.url))
                     context.startActivity(intent)
                 } catch (e: Exception) {
-                    Toast.makeText(context, "无法打开链接", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, context.getString(R.string.toast_link_failed), Toast.LENGTH_SHORT).show()
                 }
             }
     ) {
@@ -916,6 +920,8 @@ fun StreamingIndicator(modifier: Modifier = Modifier) {
 @Composable
 private fun CodeBlockView(code: String, info: String?) {
     val context = LocalContext.current
+    val darkCodeBlock = LocalCodeBlockDark.current
+    val palette = codeBlockPalette(darkCodeBlock)
     val lines = code.replace("\r\n", "\n").replace('\r', '\n').split("\n")
     val fenceLabel = info?.trim()?.substringBefore(' ').orEmpty()
     val normalizedLanguage = normalizeCodeLanguage(fenceLabel)
@@ -924,8 +930,8 @@ private fun CodeBlockView(code: String, info: String?) {
     
     val lineCount = codeLines.size
     val maxLineNumberWidth = lineCount.toString().length
-    val highlightedLines = remember(codeLines, language) {
-        highlightCodeLines(codeLines, language)
+    val highlightedLines = remember(codeLines, language, darkCodeBlock) {
+        highlightCodeLines(codeLines, language, darkCodeBlock)
     }
 
     Column(
@@ -933,7 +939,7 @@ private fun CodeBlockView(code: String, info: String?) {
             .fillMaxWidth()
             .padding(vertical = 12.dp)
             .background(
-                color = Color.Black,
+                color = palette.background,
                 shape = RoundedCornerShape(8.dp)
             )
     ) {
@@ -950,7 +956,7 @@ private fun CodeBlockView(code: String, info: String?) {
                         Icon(
                             imageVector = icon,
                             contentDescription = null,
-                            tint = Color.Gray,
+                            tint = palette.muted,
                             modifier = Modifier.size(14.dp)
                         )
                         Spacer(modifier = Modifier.width(6.dp))
@@ -958,7 +964,7 @@ private fun CodeBlockView(code: String, info: String?) {
                     Text(
                         text = fenceLabel,
                         style = TextStyle(
-                            color = Color.Gray,
+                            color = palette.muted,
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Bold
                         )
@@ -972,48 +978,53 @@ private fun CodeBlockView(code: String, info: String?) {
                     val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
                     val clip = ClipData.newPlainText("code", codeLines.joinToString("\n"))
                     clipboard.setPrimaryClip(clip)
-                    Toast.makeText(context, "代码已复制", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, context.getString(R.string.toast_code_copied), Toast.LENGTH_SHORT).show()
                 },
                 modifier = Modifier.size(32.dp)
             ) {
                 Icon(
                     imageVector = Icons.Default.ContentCopy,
-                    contentDescription = "复制代码",
-                    tint = Color.Gray,
+                    contentDescription = stringResource(R.string.copy_code),
+                    tint = palette.muted,
                     modifier = Modifier.size(18.dp)
                 )
             }
         }
         
-        Column(
+        Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 12.dp)
                 .padding(bottom = 12.dp)
-                .horizontalScroll(rememberScrollState())
         ) {
-            highlightedLines.forEachIndexed { index, line ->
-                Row(
-                    modifier = Modifier.width(IntrinsicSize.Max),
-                    horizontalArrangement = Arrangement.Start,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
+            // 行号列：不参与横向滚动，始终冻结在左侧
+            Column {
+                highlightedLines.forEachIndexed { index, _ ->
                     Text(
                         text = (index + 1).toString().padStart(maxLineNumberWidth, ' '),
                         modifier = Modifier.widthIn(min = (maxLineNumberWidth * 10).dp),
                         style = TextStyle(
-                            color = Color.Gray,
+                            color = palette.muted,
                             fontSize = 13.sp,
                             fontFamily = FontFamily.Monospace
                         )
                     )
-                    
-                    Spacer(modifier = Modifier.width(16.dp))
-                    
+                }
+            }
+
+            Spacer(modifier = Modifier.width(16.dp))
+
+            // 代码列：只有这部分横向滚动，行号不受影响
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .horizontalScroll(rememberScrollState())
+            ) {
+                highlightedLines.forEach { line ->
                     Text(
                         text = if (line.isEmpty()) AnnotatedString(" ") else line,
                         style = TextStyle(
-                            color = Color.White,
+                            color = palette.text,
                             fontSize = 13.sp,
                             fontFamily = FontFamily.Monospace
                         )
@@ -1124,11 +1135,90 @@ private val codeTypes = setOf(
     "ulong", "ushort", "unit", "unknown", "list", "map", "set", "dict", "tuple", "array"
 )
 
+/** 代码块配色：深色黑底 / 浅色白底，语法高亮两套配色 */
+internal data class CodeBlockPalette(
+    val background: Color,
+    val text: Color,
+    val muted: Color,
+    val keyword: Color,
+    val string: Color,
+    val number: Color,
+    val comment: Color,
+    val type: Color,
+    val function: Color,
+    val operator: Color,
+    val annotation: Color,
+    val property: Color
+)
+
+internal val DarkCodeBlockPalette = CodeBlockPalette(
+    background = Color.Black,
+    text = Color.White,
+    muted = Color.Gray,
+    keyword = Color(0xFFC792EA),
+    string = Color(0xFFC3E88D),
+    number = Color(0xFFF78C6C),
+    comment = Color(0xFF7C8495),
+    type = Color(0xFFFFCB6B),
+    function = Color(0xFF82AAFF),
+    operator = Color(0xFF89DDFF),
+    annotation = Color(0xFFFF5370),
+    property = Color(0xFFF07178)
+)
+
+internal val LightCodeBlockPalette = CodeBlockPalette(
+    background = Color.White,
+    text = Color(0xFF1F2328),
+    muted = Color(0xFF6B7280),
+    keyword = Color(0xFFCF222E),
+    string = Color(0xFF0A3069),
+    number = Color(0xFF0550AE),
+    comment = Color(0xFF6E7781),
+    type = Color(0xFF953800),
+    function = Color(0xFF8250DF),
+    operator = Color(0xFF0550AE),
+    annotation = Color(0xFF953800),
+    property = Color(0xFF116329)
+)
+
+private fun CodeHighlightPalette(dark: Boolean = true): CodeHighlightPalette {
+    val source = if (dark) DarkCodeBlockPalette else LightCodeBlockPalette
+    return CodeHighlightPalette(
+        keyword = source.keyword,
+        string = source.string,
+        number = source.number,
+        comment = source.comment,
+        type = source.type,
+        function = source.function,
+        operator = source.operator,
+        annotation = source.annotation,
+        property = source.property
+    )
+}
+
+/**
+ * 按明暗取代码块配色。浅色背景用极浅主题色（primary 6% 叠白）而非纯白，
+ * 与主题联动、在浅色页面上有区分度，同时不压过语法高亮。
+ */
+@Composable
+internal fun codeBlockPalette(dark: Boolean): CodeBlockPalette {
+    return if (dark) {
+        DarkCodeBlockPalette
+    } else {
+        LightCodeBlockPalette.copy(
+            background = MaterialTheme.colorScheme.primary
+                .copy(alpha = 0.06f)
+                .compositeOver(Color.White)
+        )
+    }
+}
+
 private fun highlightCodeLines(
     lines: List<String>,
-    language: String?
+    language: String?,
+    dark: Boolean = true
 ): List<AnnotatedString> {
-    val palette = CodeHighlightPalette()
+    val palette = CodeHighlightPalette(dark)
     var inBlockComment = false
     var multiLineStringDelimiter: String? = null
     val lineCommentMarkers = when (language) {

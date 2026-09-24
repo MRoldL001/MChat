@@ -1,4 +1,5 @@
 package com.mroldl001.mimochat.ui.chat.components
+import androidx.compose.ui.res.stringResource
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -18,6 +19,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -27,12 +32,14 @@ import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.mroldl001.mimochat.R
 
 @Composable
 fun ChatHistoryHeader(
-    title: String = "对话历史",
+    title: String = "",
     onSearchClick: () -> Unit,
     onSettingsClick: () -> Unit,
     onGitHubClick: () -> Unit,
@@ -40,6 +47,7 @@ fun ChatHistoryHeader(
     onSettingsBoundsChanged: (Rect) -> Unit = {}
 ) {
     val view = LocalView.current
+    val displayTitle = if (title.isEmpty()) stringResource(R.string.chat_history) else title
     Row(
         modifier = modifier
             .fillMaxWidth()
@@ -47,10 +55,19 @@ fun ChatHistoryHeader(
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
+        var fontSizeSp by remember(displayTitle) { mutableStateOf(24f) }
         Text(
-            text = title,
-            style = MaterialTheme.typography.headlineSmall,
-            fontWeight = FontWeight.Bold
+            text = displayTitle,
+            style = MaterialTheme.typography.headlineSmall.copy(fontSize = fontSizeSp.sp),
+            fontWeight = FontWeight.Bold,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f, fill = false),
+            onTextLayout = { result ->
+                if (result.didOverflowWidth && fontSizeSp > 12f) {
+                    fontSizeSp *= 0.9f
+                }
+            }
         )
         Surface(
             shape = RoundedCornerShape(24.dp),
@@ -71,7 +88,7 @@ fun ChatHistoryHeader(
                             modifier = Modifier.size(24.dp)
                         )
                     },
-                    contentDescription = "搜索",
+                    contentDescription = stringResource(R.string.sidebar_search),
                     onClick = onSearchClick
                 )
                 IconCircleButton(
@@ -83,7 +100,7 @@ fun ChatHistoryHeader(
                             modifier = Modifier.size(24.dp)
                         )
                     },
-                    contentDescription = "设置",
+                    contentDescription = stringResource(R.string.sidebar_settings),
                     modifier = Modifier.onGloballyPositioned { onSettingsBoundsChanged(it.screenBounds(view)) },
                     onClick = onSettingsClick
                 )
@@ -96,7 +113,7 @@ fun ChatHistoryHeader(
                             modifier = Modifier.size(20.dp)
                         )
                     },
-                    contentDescription = "GitHub",
+                    contentDescription = stringResource(R.string.sidebar_github),
                     onClick = onGitHubClick
                 )
             }

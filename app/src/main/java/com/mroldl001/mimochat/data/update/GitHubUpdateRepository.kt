@@ -24,9 +24,9 @@ sealed interface UpdateCheckResult {
 
 object GitHubUpdateRepository {
     private const val RELEASES_URL =
-        "https://api.github.com/repos/MRoldL001/MIMO-Chat/releases?per_page=30"
+        "https://api.github.com/repos/MRoldL001/MChat/releases?per_page=30"
     private const val LATEST_RELEASE_URL =
-        "https://api.github.com/repos/MRoldL001/MIMO-Chat/releases/latest"
+        "https://api.github.com/repos/MRoldL001/MChat/releases/latest"
 
     suspend fun checkForUpdate(
         includePrerelease: Boolean,
@@ -97,7 +97,7 @@ object GitHubUpdateRepository {
             connection.readTimeout = 20_000
             connection.setRequestProperty("Accept", "application/vnd.github+json")
             connection.setRequestProperty("X-GitHub-Api-Version", "2022-11-28")
-            connection.setRequestProperty("User-Agent", "MIMO-Chat/$currentVersionName")
+            connection.setRequestProperty("User-Agent", "MChat/$currentVersionName")
             val responseCode = connection.responseCode
             if (responseCode !in 200..299) {
                 throw IllegalStateException("GitHub 请求失败（HTTP $responseCode）")

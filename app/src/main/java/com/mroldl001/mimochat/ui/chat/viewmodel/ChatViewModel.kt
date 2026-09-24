@@ -1,17 +1,24 @@
 package com.mroldl001.mimochat.ui.chat.viewmodel
 
 import android.app.Application
+import android.content.Context
 import android.content.Intent
+import android.widget.Toast
 import androidx.core.content.pm.PackageInfoCompat
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.mroldl001.mimochat.R
 import com.mroldl001.mimochat.data.preferences.PreferencesManager
 import com.mroldl001.mimochat.data.api.ContentPart
 import com.mroldl001.mimochat.data.repository.ChatRepository
 import com.mroldl001.mimochat.data.repository.ModelRepository
 import com.mroldl001.mimochat.data.repository.StreamEvent
+import com.mroldl001.mimochat.data.repository.UsageRepository
+import com.mroldl001.mimochat.data.repository.UsageAccountType
+import com.mroldl001.mimochat.data.repository.UsageSnapshot
+import com.mroldl001.mimochat.data.repository.UsageUnauthorizedException
 import com.mroldl001.mimochat.data.update.GitHubRelease
 import com.mroldl001.mimochat.data.update.GitHubUpdateRepository
 import com.mroldl001.mimochat.data.update.UpdateCheckResult
@@ -21,7 +28,9 @@ import com.mroldl001.mimochat.domain.model.Message
 import com.mroldl001.mimochat.service.ChatService
 import com.mroldl001.mimochat.service.UpdateDownloadService
 import com.mroldl001.mimochat.ui.chat.components.LatexBitmapRenderer
+import com.mroldl001.mimochat.ui.theme.CodeBlockColorMode
 import com.mroldl001.mimochat.ui.theme.ThemeColor
+import com.mroldl001.mimochat.ui.settings.AppLocale
 import com.mroldl001.mimochat.ui.theme.ThemeMode
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CancellationException
@@ -29,7 +38,11 @@ import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import java.util.Locale
 import javax.inject.Inject
+
+/** 启动且未保存过模型选择时的默认模型。 */
+private const val DEFAULT_MODEL_ID = "mimo-v2.6-flash"
 
 enum class SkillType {
     POET,
@@ -95,7 +108,6 @@ data class StreamState(
 sealed interface UpdateUiState {
     data object Idle : UpdateUiState
     data object Checking : UpdateUiState
-    data class Latest(val message: String) : UpdateUiState
     data class Available(val release: GitHubRelease) : UpdateUiState
     data class Failed(val message: String) : UpdateUiState
 }
@@ -111,6 +123,7 @@ data class ChatUiState(
     val apiBaseUrl: String = PreferencesManager.DEFAULT_API_BASE_URL,
     val themeColor: ThemeColor = ThemeColor.WHITE,
     val themeMode: ThemeMode = ThemeMode.FOLLOW_SYSTEM,
+    val codeBlockColorMode: CodeBlockColorMode = CodeBlockColorMode.DARK,
     val customSystemPrompt: String = "",
     val chatBackgroundUri: String? = null,
     val chatBackgroundOpacity: Float = PreferencesManager.DEFAULT_CHAT_BACKGROUND_OPACITY,
@@ -120,23 +133,37 @@ data class ChatUiState(
     val frequencyPenalty: Float = PreferencesManager.DEFAULT_FREQUENCY_PENALTY,
     val presencePenalty: Float = PreferencesManager.DEFAULT_PRESENCE_PENALTY,
     val acceptPrereleaseUpdates: Boolean = false,
-    val updateState: UpdateUiState = UpdateUiState.Idle
+    val updateState: UpdateUiState = UpdateUiState.Idle,
+    // 剩余用量（侧边栏展示，开关控制）
+    // 小米的用量接口只认控制台登录 Cookie，API Key 只能算兜底，故以登录态为主
+    val showUsage: Boolean = false,
+    val usageLoading: Boolean = false,
+    val usageText: String? = null,
+    val usageLoggedIn: Boolean = false
 )
-
-private const val DEFAULT_CHAT_TITLE = "新对话"
 
 @HiltViewModel
 class ChatViewModel @Inject constructor(
     private val chatRepository: ChatRepository,
     private val modelRepository: ModelRepository,
+    private val usageRepository: UsageRepository,
     private val preferencesManager: PreferencesManager,
     private val application: Application
 ) : ViewModel() {
+
+    /** 按用户选择的语言包装出的 Context，确保本 ViewModel 读取的字符串资源也随语言切换。 */
+    private val localizedContext: Context
+        get() = AppLocale.wrap(application, preferencesManager.getAppLanguage())
+
+    /** 新对话的默认标题，随系统语言本地化 */
+    private val defaultChatTitle: String
+        get() = localizedContext.getString(R.string.new_chat)
 
     private val _uiState = MutableStateFlow(
         ChatUiState(
             themeColor = preferencesManager.getThemeColor(),
             themeMode = preferencesManager.getThemeMode(),
+            codeBlockColorMode = preferencesManager.getCodeBlockColorMode(),
             apiKey = preferencesManager.getApiKey(),
             apiBaseUrl = preferencesManager.getApiBaseUrl(),
             customSystemPrompt = preferencesManager.getCustomSystemPrompt(),
@@ -146,7 +173,9 @@ class ChatViewModel @Inject constructor(
             topP = preferencesManager.getTopP(),
             frequencyPenalty = preferencesManager.getFrequencyPenalty(),
             presencePenalty = preferencesManager.getPresencePenalty(),
-            acceptPrereleaseUpdates = preferencesManager.getAcceptPrereleaseUpdates()
+            acceptPrereleaseUpdates = preferencesManager.getAcceptPrereleaseUpdates(),
+            showUsage = preferencesManager.getShowUsage(),
+            usageLoggedIn = preferencesManager.getUsageCookie().isNotBlank()
         )
     )
     val uiState: StateFlow<ChatUiState> = _uiState.asStateFlow()
@@ -170,6 +199,8 @@ class ChatViewModel @Inject constructor(
     init {
         loadModels()
         loadChats()
+        // 平板端是常驻抽屉，没有"打开抽屉"事件，故启动时先拉一次
+        refreshUsage()
     }
 
     private fun loadModels() {
@@ -183,7 +214,7 @@ class ChatViewModel @Inject constructor(
         _uiState.update { state ->
             state.copy(
                 availableModels = models,
-                selectedModel = selectedModel ?: models.firstOrNull()
+                selectedModel = selectedModel ?: models.find { it.id == DEFAULT_MODEL_ID } ?: models.firstOrNull()
             )
         }
     }
@@ -218,14 +249,122 @@ class ChatViewModel @Inject constructor(
         preferencesManager.saveThemeMode(mode)
     }
 
+    fun setCodeBlockColorMode(mode: CodeBlockColorMode) {
+        _uiState.update { it.copy(codeBlockColorMode = mode) }
+        preferencesManager.saveCodeBlockColorMode(mode)
+    }
+
+    fun getCustomThemeColorHex(): String = preferencesManager.getCustomThemeColorHex()
+
+    fun setCustomThemeColorHex(hex: String) {
+        _uiState.update { it.copy(themeColor = ThemeColor.CUSTOM) }
+        preferencesManager.saveCustomThemeColorHex(hex)
+    }
+
     fun setApiKey(apiKey: String) {
         _uiState.update { it.copy(apiKey = apiKey) }
         preferencesManager.saveApiKey(apiKey)
+        // 用量依赖 API Key，换了 Key 就重新查一次
+        refreshUsage()
     }
 
     fun setApiBaseUrl(url: String) {
         _uiState.update { it.copy(apiBaseUrl = url) }
         preferencesManager.saveApiBaseUrl(url)
+        // 不同接口（标准 / 订阅）查的端点不同，换地址后重新查
+        refreshUsage()
+    }
+
+    fun setShowUsage(enabled: Boolean) {
+        _uiState.update { it.copy(showUsage = enabled) }
+        preferencesManager.saveShowUsage(enabled)
+        if (enabled) refreshUsage()
+    }
+
+    /** 内置登录页拿到控制台 Cookie 后调用：存起来并立即查一次用量。 */
+    fun saveUsageCookie(cookie: String) {
+        preferencesManager.saveUsageCookie(cookie)
+        _uiState.update { it.copy(usageLoggedIn = cookie.isNotBlank()) }
+        refreshUsage()
+    }
+
+    /** 登出控制台登录态，卡片回到"点击登录"。 */
+    fun clearUsageCookie() {
+        preferencesManager.clearUsageCookie()
+        _uiState.update { it.copy(usageLoggedIn = false, usageText = null, usageLoading = false) }
+    }
+
+    /**
+     * 查询剩余用量。
+     * 优先用控制台 Cookie（订阅账号给剩余积分），没有 Cookie 才退而用 API Key 试余额接口。
+     */
+    fun refreshUsage() {
+        if (!_uiState.value.showUsage) return
+        val cookie = preferencesManager.getUsageCookie()
+        val apiKey = _uiState.value.apiKey
+        if (cookie.isBlank() && apiKey.isBlank()) {
+            _uiState.update {
+                it.copy(usageLoading = false, usageLoggedIn = false, usageText = null)
+            }
+            return
+        }
+        viewModelScope.launch {
+            _uiState.update { it.copy(usageLoading = true) }
+            val result = usageRepository.fetchUsage(cookie, apiKey, _uiState.value.apiBaseUrl)
+            _uiState.update { state ->
+                result.fold(
+                    onSuccess = { snapshot ->
+                        state.copy(
+                            usageLoading = false,
+                            usageLoggedIn = true,
+                            usageText = formatUsage(snapshot)
+                        )
+                    },
+                    onFailure = { error ->
+                        if (error is CancellationException) throw error
+                        if (error is UsageUnauthorizedException) {
+                            // 真正的登录过期（401/403）：清掉 Cookie，卡片回到可重新登录的状态
+                            preferencesManager.clearUsageCookie()
+                            state.copy(
+                                usageLoading = false,
+                                usageLoggedIn = false,
+                                usageText = localizedContext.getString(R.string.usage_expired)
+                            )
+                        } else {
+                            // 非鉴权失败（接口路径/字段变化、网络、解析失败）：保留登录态，
+                            // 提示重试，不要误清 Cookie（否则会循环提示"过期"）。
+                            state.copy(
+                                usageLoading = false,
+                                usageLoggedIn = true,
+                                usageText = localizedContext.getString(R.string.usage_error)
+                            )
+                        }
+                    }
+                )
+            }
+        }
+    }
+
+    private fun formatUsage(snapshot: UsageSnapshot): String {
+        val ctx = localizedContext
+        return when (snapshot.accountType) {
+            UsageAccountType.TOKEN_PLAN -> {
+                val credits = snapshot.remainingCredits ?: snapshot.balance ?: 0.0
+                val millions = credits / 1_000_000.0
+                val amount = if (millions >= 1000.0) {
+                    String.format(Locale.US, "%.2f B", millions / 1000.0)
+                } else {
+                    String.format(Locale.US, "%.0f M", millions)
+                }
+                ctx.getString(R.string.usage_plan_credits, amount)
+            }
+            UsageAccountType.PAYG -> {
+                val balance = snapshot.balance ?: 0.0
+                val symbol = if (snapshot.currency.equals("CNY", ignoreCase = true)) "¥" else "$"
+                val amount = String.format(Locale.US, "%.2f", balance)
+                ctx.getString(R.string.usage_recharge_balance, "$symbol$amount")
+            }
+        }
     }
 
     fun setCustomSystemPrompt(prompt: String) {
@@ -297,10 +436,22 @@ class ChatViewModel @Inject constructor(
                 )
             ) {
                 is UpdateCheckResult.Available -> UpdateUiState.Available(result.release)
-                is UpdateCheckResult.Latest -> UpdateUiState.Latest(
-                    "当前版本 ${result.currentVersion} 已是最新"
-                )
-                is UpdateCheckResult.Failed -> UpdateUiState.Failed(result.message)
+                is UpdateCheckResult.Latest -> {
+                    Toast.makeText(
+                        application,
+                        localizedContext.getString(R.string.toast_version_latest, result.currentVersion),
+                        Toast.LENGTH_SHORT
+                    ).show()
+                    UpdateUiState.Idle
+                }
+                is UpdateCheckResult.Failed -> {
+                    Toast.makeText(
+                        application,
+                        localizedContext.getString(R.string.toast_check_update_failed, result.message ?: ""),
+                        Toast.LENGTH_SHORT
+                    ).show()
+                    UpdateUiState.Idle
+                }
             }
             _uiState.update { it.copy(updateState = state) }
         }
@@ -350,9 +501,9 @@ class ChatViewModel @Inject constructor(
                 )
             }
             
-            val modelId = _uiState.value.selectedModel?.id ?: "mimo-v2.5-pro"
+            val modelId = _uiState.value.selectedModel?.id ?: DEFAULT_MODEL_ID
             val chatId = chatRepository.createChat(
-                title = DEFAULT_CHAT_TITLE,
+                title = defaultChatTitle,
                 modelId = modelId
             )
             val chat = chatRepository.getChatById(chatId)
@@ -374,7 +525,7 @@ class ChatViewModel @Inject constructor(
                 }
             } else {
                 _uiState.update {
-                    it.copy(error = "创建对话失败")
+                    it.copy(error = localizedContext.getString(R.string.error_create_chat_failed))
                 }
             }
         }
@@ -427,9 +578,9 @@ class ChatViewModel @Inject constructor(
             }
             
             if (_uiState.value.currentChat == null) {
-                val modelId = _uiState.value.selectedModel?.id ?: "mimo-v2.5-pro"
+                val modelId = _uiState.value.selectedModel?.id ?: DEFAULT_MODEL_ID
                 val chatId = chatRepository.createChat(
-                    title = DEFAULT_CHAT_TITLE,
+                    title = defaultChatTitle,
                     modelId = modelId
                 )
                 val chat = chatRepository.getChatById(chatId)
@@ -447,7 +598,7 @@ class ChatViewModel @Inject constructor(
                     _uiState.update {
                         it.copy(
                             isLoading = false,
-                            error = "创建对话失败"
+                            error = localizedContext.getString(R.string.error_create_chat_failed)
                         )
                     }
                     return@launch
@@ -456,7 +607,7 @@ class ChatViewModel @Inject constructor(
 
             val chat = _uiState.value.currentChat!!
             activeChatId = chat.id
-            val isNewChat = chat.title == DEFAULT_CHAT_TITLE
+            val isNewChat = chat.title == defaultChatTitle
             android.util.Log.d("ChatViewModel", "Current chat: ${chat.title}, isNewChat: $isNewChat")
 
             val pendingUserMessage = Message(
@@ -476,13 +627,13 @@ class ChatViewModel @Inject constructor(
                 _uiState.update {
                     it.copy(
                         isLoading = false,
-                        error = "请先设置 API Key"
+                        error = localizedContext.getString(R.string.error_set_api_key)
                     )
                 }
                 return@launch
             }
 
-            val modelId = if (attachment != null) "mimo-v2.5" else (_uiState.value.selectedModel?.id ?: "mimo-v2.5-pro")
+            val modelId = if (attachment != null && _uiState.value.selectedModel?.capabilities?.contains("multimodal") != true) DEFAULT_MODEL_ID else (_uiState.value.selectedModel?.id ?: DEFAULT_MODEL_ID)
             val apiBaseUrl = _uiState.value.apiBaseUrl
             val titleSource = content.ifBlank {
                 when {
@@ -506,7 +657,7 @@ class ChatViewModel @Inject constructor(
                         val title = result.getOrNull()
                         if (title != null) {
                             val currentChatFromDb = chatRepository.getChatById(chatId)
-                            if (currentChatFromDb != null && currentChatFromDb.title == DEFAULT_CHAT_TITLE) {
+                            if (currentChatFromDb != null && currentChatFromDb.title == defaultChatTitle) {
                                 val updatedChat = currentChatFromDb.copy(title = title)
                                 chatRepository.updateChat(updatedChat)
                                 _uiState.update { state ->
@@ -575,8 +726,8 @@ class ChatViewModel @Inject constructor(
                             currentContent.isNotBlank() -> currentContent.take(30).let {
                                 if (currentContent.length > 30) "$it..." else it
                             }
-                            currentReasoning.isNotBlank() -> "正在思考..."
-                            else -> "MiMo正在回复你"
+                            currentReasoning.isNotBlank() -> localizedContext.getString(R.string.thinking_status)
+                            else -> localizedContext.getString(R.string.notif_chat_reply)
                         }
                         application.startService(Intent(application, ChatService::class.java).apply {
                             action = ChatService.ACTION_UPDATE_NOTIFICATION
@@ -607,7 +758,7 @@ class ChatViewModel @Inject constructor(
                             error.contains("timeout", ignoreCase = true) ||
                             error.contains("network", ignoreCase = true) ||
                             error.contains("网络")
-                        ) "无网络连接" else error
+                        ) localizedContext.getString(R.string.error_no_network) else error
                         _uiState.update { it.copy(isLoading = false, error = displayError) }
                     }
                 }
@@ -646,7 +797,7 @@ class ChatViewModel @Inject constructor(
                     }
 
                     if (streamError == null && !doneReceived) {
-                        streamError = "流式连接意外中断"
+                        streamError = localizedContext.getString(R.string.error_stream_interrupted)
                     }
 
                     val error = streamError
@@ -669,7 +820,7 @@ class ChatViewModel @Inject constructor(
                 } catch (e: CancellationException) {
                     throw e
                 } catch (e: Exception) {
-                    persistFailure(e.message ?: "流式输出失败")
+                    persistFailure(e.message ?: localizedContext.getString(R.string.error_stream_failed))
                 } finally {
                     if (streamJobs[targetChatId] === sessionJob) {
                         streamJobs.remove(targetChatId)

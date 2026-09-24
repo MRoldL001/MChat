@@ -1,4 +1,8 @@
 package com.mroldl001.mimochat.service
+import com.mroldl001.mimochat.R
+import android.content.Context
+import com.mroldl001.mimochat.data.preferences.PreferencesManager
+import com.mroldl001.mimochat.ui.settings.AppLocale
 
 import android.app.Notification
 import android.app.NotificationChannel
@@ -35,12 +39,16 @@ class UpdateDownloadService : Service() {
     private lateinit var notificationManager: NotificationManager
     private var downloadJob: Job? = null
 
+    /** 按用户选择语言包装的 Context，确保更新通知文本也随语言切换。 */
+    private val localizedContext: Context
+        get() = AppLocale.wrap(this, PreferencesManager(this).getAppLanguage())
+
     override fun onCreate() {
         super.onCreate()
         notificationManager = getSystemService(NotificationManager::class.java)
         notificationManager.createNotificationChannel(
-            NotificationChannel(CHANNEL_ID, "软件更新", NotificationManager.IMPORTANCE_LOW).apply {
-                description = "显示软件更新下载进度"
+            NotificationChannel(CHANNEL_ID, localizedContext.getString(R.string.notif_update_channel_name), NotificationManager.IMPORTANCE_LOW).apply {
+                description = localizedContext.getString(R.string.notif_update_channel_desc)
                 setShowBadge(false)
             }
         )
@@ -65,14 +73,14 @@ class UpdateDownloadService : Service() {
     private fun downloadAndInstall(downloadUrl: String, version: String) {
         val updateDir = File(filesDir, "updates").apply { mkdirs() }
         val safeVersion = version.replace(Regex("[^A-Za-z0-9._-]"), "_")
-        val apkFile = File(updateDir, "MIMOChat-$safeVersion.apk")
+        val apkFile = File(updateDir, "MChat-$safeVersion.apk")
         var downloadCompleted = false
         try {
             val connection = URL(downloadUrl).openConnection() as HttpURLConnection
             connection.instanceFollowRedirects = true
             connection.connectTimeout = 20_000
             connection.readTimeout = 30_000
-            connection.setRequestProperty("User-Agent", "MIMO-Chat")
+            connection.setRequestProperty("User-Agent", "MChat")
             connection.connect()
             if (connection.responseCode !in 200..299) {
                 throw IllegalStateException("HTTP ${connection.responseCode}")
@@ -125,8 +133,8 @@ class UpdateDownloadService : Service() {
                 .setProgress(progress)
             return Notification.Builder(this, CHANNEL_ID)
                 .setSmallIcon(android.R.drawable.stat_sys_download)
-                .setContentTitle("正在下载 $version")
-                .setContentText(if (indeterminate) "正在获取安装包" else "$progress%")
+                .setContentTitle(localizedContext.getString(R.string.notif_downloading, version))
+                .setContentText(if (indeterminate) localizedContext.getString(R.string.notif_downloading_indeterminate) else "$progress%")
                 .setContentIntent(contentIntent)
                 .setOngoing(true)
                 .setOnlyAlertOnce(true)
@@ -135,8 +143,8 @@ class UpdateDownloadService : Service() {
         }
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.stat_sys_download)
-            .setContentTitle("正在下载 $version")
-            .setContentText(if (indeterminate) "正在获取安装包" else "$progress%")
+            .setContentTitle(localizedContext.getString(R.string.notif_downloading, version))
+            .setContentText(if (indeterminate) localizedContext.getString(R.string.notif_downloading_indeterminate) else "$progress%")
             .setContentIntent(contentIntent)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
@@ -148,8 +156,8 @@ class UpdateDownloadService : Service() {
     private fun buildCompleteNotification(version: String, apkFile: File): Notification {
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.stat_sys_download_done)
-            .setContentTitle("$version 下载完成")
-            .setContentText("点击安装更新")
+            .setContentTitle(localizedContext.getString(R.string.notif_download_complete, version))
+            .setContentText(localizedContext.getString(R.string.notif_install_update))
             .setAutoCancel(true)
             .setContentIntent(installerPendingIntent(apkFile))
             .build()
@@ -158,8 +166,8 @@ class UpdateDownloadService : Service() {
     private fun buildFailureNotification(message: String?): Notification {
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.stat_notify_error)
-            .setContentTitle("更新下载失败")
-            .setContentText(message ?: "请稍后重试")
+            .setContentTitle(localizedContext.getString(R.string.notif_update_failed))
+            .setContentText(message ?: localizedContext.getString(R.string.notif_retry_later))
             .setAutoCancel(true)
             .build()
     }

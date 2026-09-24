@@ -1,8 +1,14 @@
 package com.mroldl001.mimochat.ui.chat.components
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+// 此处必须用通配导入：layout 包里存在与 public fun Modifier.weight 同名的 internal
+// val RowColumnParentData?.weight，精确导入会让编译器选中 internal 那个并报
+// "Cannot access ... it is internal in file"。通配导入只取 public 声明。
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
@@ -10,16 +16,22 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Link
+import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.compositeOver
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.mroldl001.mimochat.R
 
 private const val StandardApiUrl = "https://api.xiaomimimo.com"
 private const val SubscriptionApiUrl = "https://token-plan-cn.xiaomimimo.com"
@@ -45,7 +57,7 @@ internal fun ApiBaseUrlDialog(
         shape = RoundedCornerShape(28.dp),
         containerColor = colors.surfaceContainerHigh,
         icon = {
-            SettingsDialogIcon(Icons.Default.Link)
+            SettingsDialogIcon(Icons.Outlined.Link)
         },
         title = { Text("API Base URL") },
         text = {
@@ -53,34 +65,83 @@ internal fun ApiBaseUrlDialog(
                 modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(20.dp)
             ) {
-                Text("选择接口类型，或输入自定义地址", style = MaterialTheme.typography.bodyMedium)
+                Text(
+                    stringResource(R.string.api_url_dialog_desc),
+                    style = MaterialTheme.typography.bodyMedium.localeScaled()
+                )
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text("按量付费使用标准接口", style = MaterialTheme.typography.bodySmall)
-                    Text("月度套餐使用订阅接口", style = MaterialTheme.typography.bodySmall)
+                    Text(
+                        stringResource(R.string.api_url_standard_desc),
+                        style = MaterialTheme.typography.bodySmall.localeScaled()
+                    )
+                    Text(
+                        stringResource(R.string.api_url_subscription_desc),
+                        style = MaterialTheme.typography.bodySmall.localeScaled()
+                    )
                 }
-                SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
-                    listOf("标准接口" to StandardApiUrl, "订阅接口" to SubscriptionApiUrl)
-                        .forEachIndexed { index, (label, url) ->
-                            SegmentedButton(
-                                selected = normalizedUrl == url,
-                                onClick = { apiBaseUrl = url },
-                                shape = SegmentedButtonDefaults.itemShape(index = index, count = 2),
-                                colors = SegmentedButtonDefaults.colors(
-                                    activeContainerColor = tonalColor,
-                                    activeContentColor = colors.primary,
-                                    activeBorderColor = colors.outline,
-                                    inactiveContainerColor = Color.Transparent,
-                                    inactiveContentColor = colors.onSurfaceVariant,
-                                    inactiveBorderColor = colors.outline
+                // 刻意不用 Material3 的 SegmentedButton：1.3.1 起它在选中项前会自动画一个勾
+                // （内部走 SegmentedButtonDefaults.ActiveIcon 分支），既与高亮重复又压缩标签宽度。
+                // 这里手写一个「滑动背景块」分段控件：选中态是一个从左到右平滑移动的 pill，
+                // 文字颜色同步切换，没有额外的对勾图标。
+                BoxWithConstraints(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(28.dp))
+                        .border(BorderStroke(1.dp, colors.outline), RoundedCornerShape(28.dp))
+                ) {
+                    val segmentWidth = maxWidth / 2
+                    val targetOffset = if (normalizedUrl == StandardApiUrl) 0.dp else segmentWidth
+                    val indicatorOffset by animateDpAsState(
+                        targetValue = targetOffset,
+                        label = "api_url_indicator_offset"
+                    )
+
+                    // 底层滑动指示块
+                    Box(
+                        modifier = Modifier
+                            .fillMaxHeight()
+                            .fillMaxWidth(0.5f)
+                            .offset(x = indicatorOffset)
+                            .background(tonalColor, RoundedCornerShape(28.dp))
+                    )
+
+                    Row(modifier = Modifier.fillMaxWidth()) {
+                        listOf(
+                            stringResource(R.string.api_url_standard_label) to StandardApiUrl,
+                            stringResource(R.string.api_url_subscription_label) to SubscriptionApiUrl
+                        ).forEachIndexed { index, (label, url) ->
+                            val selected = normalizedUrl == url
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .clip(RoundedCornerShape(28.dp))
+                                    .clickable { apiBaseUrl = url }
+                                    .padding(vertical = 12.dp, horizontal = 4.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                AutoFitText(
+                                    text = label,
+                                    style = MaterialTheme.typography.labelLarge.localeScaled(),
+                                    textAlign = TextAlign.Center,
+                                    color = if (selected) colors.primary else colors.onSurfaceVariant
                                 )
-                            ) { Text(label) }
+                            }
+                            if (index == 0) {
+                                Spacer(
+                                    modifier = Modifier
+                                        .width(1.dp)
+                                        .fillMaxHeight()
+                                        .background(colors.outline)
+                                )
+                            }
                         }
+                    }
                 }
                 OutlinedTextField(
                     value = apiBaseUrl,
                     onValueChange = { apiBaseUrl = it },
-                    label = { Text("服务器地址") },
-                    placeholder = { Text("https://") },
+                    label = { Text(stringResource(R.string.api_url_server_address), style = MaterialTheme.typography.bodyMedium.localeScaled()) },
+                    placeholder = { Text("https://", style = MaterialTheme.typography.bodyMedium.localeScaled()) },
                     shape = RoundedCornerShape(16.dp),
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, imeAction = ImeAction.Done),
@@ -90,10 +151,10 @@ internal fun ApiBaseUrlDialog(
             }
         },
         confirmButton = {
-            TextButton(onClick = confirm, enabled = apiBaseUrl.isNotBlank()) { Text("保存") }
+            TextButton(onClick = confirm, enabled = apiBaseUrl.isNotBlank()) { Text(stringResource(R.string.save)) }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("取消") }
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.common_cancel)) }
         }
     )
 }

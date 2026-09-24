@@ -1,0 +1,252 @@
+<resources>
+  <string name="app_name">MChat</string>
+
+  <!-- Settings: Appearance -->
+  <string name="settings_title">Settings</string>
+  <string name="back">Back</string>
+  <string name="group_appearance">Appearance</string>
+  <string name="display_mode">Display Mode</string>
+  <string name="preview_day">Light</string>
+  <string name="preview_night">Dark</string>
+  <string name="preview_follow_system">Follow System</string>
+  <string name="theme_color">Theme Color</string>
+  <string name="theme_default">Default</string>
+  <string name="theme_custom">Custom Color</string>
+  <string name="theme_auto_color">Monet Color</string>
+  <string name="theme_hatsune_miku">Miku Green</string>
+  <string name="theme_teto_red">Teto Red</string>
+  <string name="theme_mi_orange">Mi Orange</string>
+  <string name="theme_green">Vibrant Green</string>
+  <string name="theme_purple">Roland Purple</string>
+  <string name="theme_deep_blue">Deep Blue</string>
+  <string name="code_block_color">Code Block Color</string>
+  <string name="code_block_dark">Dark Code Block</string>
+  <string name="code_block_light">Light Code Block</string>
+  <string name="code_block_follow">Follow Display Mode</string>
+  <string name="chat_background">Chat Background</string>
+  <string name="chat_background_desc">Choose a background image for chats</string>
+
+  <!-- Settings: API -->
+  <string name="group_api">API</string>
+  <string name="api_key">API Key</string>
+  <string name="api_key_desc">Configure your API key to start chatting</string>
+  <string name="api_base_url">API Base URL</string>
+  <string name="api_base_url_desc">Configure the API server address</string>
+
+  <!-- Remaining usage -->
+  <string name="usage_setting_title">Show Remaining Usage</string>
+  <string name="usage_setting_desc">Display your remaining account usage in the sidebar</string>
+  <string name="usage_loading">Loading...</string>
+  <string name="usage_credits_value">Credits left %1$s</string>
+  <string name="usage_balance_value">Balance %1$s</string>
+  <string name="usage_plan_credits">Plan balance %1$s</string>
+  <string name="usage_recharge_balance">Recharge balance %1$s</string>
+  <string name="usage_no_key">Set an API key to view usage</string>
+  <string name="usage_no_plan">No usage data available</string>
+  <string name="usage_error">Query failed, tap to retry</string>
+  <string name="usage_login_title">Sign in to MiMo Console</string>
+  <string name="usage_login_prompt">Sign in to view usage</string>
+  <string name="usage_login_hint">Usage is fetched automatically after sign-in and returns on its own.</string>
+  <string name="usage_login_load_failed">Failed to load page. Tap to retry.</string>
+  <string name="usage_expired">Session expired. Please sign in again.</string>
+  <string name="retry">Retry</string>
+
+  <!-- Settings: Experience -->
+  <string name="group_experience">Experience</string>
+  <string name="language">Language</string>
+  <string name="language_desc">Choose the app display language</string>
+  <string name="language_dialog_title">Display Language</string>
+  <string name="language_system">Follow System</string>
+  <string name="language_zh_cn">Simplified Chinese</string>
+  <string name="language_zh_tw">Traditional Chinese</string>
+  <string name="language_en">English</string>
+  <string name="language_ja">Japanese</string>
+  <string name="custom_system_prompt">Custom System Prompt</string>
+  <string name="custom_system_prompt_desc">Set a personalized system prompt</string>
+  <string name="parameter_settings">Parameter Settings</string>
+  <string name="parameter_settings_desc">Adjust model parameters</string>
+
+  <!-- Settings: Others -->
+  <string name="group_other">Others</string>
+  <string name="experimental_features">Experimental Features</string>
+  <string name="experimental_features_desc">Cutting-edge features not yet stable</string>
+  <string name="history_easter_egg">Easter Eggs History</string>
+  <string name="history_easter_egg_desc">The moments MChat has shared with you</string>
+  <string name="easter_egg_v2_0_desc">That paranoid android keeps updating MIMO Chat — he migrated me to the brand-new Android 16</string>
+  <string name="easter_egg_v1_2_desc">Smells like something a teenager would do — smells like MIMO Chat with an optimized background-keepalive mechanism</string>
+  <string name="easter_egg_v1_0_desc">This might just be a great expedition! A journey of a thousand miles begins with a single step</string>
+  <string name="easter_egg_sbr_desc">LESSON4: Show your respect, show your respect, and then move towards a brand new stage of MChat!</string>
+  <string name="about_mchat">About MChat</string>
+  <string name="about_mchat_desc">App info and notices</string>
+  <string name="check_update">Check for Updates</string>
+  <string name="check_update_desc">Get the latest version from GitHub Releases</string>
+  <string name="prerelease_update_title">Accept Prerelease Updates</string>
+  <string name="prerelease_update_desc">Prerelease versions may be unstable, but let you try new features early</string>
+
+  <!-- Update dialog -->
+  <string name="update_release_notes">Release Notes</string>
+  <string name="download_and_install">Download &amp; Install</string>
+  <string name="common_cancel">Cancel</string>
+
+  <!-- Banner -->
+  <string name="banner_castle_desc">Attach files, open the camera, and let MChat witness a majestic castle built from a brand-new UI and motion design</string>
+  <string name="banner_cover_desc">Show me the castle cover</string>
+
+  <!-- About -->
+  <string name="about_app_icon_desc">MChat icon</string>
+  <string name="about_version">Version</string>
+  <string name="about_unknown">Unknown</string>
+  <string name="about_author_blog">Author\'s Blog</string>
+  <string name="about_author_blog_desc">The personal blog of the author MRoldL001</string>
+  <string name="about_open_source">Open Source Libraries</string>
+  <string name="about_open_source_desc">View the open-source libraries used by this app</string>
+  <string name="about_disclaimer">Disclaimer</string>
+  <string name="about_disclaimer_desc">App information, intellectual property, and risk notice</string>
+  <string name="about_close">Close</string>
+  <string name="about_ai_translation">UI translations are AI-generated and may be inaccurate (AI translation)</string>
+
+  <!-- Chat / Sidebar / Common -->
+  <string name="chat_history">History</string>
+  <string name="new_chat">New Chat</string>
+  <string name="no_chat_history">No conversation history</string>
+  <string name="delete">Delete</string>
+  <string name="menu">Menu</string>
+  <string name="sidebar_search">Search</string>
+  <string name="sidebar_settings">Settings</string>
+  <string name="sidebar_github">GitHub</string>
+
+  <!-- Skills -->
+  <string name="skill_web">Web</string>
+  <string name="skill_thinking">Think</string>
+  <string name="skill_poet">Poet</string>
+  <string name="skill_learning">Learn</string>
+
+  <!-- Model selection -->
+  <string name="select_model">Select Model</string>
+
+  <!-- Input bar -->
+  <string name="add_attachment">Add Attachment</string>
+  <string name="input_message_hint">Type a message...</string>
+  <string name="stop_generating">Stop Generating</string>
+  <string name="send">Send</string>
+  <string name="collapse_attachment_menu">Collapse Attachment Menu</string>
+  <string name="take_photo">Take Photo</string>
+  <string name="select_file">Select File</string>
+
+  <!-- Thinking / Search -->
+  <string name="thinking_process">Thinking</string>
+  <string name="search_results">Search Results</string>
+  <string name="collapse">Collapse</string>
+  <string name="expand">Expand</string>
+  <string name="thinking_status">Thinking...</string>
+
+  <!-- Common dialogs -->
+  <string name="save">Save</string>
+  <string name="confirm">Confirm</string>
+  <string name="hint">Notice</string>
+  <string name="ok">OK</string>
+  <string name="no_api_key">API Key not set</string>
+  <string name="jump_to_bottom">Jump to bottom</string>
+  <string name="confirm_delete">Confirm Delete</string>
+  <string name="confirm_delete_message">Do you really want to delete this?</string>
+  <string name="restore_default">Restore Default</string>
+  <string name="common_done">Done</string>
+
+  <!-- API Base URL dialog -->
+  <string name="api_url_dialog_desc">Choose an API type, or enter a custom address</string>
+  <string name="api_url_standard_desc">Pay-as-you-go uses the standard API</string>
+  <string name="api_url_subscription_desc">Monthly plans use the subscription API</string>
+  <string name="api_url_standard_label">Standard API</string>
+  <string name="api_url_subscription_label">Subscription API</string>
+  <string name="api_url_server_address">Server address</string>
+
+  <!-- Chat background -->
+  <string name="chat_background_title">Chat Background</string>
+  <string name="bg_select_image">Choose Image</string>
+  <string name="bg_select_image_desc">Pick an image to crop</string>
+  <string name="bg_change_opacity">Background opacity</string>
+  <string name="bg_opacity_error">Enter a value between 0 and 100</string>
+  <string name="bg_restore_default">Restore Default Background</string>
+  <string name="bg_restore_default_desc">Remove the background image and restore default opacity</string>
+  <string name="bg_crop_title">Crop Background</string>
+  <string name="bg_crop_hint">Drag to adjust position, pinch to zoom</string>
+  <string name="bg_load_failed">Failed to load the selected image</string>
+  <string name="restore_default_confirm">Do you really want to restore default parameters?</string>
+
+  <!-- Custom system prompt dialog -->
+  <string name="custom_prompt_hint">Please enter your custom system prompt</string>
+  <string name="custom_prompt_label">System Prompt</string>
+  <string name="custom_prompt_placeholder">Enter your custom prompt here...</string>
+
+  <!-- API Key dialog -->
+  <string name="api_key_monthly_tip">Monthly plan users: change the API Base URL to the subscription endpoint in Advanced Options</string>
+
+  <!-- Parameter settings -->
+  <string name="param_temp_hint">Please enter a value between 0 and 2.0</string>
+  <string name="param_temp_desc">Controls the randomness of the model output. A value of 0 yields near-deterministic results; higher values produce more creative and diverse outputs</string>
+  <string name="param_topp_hint">Please enter a value between 0.0 and 1.0</string>
+  <string name="param_topp_desc">Also known as nucleus sampling. The model samples from the smallest set of tokens whose cumulative probability reaches top_p. Generally, adjust only temperature or top_p, not both</string>
+  <string name="param_freq_hint">Please enter a value between -2.0 and 2.0</string>
+  <string name="param_freq_desc">Penalizes tokens based on their frequency in the generated text. Positive values reduce repetition</string>
+  <string name="param_rep_hint">Please enter a value between -2.0 and 2.0</string>
+  <string name="param_rep_desc">Penalizes tokens based on whether they have already appeared, regardless of frequency. Positive values encourage the model to introduce new topics</string>
+
+  <!-- Toasts -->
+  <string name="toast_attachment_type">Only image, audio, and video attachments are supported</string>
+  <string name="toast_file_too_large">File too large: Base64-encoded size must not exceed 50MB</string>
+  <string name="toast_file_unreadable">Unable to read the selected file</string>
+  <string name="toast_photo_file_failed">Failed to create photo file</string>
+  <string name="toast_camera_failed">Unable to open camera</string>
+  <string name="attachment_selected">Attachment selected</string>
+
+  <!-- Notifications -->
+  <string name="notif_chat_channel_name">Chat Service</string>
+  <string name="notif_chat_channel_desc">Keeps the conversation in progress</string>
+  <string name="notif_chat_reply">MChat is replying to you</string>
+  <string name="notif_update_channel_name">App Update</string>
+  <string name="notif_update_channel_desc">Shows app update download progress</string>
+  <string name="notif_downloading">Downloading %1$s</string>
+  <string name="notif_downloading_indeterminate">Fetching installation package</string>
+  <string name="notif_download_complete">%1$s download complete</string>
+  <string name="notif_install_update">Tap to install update</string>
+  <string name="notif_update_failed">Update download failed</string>
+  <string name="notif_retry_later">Please try again later</string>
+
+  <!-- Disclaimer -->
+  <string name="disclaimer_section_non_official">Non-official Statement</string>
+  <string name="disclaimer_section_ip">Intellectual Property</string>
+  <string name="disclaimer_section_privacy">Privacy Protection</string>
+  <string name="disclaimer_section_risk">Risk Assumption</string>
+  <string name="disclaimer_section_feedback">Feedback &amp; Support</string>
+  <string name="disclaimer_non_official_lead">This app (MChat) is a third-party open-source client, </string>
+  <string name="disclaimer_non_official_emphasis">and has no affiliation, authorization, or partnership with Xiaomi Corporation and its affiliates (hereinafter referred to as Xiaomi)</string>
+  <string name="disclaimer_non_official_tail">.</string>
+  <string name="disclaimer_ip_lead">Trademarks and logos such as &quot;Xiaomi&quot; and &quot;MiMo&quot; are owned by Xiaomi Corporation. This app uses these marks only to describe functional compatibility (</string>
+  <string name="disclaimer_ip_emphasis">i.e., nominative fair use</string>
+  <string name="disclaimer_ip_tail">).</string>
+  <string name="disclaimer_privacy">All data of this app is stored locally on the device. Conversations are sent directly to Xiaomi\'s servers via the API. The developer does not collect or store any user data.</string>
+  <string name="disclaimer_risk_emphasis">This app is provided on an &quot;as-is&quot; basis without any express or implied warranty</string>
+  <string name="disclaimer_risk_tail">. Users assume all risks arising from using this app, including but not limited to data loss, privacy leakage, or device damage. The developer and Xiaomi are not responsible for the legality, security, or functionality of this app.</string>
+  <string name="disclaimer_feedback">If you encounter issues, please report them at [Issues](https://github.com/MRoldL001/MChat/issues). If you can, feel free to fork the source code, make changes, and submit a PR.</string>
+
+  <!-- Open source -->
+  <string name="open_source_intro">The following are the runtime dependencies of this app. License information is subject to the repository and Maven metadata of each project.</string>
+  <string name="open_source_other">Others</string>
+
+  <!-- Welcome -->
+  <string name="welcome_prefix">MChat is here, </string>
+  <string name="welcome_tip_1">what would you like to do today?</string>
+  <string name="welcome_tip_2">any good ideas?</string>
+  <string name="welcome_tip_3">let\'s get the task done together!</string>
+  <string name="welcome_tip_4">how can I help you?</string>
+  <string name="toast_link_failed">Unable to open link</string>
+  <string name="toast_code_copied">Code copied</string>
+  <string name="copy_code">Copy code</string>
+  <string name="error_no_network">No network connection</string>
+  <string name="error_create_chat_failed">Failed to create chat</string>
+  <string name="error_set_api_key">Please set your API Key first</string>
+  <string name="toast_version_latest">Current version %1$s is up to date</string>
+  <string name="toast_check_update_failed">Check failed: %1$s</string>
+  <string name="error_stream_interrupted">Stream connection unexpectedly interrupted</string>
+  <string name="error_stream_failed">Stream output failed</string>
+</resources>

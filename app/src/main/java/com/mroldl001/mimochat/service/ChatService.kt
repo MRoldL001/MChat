@@ -1,4 +1,8 @@
 package com.mroldl001.mimochat.service
+import com.mroldl001.mimochat.R
+import android.content.Context
+import com.mroldl001.mimochat.data.preferences.PreferencesManager
+import com.mroldl001.mimochat.ui.settings.AppLocale
 
 import android.app.Notification
 import android.app.NotificationChannel
@@ -26,8 +30,12 @@ class ChatService : Service() {
 
     private val binder = LocalBinder()
     private lateinit var notificationManager: NotificationManager
-    private var currentNotificationText = "MiMo正在回复你"
+    private var currentNotificationText = ""
     private var currentChatId: Long = 0L
+
+    /** 按用户选择语言包装的 Context，确保通知文本也随语言切换。 */
+    private val localizedContext: Context
+        get() = AppLocale.wrap(this, PreferencesManager(this).getAppLanguage())
 
     inner class LocalBinder : Binder() {
         fun getService(): ChatService = this@ChatService
@@ -36,6 +44,7 @@ class ChatService : Service() {
     override fun onCreate() {
         super.onCreate()
         notificationManager = getSystemService(NotificationManager::class.java)
+        currentNotificationText = localizedContext.getString(R.string.notif_chat_reply)
         createNotificationChannel()
     }
 
@@ -43,6 +52,7 @@ class ChatService : Service() {
         when (intent?.action) {
             ACTION_START -> {
                 currentChatId = intent.getLongExtra(EXTRA_CHAT_ID, 0L)
+                currentNotificationText = localizedContext.getString(R.string.notif_chat_reply)
                 val notification = createNotification(currentNotificationText)
                 startForeground(NOTIFICATION_ID, notification)
             }
@@ -73,10 +83,10 @@ class ChatService : Service() {
     private fun createNotificationChannel() {
         val channel = NotificationChannel(
             CHANNEL_ID,
-            "对话服务",
+            localizedContext.getString(R.string.notif_chat_channel_name),
             NotificationManager.IMPORTANCE_LOW
         ).apply {
-            description = "保持对话在进行中"
+            description = localizedContext.getString(R.string.notif_chat_channel_desc)
             setShowBadge(false)
         }
         notificationManager.createNotificationChannel(channel)
@@ -97,7 +107,7 @@ class ChatService : Service() {
                 .setStyledByProgress(false)
                 .setProgress(1)
             return Notification.Builder(this, CHANNEL_ID)
-                .setContentTitle("MiMo Chat")
+                .setContentTitle("MChat")
                 .setContentText(text)
                 .setSmallIcon(android.R.drawable.ic_menu_send)
                 .setContentIntent(pendingIntent)
@@ -107,7 +117,7 @@ class ChatService : Service() {
         }
 
         val builder = NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("MiMo Chat")
+            .setContentTitle("MChat")
             .setContentText(text)
             .setSmallIcon(android.R.drawable.ic_menu_send)
             .setContentIntent(pendingIntent)
