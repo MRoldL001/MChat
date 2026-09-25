@@ -4,7 +4,7 @@
 
 <br/>
 
-MChat - 一款专注于原生 Android 体验的 AI 聊天客户端
+MChat - 一款为 MiMo 大模型优化，专注于原生 Android 体验的 AI 聊天客户端
 
 [![MiMo](https://img.shields.io/badge/MiMo-console-FF7E00?style=for-the-badge&logo=xiaomi&logoColor=white)](https://platform.xiaomimimo.com/console/balance)
 [![README](https://img.shields.io/badge/MiMo-README-FF7E00?style=for-the-badge&logo=xiaomi&logoColor=white)](https://mimo.xiaomi.com/index)
