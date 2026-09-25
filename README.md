@@ -4,7 +4,7 @@
 
 <br/>
 
-MChat - 第三方小米 MiMo 大模型 Android 客户端
+MChat - 一款专注于原生 Android 体验的 AI 聊天客户端
 
 [![MiMo](https://img.shields.io/badge/MiMo-console-FF7E00?style=for-the-badge&logo=xiaomi&logoColor=white)](https://platform.xiaomimimo.com/console/balance)
 [![README](https://img.shields.io/badge/MiMo-README-FF7E00?style=for-the-badge&logo=xiaomi&logoColor=white)](https://mimo.xiaomi.com/index)
@@ -12,9 +12,9 @@ MChat - 第三方小米 MiMo 大模型 Android 客户端
 ---
 
 > [!NOTE]
-> An Android client built with Kotlin that provides quick integration with the Xiaomi MiMo series Large Model APIs. Features include LaTeX rendering, custom prompts, and large model skills
+> A native Android AI chat client built with Kotlin and Jetpack Compose, featuring multi-model conversations, multimodal input, web search, thinking mode, and Markdown, LaTeX, and code syntax highlighting
 > 
-> 基于 Kotlin 开发的安卓客户端，快速接入小米 MiMo 系列大模型 API，支持 LaTeX 渲染、自定义提示词与大模型技能等功能
+> 基于 Kotlin 与 Jetpack Compose 开发的原生 Android Al 聊天客户端，支持多模型对话、多模态输入、联网搜索、思考模式及 Markdown/LaTeX/代码高亮
 
 ![Kotlin](https://img.shields.io/badge/Kotlin-2.0.20-7F52FF?style=flat-square&logo=kotlin&logoColor=white)
 ![Gradle](https://img.shields.io/badge/Gradle-8.13.0-02303A?style=flat-square&logo=gradle&logoColor=white)
