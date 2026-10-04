@@ -81,7 +81,7 @@ internal fun CustomColorDialog(
                         onClick = {}
                     )
                     ThemePreviewCard(
-                        label = "黑夜",
+                        label = "夜间",
                         scheme = themePreviewColorScheme(
                             ThemeColor.CUSTOM,
                             dark = true,

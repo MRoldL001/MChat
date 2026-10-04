@@ -318,13 +318,13 @@ internal fun CodeBlockPreviewCard(
                             modifier = Modifier
                                 .weight(1f)
                                 .fillMaxWidth()
-                                .background(codeBlockPalette(false).background)
+                                .background(animatedCodeBlockPalette(false).background)
                         )
                         Box(
                             modifier = Modifier
                                 .weight(1f)
                                 .fillMaxWidth()
-                                .background(codeBlockPalette(true).background)
+                                .background(animatedCodeBlockPalette(true).background)
                         )
                     }
                     MiniCodeBlock(
@@ -351,6 +351,13 @@ internal fun CodeBlockPreviewCard(
     }
 }
 
+@Composable
+private fun animatedCodeBlockPalette(dark: Boolean): CodeBlockPalette {
+    val palette = codeBlockPalette(dark)
+    val background = animateThemeColor(palette.background, "code_preview_bg")
+    return palette.copy(background = background)
+}
+
 // sharp 顶满卡片；transparent 不画底色；darkFromLine 从该行起转深（顶栏算 0）
 @Composable
 private fun MiniCodeBlock(
@@ -361,9 +368,9 @@ private fun MiniCodeBlock(
     transparent: Boolean = false,
     darkFromLine: Int? = null
 ) {
-    val base = codeBlockPalette(dark)
-    val lightPalette = if (darkFromLine != null) codeBlockPalette(false) else base
-    val darkPalette = if (darkFromLine != null) codeBlockPalette(true) else base
+    val base = animatedCodeBlockPalette(dark)
+    val lightPalette = if (darkFromLine != null) animatedCodeBlockPalette(false) else base
+    val darkPalette = if (darkFromLine != null) animatedCodeBlockPalette(true) else base
     val paletteAt: (Int) -> CodeBlockPalette = { index ->
         if (darkFromLine != null && index >= darkFromLine) darkPalette else lightPalette
     }
@@ -379,7 +386,7 @@ private fun MiniCodeBlock(
             modifier = Modifier.width(8.dp).fillMaxHeight(),
             verticalArrangement = Arrangement.SpaceBetween
         ) {
-            repeat(lines) { index ->
+            repeat(lines + 1) { index ->
                 Box(
                     modifier = Modifier
                         .width(5.dp)

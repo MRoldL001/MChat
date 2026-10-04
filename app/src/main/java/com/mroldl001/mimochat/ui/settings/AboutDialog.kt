@@ -65,11 +65,9 @@ internal fun AboutDialog(
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Image(
-                    painter = painterResource(R.mipmap.ic_launcher_round),
+                    painter = painterResource(R.drawable.ic_launcher_transparent),
                     contentDescription = stringResource(R.string.about_app_icon_desc),
-                    modifier = Modifier
-                        .size(72.dp)
-                        .clip(CircleShape)
+                    modifier = Modifier.size(72.dp)
                 )
                 Text(
                     text = "MChat",

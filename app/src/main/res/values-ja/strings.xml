@@ -139,6 +139,7 @@
   <string name="collapse">閉じる</string>
   <string name="expand">展開</string>
   <string name="thinking_status">考え中...</string>
+  <string name="ai_replying">AIは返信中</string>
 
   <!-- 共通ダイアログ -->
   <string name="save">保存</string>

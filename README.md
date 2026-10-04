@@ -1,25 +1,30 @@
 <div align="center" style="display: flex; justify-content: center; align-items: center; gap: 20px;">
-  <img src="mimo-title.jpg" alt="LOGO" width="325">
-</div>
 
-<br/>
+![LOGO](mimo-title.jpg)
+
+</div>
 
 MChat - 一款为 MiMo 大模型优化，专注于原生 Android 体验的 AI 聊天客户端
 
-[![MiMo](https://img.shields.io/badge/MiMo-console-FF7E00?style=for-the-badge&logo=xiaomi&logoColor=white)](https://platform.xiaomimimo.com/console/balance)
-[![README](https://img.shields.io/badge/MiMo-README-FF7E00?style=for-the-badge&logo=xiaomi&logoColor=white)](https://mimo.xiaomi.com/index)
+![MiMo](https://img.shields.io/badge/MiMo-console-FF7E00?style=for-the-badge\&logo=xiaomi\&logoColor=white)
+
+![README](https://img.shields.io/badge/MiMo-README-FF7E00?style=for-the-badge\&logo=xiaomi\&logoColor=white)
 
 ---
 
 > [!NOTE]
+>
 > A native Android AI chat client built with Kotlin and Jetpack Compose, featuring multi-model conversations, multimodal input, web search, thinking mode, and Markdown, LaTeX, and code syntax highlighting
-> 
+>
 > 基于 Kotlin 与 Jetpack Compose 开发的原生 Android Al 聊天客户端，支持多模型对话、多模态输入、联网搜索、思考模式及 Markdown/LaTeX/代码高亮
 
-![Kotlin](https://img.shields.io/badge/Kotlin-2.0.21-7F52FF?style=flat-square&logo=kotlin&logoColor=white)
-![Gradle](https://img.shields.io/badge/Gradle-8.13.0-02303A?style=flat-square&logo=gradle&logoColor=white)
-![Compose BOM](https://img.shields.io/badge/Compose%20BOM-2024.12.01-4285F4?style=flat-square&logo=jetpackcompose&logoColor=white)
-![Target API](https://img.shields.io/badge/Target%20API-36%20%28Android%2016%29-3DDC84?style=flat-square&logo=android&logoColor=white)
+![Kotlin](https://img.shields.io/badge/Kotlin-2.0.21-7F52FF?style=flat-square\&logo=kotlin\&logoColor=white)
+
+![Gradle](https://img.shields.io/badge/Gradle-8.13.0-02303A?style=flat-square\&logo=gradle\&logoColor=white)
+
+![Compose BOM](https://img.shields.io/badge/Compose%20BOM-2024.12.01-4285F4?style=flat-square\&logo=jetpackcompose\&logoColor=white)
+
+![Target API](https://img.shields.io/badge/Target%20API-36%20%28Android%2016%29-3DDC84?style=flat-square\&logo=android\&logoColor=white)
 
 ---
 
@@ -46,10 +51,11 @@ MChat - 一款为 MiMo 大模型优化，专注于原生 Android 体验的 AI �
 #### 方式二：从源码构建
 
 > [!WARNING]
+>
 > 对于普通用户，不推荐自行从源码构建，因为其更为繁琐，且构建 `.apk` 时：
-> 
+>
 > 如果构建 `debug` 包，则安装包体积会更大，且因为有调试标签，无法通过系统安装器安装
-> 
+>
 > 如果构建 `releases` 包，为了安全性开发者所持签名密钥不会被公开，在自行签名的情况下每次更新需要用同一组密钥重新构建安装包，无法直接更新开发者所发布的 `.apk` 安装包
 
 1. 使用 `git clone` 将 Repo 克隆到本地
@@ -75,17 +81,17 @@ MChat - 一款为 MiMo 大模型优化，专注于原生 Android 体验的 AI �
 
 应用支持多种主题颜色：
 
-| 主题        | 亮色模式      |  暗色模式      |
-| ---------- | ------------ |  -----------  |
-| 默认        | `#000000`    |  `#FFFFFF`   |
-| 莫奈取色     | 系统动态提取   |  系统动态提取  |
-| 自定义色彩   | 自定义        |  自定义       |
-| 初音绿      | `#39C5BB`    |  `#26A69A`   |
-| 重音红      | `#D93A49`    |  `#D93A49`   |
-| 米柚橙      | `#FF7E00`    |  `#E86F00`   |
-| 盎然绿      | `#006E2A`    |  `#5CDB78`   |
-| 罗兰紫      | `#6650A4`    |  `#D0BCFF`   |
-| 深邃蓝      | `#0B57D0`    |  `#A8C7FA`   |
+| 主题    | 亮色模式      | 暗色模式      |
+| ----- | --------- | --------- |
+| 默认    | `#000000` | `#FFFFFF` |
+| 莫奈取色  | 系统动态提取    | 系统动态提取    |
+| 自定义色彩 | 自定义       | 自定义       |
+| 初音绿   | `#39C5BB` | `#39C5BB` |
+| 重音红   | `#D93A49` | `#D93A49` |
+| 米柚橙   | `#FF7E00` | `#E86F00` |
+| 盎然绿   | `#006E2A` | `#5CDB78` |
+| 罗兰紫   | `#6650A4` | `#D0BCFF` |
+| 深邃蓝   | `#0B57D0` | `#A8C7FA` |
 
 ## 📖 使用说明
 
@@ -145,11 +151,8 @@ MChat - 一款为 MiMo 大模型优化，专注于原生 Android 体验的 AI �
 ## 🗒️ 更新日志
 
 - v1.0 **Stardust Crusaders**
-  
   - 首次构建并发布
-
 - v1.1 **Honeycomb**
-  
   - 为 Pad 端制作了一个新的 UI
   - 现在代码块会被自定义的 `CodeBlockView` 接管渲染，更加易读
   - 重构了部分 UI 设计
@@ -157,56 +160,41 @@ MChat - 一款为 MiMo 大模型优化，专注于原生 Android 体验的 AI �
   - 修复了用户输入也会被渲染的问题
   - 修复了一些动画问题
   - 修复了一系列 Bug
-
-- v1.1.1 
-  
+- v1.1.1
   - 修复搜索栏背景在动态色彩主题下的取色问题
-
 - v1.2.0 **Smells Like Teen Spirit**
-  
   - 现在在过低的安卓版本(≤API31)中动态取色主题会隐藏
   - 用户消息现在支持长按复制
   - 现在在等待消息生成时会生成系统通知保活
   - 现在在无网络时发送的消息不会被拼接进上下文
   - 修复了Pad端欢迎语不随机变化的问题
   - 修复了一系列Bug
-
 - v1.2.1
-  
   - 为平板端补上了错误提示 `Snackbar`
   - 加入了跳转到项目 Github主页的按钮
-
 - v1.2.2
-  
   - 语义化了错误提示，现在它们会以类似服务器繁忙
+
     (503)的方式显示
   - 修复了行内代码块会被错误渲染到下一行的 Bug
   - 修复了在对话A等待回复时切换到对话B所引发的显示与处理逻辑错误
-
 - v1.2.3
-  
   - 依照MiMo官方文档保留了 reasoning_content 到历史对话中
   - 应用初次启动时会请求允许通知权限
   - 修复了动态取色(已改名为莫奈取色)主题下设置项中的高亮Bug
-
 - v2.0.0 **Paranoid Android**
-  
   - 迁移应用的 Target API到 36(Android 16)并同步更新了所有依赖项
   - 增加了参数调整设置项
   - 增加了对多模态理解与联网搜索的支持
   - 增加了对实时通知的支持
   - 更新模型列表以与 MiMo 官方保持同步
   - 修复了一系列累积的 bug
-
 - v2.0.1
-  
   - 修复了有关流式传输的累积 bug
   - 修复了 [Issue#2](https://github.com/MRoldL001/MChat/issues/2) 搜索到内容后点击跳转到对应聊天页会自动滚动到底部的问题
   - 修复了搜索结果没有网站logo的问题
   - 更改了切换模型列表的设计与动画，以符合Material You 的标准设计风格
-
 - v2.1.0 **Show me the castle**
-  
   - 启用了一个全新的 icon
   - 支持更换聊天页背景图片
   - 允许直接调用系统相机拍摄照片作为附件
@@ -214,31 +202,23 @@ MChat - 一款为 MiMo 大模型优化，专注于原生 Android 体验的 AI �
   - 通过内部实现为输出的代码添加了轻量的代码高亮，支持Python、JavaScript/TypeScript、Kotlin、Java、C/C++、C#、Go、Rust、HTML/CSS、JSON、SQL、Shell 等常见语言
   - 优化了大量动画，现在操作起来更加顺手
   - 修复了有关回到页面底部逻辑和主题色应用的累积 bug
-
 - v2.1.1
-  
   - 现在激活/关闭技能后输入栏将不会失焦
   - 裁剪背景图功能适配平板/异形屏
   - 重做了部分UI设计以符合 Material You 的标准设计风格
   - 行内代码的渲染现在将会被自定义容器接管
   - 修复了有关主题色应用的累积 bug
   - 修复了有关 markdown 渲染的累积 bug
-
 - v2.1.2
-  
   - 修复了设置页自行绘制 scrim 导致的显示 bug
   - 现在在侧边栏切换不同对话时将会有一个自然的动画
-
 - v2.1.3
-  
   - 设置页被重新设计为一个单独的子页面
   - 加入联网更新功能
   - 修复了有关 LaTeX 渲染的累积 bug，包含一些严重影响体验的 bug
   - 将所有 Snackbar 提示迁移为系统 Toast 以保证样式统一
   - 优化了更多动画效果
-
 - v2.1.4
-  
   - 表格会被内建的渲染器接管，现在它更加美观了
   - 修复了表格与行内代码及 LaTeX 公式的混排问题
   - 将 LaTeX 的渲染器从 KaTeX 迁移到 latexlibrary
@@ -248,17 +228,13 @@ MChat - 一款为 MiMo 大模型优化，专注于原生 Android 体验的 AI �
   - 加入了开源库列表
   - 开源协议现在更新为 GPL-2.0
   - 所有已知 bug 均已被修复，新功能蓄势待发！
-
 - v2.1.5
-
   - 为代码块加入了大量特定语言的 icon
   - 修复了重新启动应用时无法返回到上次阅读的地方的问题
   - 修复了从免责声明页返回时不会返回到设置页上次阅读到的位置的问题
   - 修复了点击回到底部按钮偶现抽搐的问题
   - 这次是真的没有 bug 了！
-
 - v2.2.0 **STEEL BALL RUN**
-  
   - 更换了全新的应用名与 icon
   - 更新模型列表以与 MiMo 官方保持同步
   - 加入三种新语言——繁体中文、英语和日语，暂时使用 AI 翻译

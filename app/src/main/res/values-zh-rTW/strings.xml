@@ -139,6 +139,7 @@
   <string name="collapse">收起</string>
   <string name="expand">展開</string>
   <string name="thinking_status">正在思考...</string>
+  <string name="ai_replying">AI 正在回覆</string>
 
   <!-- 通用彈窗 -->
   <string name="save">儲存</string>

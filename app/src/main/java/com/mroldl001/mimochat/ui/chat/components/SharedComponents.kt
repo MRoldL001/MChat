@@ -12,6 +12,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -28,10 +29,16 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
@@ -40,6 +47,8 @@ import dev.jeziellago.compose.markdowntext.MarkdownText
 import com.mroldl001.mimochat.domain.model.WebSearchResult
 import coil.compose.AsyncImage
 import androidx.compose.ui.layout.ContentScale
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.delay
 
 @Composable
@@ -464,35 +473,105 @@ private fun stripLatexForTableWidth(cell: String): String {
         .trim()
 }
 
+private val winkFrames = listOf(
+    R.drawable.ic_wink_0,
+    R.drawable.ic_wink_1,
+    R.drawable.ic_wink_2,
+    R.drawable.ic_wink_3,
+    R.drawable.ic_wink_4
+)
+
 @Composable
-fun StreamingIndicator(modifier: Modifier = Modifier) {
-    val infiniteTransition = rememberInfiniteTransition(label = "streaming")
+fun StreamingIndicator(
+    modifier: Modifier = Modifier,
+    startTime: Long? = null
+) {
+    val primary = MaterialTheme.colorScheme.primary
+    val softer = lerp(primary, Color.White, 0.3f)
+    val actualStart = startTime ?: remember { System.currentTimeMillis() }
+    var elapsedText by remember(actualStart) {
+        mutableStateOf(formatElapsedTime(System.currentTimeMillis() - actualStart))
+    }
+    var frameIndex by remember { mutableStateOf(0) }
+    val scaleX = remember { Animatable(1f) }
+    val scaleY = remember { Animatable(1f) }
+
+    LaunchedEffect(actualStart) {
+        while (true) {
+            delay(100)
+            elapsedText = formatElapsedTime(System.currentTimeMillis() - actualStart)
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        val idle = spring<Float>(dampingRatio = 0.45f, stiffness = 110f)
+        val bounce = spring<Float>(dampingRatio = 0.35f, stiffness = 320f)
+        while (true) {
+            scaleY.animateTo(1.05f, idle)
+            scaleY.animateTo(1f, idle)
+            delay(1100)
+            listOf(
+                async { scaleY.animateTo(0.86f, bounce) },
+                async { scaleX.animateTo(1.10f, bounce) },
+                async {
+                    for (i in 1..4) {
+                        frameIndex = i
+                        delay(45)
+                    }
+                    delay(140)
+                }
+            ).awaitAll()
+            listOf(
+                async { scaleY.animateTo(1f, bounce) },
+                async { scaleX.animateTo(1f, bounce) },
+                async {
+                    for (i in 3 downTo 1) {
+                        frameIndex = i
+                        delay(45)
+                    }
+                    frameIndex = 0
+                }
+            ).awaitAll()
+            delay(900)
+        }
+    }
 
     Row(
-        modifier = modifier,
-        horizontalArrangement = Arrangement.spacedBy(4.dp),
+        modifier = modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.Start,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        repeat(3) { index ->
-            val dotAlpha by infiniteTransition.animateFloat(
-                initialValue = 0.3f,
-                targetValue = 1f,
-                animationSpec = infiniteRepeatable(
-                    animation = tween(600, delayMillis = index * 150, easing = LinearEasing),
-                    repeatMode = RepeatMode.Reverse
-                ),
-                label = "dot$index"
-            )
+        Image(
+            painter = painterResource(winkFrames[frameIndex]),
+            contentDescription = null,
+            colorFilter = ColorFilter.tint(softer),
+            modifier = Modifier
+                .size(22.dp)
+                .scale(scaleX.value, scaleY.value)
+        )
+        Spacer(modifier = Modifier.width(8.dp))
+        Text(
+            text = stringResource(R.string.ai_replying),
+            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+            color = softer
+        )
+        Spacer(modifier = Modifier.width(8.dp))
+        Text(
+            text = elapsedText,
+            style = MaterialTheme.typography.bodySmall,
+            color = softer
+        )
+    }
+}
 
-            Box(
-                modifier = Modifier
-                    .size(6.dp)
-                    .alpha(dotAlpha)
-                    .background(
-                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f),
-                        shape = CircleShape
-                    )
-            )
-        }
+private fun formatElapsedTime(elapsedMillis: Long): String {
+    val totalSeconds = elapsedMillis / 1000
+    val tenths = (elapsedMillis % 1000) / 100
+    return if (totalSeconds < 60) {
+        "${totalSeconds}.${tenths}s"
+    } else {
+        val minutes = totalSeconds / 60
+        val seconds = totalSeconds % 60
+        "${minutes}m ${seconds}.${tenths}s"
     }
 }

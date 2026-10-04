@@ -81,13 +81,13 @@ fun ModelSelector(
             ) { modelName ->
                 val isProUltra = currentModel?.id?.contains("ultraspeed", ignoreCase = true) == true
                 val suffixColor = MaterialTheme.colorScheme.primary
-                val neonBrush = rememberNeonFlowBrush(suffixColor)
-                val styledName = remember(modelName, suffixColor, neonBrush, isProUltra) {
+                val beamingStyle = rememberBeamingSpanStyle(suffixColor)
+                val styledName = remember(modelName, suffixColor, beamingStyle, isProUltra) {
                     buildAnnotatedString {
                         append(modelName)
                         modelSuffixPattern.find(modelName)?.groups?.get(1)?.let { suffix ->
                             val spanStyle = if (isProUltra) {
-                                SpanStyle(brush = neonBrush, fontWeight = FontWeight.ExtraBold)
+                                beamingStyle.copy(fontWeight = FontWeight.ExtraBold)
                             } else {
                                 SpanStyle(color = suffixColor, fontWeight = FontWeight.ExtraBold)
                             }

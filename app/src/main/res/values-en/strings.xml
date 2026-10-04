@@ -139,6 +139,7 @@
   <string name="collapse">Collapse</string>
   <string name="expand">Expand</string>
   <string name="thinking_status">Thinking...</string>
+  <string name="ai_replying">AI is replying</string>
 
   <!-- Common dialogs -->
   <string name="save">Save</string>
