@@ -13,10 +13,7 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 
-/**
- * 侧边栏会话历史的分组扁平列表项：标题与具体会话交错。
- * 用 [key] 给 LazyColumn 提供稳定且唯一的 item key（标题前缀避免与 chat.id 冲突）。
- */
+// key 加前缀免得和 chat.id 撞
 sealed interface ChatHistoryEntry {
     val key: Any
     data class Header(val title: String) : ChatHistoryEntry {
@@ -27,10 +24,6 @@ sealed interface ChatHistoryEntry {
     }
 }
 
-/**
- * 把会话按 [Chat.updatedAt] 归入「今天 / 最近一周 / 更早」三组，组内保持传入的更新时间倒序。
- * 空组不输出标题。
- */
 fun buildChatHistoryEntries(chats: List<Chat>): List<ChatHistoryEntry> {
     if (chats.isEmpty()) return emptyList()
     val zoneId = ZoneId.systemDefault()

@@ -41,7 +41,6 @@ import kotlinx.coroutines.launch
 import java.util.Locale
 import javax.inject.Inject
 
-/** 启动且未保存过模型选择时的默认模型。 */
 private const val DEFAULT_MODEL_ID = "mimo-v2.6-flash"
 
 enum class SkillType {
@@ -134,8 +133,7 @@ data class ChatUiState(
     val presencePenalty: Float = PreferencesManager.DEFAULT_PRESENCE_PENALTY,
     val acceptPrereleaseUpdates: Boolean = false,
     val updateState: UpdateUiState = UpdateUiState.Idle,
-    // 剩余用量（侧边栏展示，开关控制）
-    // 小米的用量接口只认控制台登录 Cookie，API Key 只能算兜底，故以登录态为主
+    // API Key 只是兜底
     val showUsage: Boolean = false,
     val usageLoading: Boolean = false,
     val usageText: String? = null,
@@ -151,11 +149,10 @@ class ChatViewModel @Inject constructor(
     private val application: Application
 ) : ViewModel() {
 
-    /** 按用户选择的语言包装出的 Context，确保本 ViewModel 读取的字符串资源也随语言切换。 */
+    // 跟着语言切
     private val localizedContext: Context
         get() = AppLocale.wrap(application, preferencesManager.getAppLanguage())
 
-    /** 新对话的默认标题，随系统语言本地化 */
     private val defaultChatTitle: String
         get() = localizedContext.getString(R.string.new_chat)
 
@@ -199,7 +196,7 @@ class ChatViewModel @Inject constructor(
     init {
         loadModels()
         loadChats()
-        // 平板端是常驻抽屉，没有"打开抽屉"事件，故启动时先拉一次
+        // 平板没有"打开抽屉"事件
         refreshUsage()
     }
 
@@ -264,14 +261,12 @@ class ChatViewModel @Inject constructor(
     fun setApiKey(apiKey: String) {
         _uiState.update { it.copy(apiKey = apiKey) }
         preferencesManager.saveApiKey(apiKey)
-        // 用量依赖 API Key，换了 Key 就重新查一次
         refreshUsage()
     }
 
     fun setApiBaseUrl(url: String) {
         _uiState.update { it.copy(apiBaseUrl = url) }
         preferencesManager.saveApiBaseUrl(url)
-        // 不同接口（标准 / 订阅）查的端点不同，换地址后重新查
         refreshUsage()
     }
 
@@ -281,23 +276,18 @@ class ChatViewModel @Inject constructor(
         if (enabled) refreshUsage()
     }
 
-    /** 内置登录页拿到控制台 Cookie 后调用：存起来并立即查一次用量。 */
     fun saveUsageCookie(cookie: String) {
         preferencesManager.saveUsageCookie(cookie)
         _uiState.update { it.copy(usageLoggedIn = cookie.isNotBlank()) }
         refreshUsage()
     }
 
-    /** 登出控制台登录态，卡片回到"点击登录"。 */
     fun clearUsageCookie() {
         preferencesManager.clearUsageCookie()
         _uiState.update { it.copy(usageLoggedIn = false, usageText = null, usageLoading = false) }
     }
 
-    /**
-     * 查询剩余用量。
-     * 优先用控制台 Cookie（订阅账号给剩余积分），没有 Cookie 才退而用 API Key 试余额接口。
-     */
+    // Cookie 优先，API Key 兜底
     fun refreshUsage() {
         if (!_uiState.value.showUsage) return
         val cookie = preferencesManager.getUsageCookie()
@@ -323,7 +313,7 @@ class ChatViewModel @Inject constructor(
                     onFailure = { error ->
                         if (error is CancellationException) throw error
                         if (error is UsageUnauthorizedException) {
-                            // 真正的登录过期（401/403）：清掉 Cookie，卡片回到可重新登录的状态
+                            // 真过期才清 Cookie
                             preferencesManager.clearUsageCookie()
                             state.copy(
                                 usageLoading = false,
@@ -331,8 +321,7 @@ class ChatViewModel @Inject constructor(
                                 usageText = localizedContext.getString(R.string.usage_expired)
                             )
                         } else {
-                            // 非鉴权失败（接口路径/字段变化、网络、解析失败）：保留登录态，
-                            // 提示重试，不要误清 Cookie（否则会循环提示"过期"）。
+                            // 别清 Cookie，会一直提示过期
                             state.copy(
                                 usageLoading = false,
                                 usageLoggedIn = true,
@@ -883,7 +872,6 @@ class ChatViewModel @Inject constructor(
         isStreaming.value = false
         _uiState.update { it.copy(isLoading = false) }
 
-        // 只有在所有流都完成时才停止服务
         if (activeStreams.isEmpty()) {
             val stopIntent = Intent(application, ChatService::class.java).apply {
                 action = ChatService.ACTION_STOP

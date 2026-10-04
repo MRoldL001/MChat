@@ -30,23 +30,23 @@ private data class OpenSourceGroup(
     val libraries: List<OpenSourceLibrary>
 )
 
-/** 仅「其它」需要本地化，其余为公司专有名称，保持不变。 */
+// 只有「其它」要本地化
 private val COMPANY_LABELS = mapOf(
     "其它" to R.string.open_source_other
 )
 
-/** 升级依赖时无需同步版本号，名称与许可证保持即可。 */
+// 不写版本号，升级依赖不用动这里
 private val openSourceGroups = listOf(
     OpenSourceGroup(
         company = "Google",
         libraries = listOf(
             OpenSourceLibrary("AndroidX Core KTX", "Apache-2.0"),
-            OpenSourceLibrary("AndroidX Lifecycle（runtime-ktx）", "Apache-2.0"),
+            OpenSourceLibrary("AndroidX Lifecycle", "Apache-2.0"),
             OpenSourceLibrary("AndroidX Activity Compose", "Apache-2.0"),
-            OpenSourceLibrary("Jetpack Compose（BOM 统一管理）", "Apache-2.0"),
+            OpenSourceLibrary("Jetpack Compose", "Apache-2.0"),
             OpenSourceLibrary("Material 3", "Apache-2.0"),
             OpenSourceLibrary("Material Icons Extended", "Apache-2.0"),
-            OpenSourceLibrary("AndroidX Room（runtime / ktx）", "Apache-2.0"),
+            OpenSourceLibrary("AndroidX Room", "Apache-2.0"),
             OpenSourceLibrary("AndroidX Hilt Navigation", "Apache-2.0"),
             OpenSourceLibrary("Hilt / Dagger", "Apache-2.0"),
             OpenSourceLibrary("AndroidX Security Crypto", "Apache-2.0"),
@@ -65,23 +65,17 @@ private val openSourceGroups = listOf(
         company = "JetBrains",
         libraries = listOf(
             OpenSourceLibrary("Kotlin Standard Library", "Apache-2.0"),
-            OpenSourceLibrary("kotlinx.coroutines（android）", "Apache-2.0")
+            OpenSourceLibrary("kotlinx.coroutines", "Apache-2.0")
         )
     ),
     OpenSourceGroup(
         company = "其它",
         libraries = listOf(
-            OpenSourceLibrary("Simple Icons（代码语言图标）", "CC0-1.0"),
+            OpenSourceLibrary("Simple Icons", "CC0-1.0"),
             OpenSourceLibrary("Coil", "Apache-2.0"),
             OpenSourceLibrary("compose-markdown", "MIT"),
-            OpenSourceLibrary(
-                "Markwon（core / html / linkify / ext-tables / ext-strikethrough / ext-tasklist）",
-                "Apache-2.0"
-            ),
-            OpenSourceLibrary(
-                "JLaTeXMath（内置 latexlibrary 模块）",
-                "GPL-2.0-or-later"
-            )
+            OpenSourceLibrary("Markwon", "Apache-2.0"),
+            OpenSourceLibrary("JLaTeXMath", "GPL-2.0-or-later")
         )
     )
 )

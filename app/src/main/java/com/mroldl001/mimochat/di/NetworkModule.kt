@@ -21,7 +21,7 @@ object NetworkModule {
     @Singleton
     fun provideOkHttpClient(): OkHttpClient {
         val loggingInterceptor = HttpLoggingInterceptor().apply {
-            // BODY 会消费完整的 SSE 响应后再交给上层，导致流式输出被缓冲。
+            // BODY 会缓冲流式
             level = HttpLoggingInterceptor.Level.BASIC
         }
 

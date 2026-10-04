@@ -68,9 +68,7 @@ internal fun SettingsContainerDialog(
     confirmButton: @Composable () -> Unit,
     dismissButton: @Composable () -> Unit
 ) {
-    // 与其它二级设置菜单保持一致：使用 Material3 AlertDialog，
-    // 由系统负责居中、状态栏区域的 dim 以及超高内容的滚动，
-    // 避免自定义全屏 Dialog 造成的页面不居中与状态栏高亮问题。
+    // 交给系统处理居中、dim 和超高滚动，自定义全屏 Dialog 会不居中
     AlertDialog(
         onDismissRequest = onDismissRequest,
         modifier = Modifier.settingsDialogWidth().widthIn(max = maxWidth),

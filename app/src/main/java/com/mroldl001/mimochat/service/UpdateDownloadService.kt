@@ -39,7 +39,7 @@ class UpdateDownloadService : Service() {
     private lateinit var notificationManager: NotificationManager
     private var downloadJob: Job? = null
 
-    /** 按用户选择语言包装的 Context，确保更新通知文本也随语言切换。 */
+    /** 通知文本也跟着语言切 */
     private val localizedContext: Context
         get() = AppLocale.wrap(this, PreferencesManager(this).getAppLanguage())
 

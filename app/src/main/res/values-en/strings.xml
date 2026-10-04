@@ -13,9 +13,9 @@
   <string name="theme_default">Default</string>
   <string name="theme_custom">Custom Color</string>
   <string name="theme_auto_color">Monet Color</string>
-  <string name="theme_hatsune_miku">Miku Green</string>
+  <string name="theme_miku_green">Miku Green</string>
   <string name="theme_teto_red">Teto Red</string>
-  <string name="theme_mi_orange">Mi Orange</string>
+  <string name="theme_miyou_orange">Mi Orange</string>
   <string name="theme_green">Vibrant Green</string>
   <string name="theme_purple">Roland Purple</string>
   <string name="theme_deep_blue">Deep Blue</string>

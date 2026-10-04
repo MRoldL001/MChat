@@ -340,7 +340,7 @@ private fun SettingsPageContent(
                 SettingsGroupTitle(stringResource(R.string.group_appearance))
 
                 SettingSectionHeader(Icons.Outlined.Brightness7, stringResource(R.string.display_mode))
-                // 当前主题为自定义色彩时，显示模式预览也要用用户设置的自定义色（否则回退成默认黑色）
+                // 自定义色也要灌进显示模式预览，否则回退成默认黑
                 val displayModeCustomHex = if (themeColor == ThemeColor.CUSTOM) customColorHex else null
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -373,9 +373,9 @@ private fun SettingsPageContent(
                     add(ThemeColor.WHITE)
                     add(ThemeColor.CUSTOM)
                     if (supportsDynamicColor()) add(ThemeColor.AUTO_COLOR)
-                    add(ThemeColor.HATSUNE_MIKU)
+                    add(ThemeColor.MIKU_GREEN)
                     add(ThemeColor.TETO_RED)
-                    add(ThemeColor.MI_ORANGE)
+                    add(ThemeColor.MIYOU_ORANGE)
                     add(ThemeColor.GREEN)
                     add(ThemeColor.PURPLE)
                     add(ThemeColor.DEEP_BLUE)
@@ -437,7 +437,6 @@ private fun SettingsPageContent(
                     CodeBlockPreviewCard(
                         label = stringResource(R.string.code_block_follow),
                         dark = previewDark,
-                        // 上浅下深硬分割，直观表达「跟随切换」
                         split = true,
                         selected = codeBlockColorMode == CodeBlockColorMode.FOLLOW
                     ) { onCodeBlockColorModeSelected(CodeBlockColorMode.FOLLOW) }

@@ -33,7 +33,7 @@ class ChatService : Service() {
     private var currentNotificationText = ""
     private var currentChatId: Long = 0L
 
-    /** 按用户选择语言包装的 Context，确保通知文本也随语言切换。 */
+    /** 通知文本也跟着语言切 */
     private val localizedContext: Context
         get() = AppLocale.wrap(this, PreferencesManager(this).getAppLanguage())
 

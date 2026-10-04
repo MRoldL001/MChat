@@ -6,9 +6,7 @@ data class ChatCompletionRequest(
     val model: String,
     val messages: List<MessageRequest>,
     @SerializedName("max_completion_tokens")
-    // Keep enough headroom for long answers; the chat request may override this
-    // explicitly, but callers that rely on the model default should not be
-    // limited to a short 1024-token response.
+    // 长回答别截断
     val maxCompletionTokens: Int = 8192,
     val temperature: Double = 1.0,
     @SerializedName("top_p")

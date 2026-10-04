@@ -5,9 +5,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-// 此处必须用通配导入：layout 包里存在与 public fun Modifier.weight 同名的 internal
-// val RowColumnParentData?.weight，精确导入会让编译器选中 internal 那个并报
-// "Cannot access ... it is internal in file"。通配导入只取 public 声明。
+// 必须通配导入：精确导入会选中同名的 internal weight，报 internal 不可访问
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -79,10 +77,7 @@ internal fun ApiBaseUrlDialog(
                         style = MaterialTheme.typography.bodySmall.localeScaled()
                     )
                 }
-                // 刻意不用 Material3 的 SegmentedButton：1.3.1 起它在选中项前会自动画一个勾
-                // （内部走 SegmentedButtonDefaults.ActiveIcon 分支），既与高亮重复又压缩标签宽度。
-                // 这里手写一个「滑动背景块」分段控件：选中态是一个从左到右平滑移动的 pill，
-                // 文字颜色同步切换，没有额外的对勾图标。
+                // 不用 Material3 SegmentedButton：1.3.1 起它会在选中项前画勾，既重复又压标签宽度
                 BoxWithConstraints(
                     modifier = Modifier
                         .fillMaxWidth()

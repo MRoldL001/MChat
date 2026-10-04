@@ -15,11 +15,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import kotlin.math.sin
 
-/**
- * 同色系霓虹流光：始终保持主题色的色相，只在亮度 / 饱和度 / 极小的色相漂移上变化。
- * 能量场用解析正弦波而不是高斯亮带——波在任何位置、任何时刻都连续，
- * 不会出现亮带在文字两端"闪跳"或者叠加成一片平色的问题。
- */
+// 用解析正弦波而不是高斯亮带：波处处连续，不会在文字两端闪跳或糊成一片平色
 private const val FLOW_DURATION_MILLIS = 4000
 private const val WAVE_COUNT = 2
 private const val CREST_SHARPNESS = 0.85f

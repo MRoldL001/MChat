@@ -44,10 +44,6 @@ class ChatRepository @Inject constructor(
     private val gson = Gson()
     private val searchResultsType = object : TypeToken<List<WebSearchResult>>() {}.type
 
-    /**
-     * 根据当前软件语言设置返回用于提示词的语言名（简体中文/繁體中文/English/日本語）。
-     * "system" 跟随手机系统语言（用 Locale 推断）；不支持的语言回退到 English。
-     */
     private fun currentAppLanguageName(): String {
         val code = preferencesManager.getAppLanguage()
         val effectiveCode = if (code == "system") {
@@ -140,7 +136,7 @@ class ChatRepository @Inject constructor(
 
     suspend fun saveMessage(message: Message): Long {
         val messageId = messageDao.insertMessage(message.toEntity())
-        // 会话列表按 updatedAt 倒序，写入消息后必须刷新，否则列表顺序等同于创建顺序。
+        // 不 touch 顺序就乱了
         chatDao.touchChat(message.chatId, System.currentTimeMillis())
         return messageId
     }

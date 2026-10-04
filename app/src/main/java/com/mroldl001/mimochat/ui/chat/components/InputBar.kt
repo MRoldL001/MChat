@@ -142,8 +142,6 @@ fun InputBar(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-            // 附件按钮可用/不可用（如切换到不支持多模态的模型时）的过渡动画，
-            // 与发送按钮的可用/不可用变换保持一致。
             val attachmentActive = !isGenerating && isAttachmentEnabled
             val attachmentPrimary = MaterialTheme.colorScheme.primary
             val attachmentContainerColor by animateColorAsState(
@@ -182,7 +180,7 @@ fun InputBar(
                 ) {
                     Icon(Icons.Outlined.Add, contentDescription = stringResource(R.string.add_attachment))
                 }
-                // 白色面板 + 阴影；暗色主题下 surfaceContainerLowest 为近黑底，文字用 onSurface 自动取反
+                // 暗色下是近黑底，文字用 onSurface 自动取反
                 val opaqueMenuColor = MaterialTheme.colorScheme.surfaceContainerLowest
                 if (attachmentMenuMounted) {
                     Popup(

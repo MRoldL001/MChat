@@ -43,7 +43,7 @@ sealed class Screen {
     object Disclaimer : Screen()
 }
 
-/** 让 Screen 在 recreate() 后通过 rememberSaveable 还原。 */
+/** recreate 后还原 */
 private val ScreenSaver = Saver<Screen, String>(
     save = { screen ->
         when (screen) {
@@ -85,20 +85,18 @@ fun AppNavigation(
     var selectedChatId by remember { mutableStateOf(initialChatId) }
     var suppressInitialChatScroll by remember { mutableStateOf(false) }
     val chatScrollPositions = remember { mutableMapOf<Long, ChatScrollPosition>() }
-    // 设置页滚动位置：recreate()（切换语言）后仍需停留在原位置，故用 rememberSaveable 持久化偏移量
+    // recreate 后停在原处
     var settingsScrollOffset by rememberSaveable { mutableStateOf(0) }
     val settingsScrollState = rememberScrollState(initial = settingsScrollOffset)
     var previousScreen by rememberSaveable(stateSaver = ScreenSaver) { mutableStateOf<Screen>(Screen.Chat) }
     LaunchedEffect(initialChatId) {
         if (initialChatId != null) selectedChatId = initialChatId
     }
-    // 实时把当前滚动偏移写回 saveable，recreate 后据此还原
     LaunchedEffect(settingsScrollState) {
         snapshotFlow { settingsScrollState.value }.collect { settingsScrollOffset = it }
     }
     LaunchedEffect(currentScreen) {
-        // 仅当从聊天页 / 搜索页「打开」设置页时回到顶部；
-        // 从二级页（免责声明 / 实验性功能 / 历史彩蛋）返回，或 recreate（切换语言）后，保留原滚动位置。
+        // 二级页返回不回顶部
         if (currentScreen is Screen.Settings &&
             (previousScreen is Screen.Chat || previousScreen is Screen.Search)
         ) {

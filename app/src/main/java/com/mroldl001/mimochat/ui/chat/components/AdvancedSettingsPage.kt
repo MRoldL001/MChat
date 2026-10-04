@@ -170,7 +170,6 @@ internal fun ThemePreviewCard(
             border = BorderStroke(borderWidth, borderColor)
         ) {
             Box(modifier = Modifier.fillMaxSize()) {
-                // 背景层：bottomScheme 不为空时下半部分硬分割覆盖
                 if (bottomScheme != null) {
                     Column(modifier = Modifier.fillMaxSize()) {
                         Spacer(modifier = Modifier.weight(1f))
@@ -216,7 +215,7 @@ internal fun ThemePreviewCard(
                             .background(topColors.surfaceContainerHighest)
                     )
                     Spacer(Modifier.height(8.dp))
-                    // 技能按钮（只画一个）——位于分割线下半部分，取 lowerColors
+                    // 只画一个，取 lowerColors
                     Row(
                         modifier = Modifier
                             .clip(RoundedCornerShape(8.dp))
@@ -240,7 +239,7 @@ internal fun ThemePreviewCard(
                         )
                     }
                     Spacer(Modifier.weight(1f))
-                    // 输入栏：加号 + 输入胶囊 + 发送钮——同样取 lowerColors
+                    // 同样取 lowerColors
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Box(
                             modifier = Modifier
@@ -278,11 +277,7 @@ internal fun ThemePreviewCard(
     }
 }
 
-/**
- * 代码块配色预览卡：代码块顶满整张卡（无内边距、无空白框），
- * 行条用 SpaceBetween 均匀铺满卡高，超出部分被卡圆角裁剪。
- * split = true 时为「随显示模式切换」：上浅下深硬分割（同一张卡内无缝拼接）。
- */
+// split：上浅下深硬分割
 @Composable
 internal fun CodeBlockPreviewCard(
     label: String,
@@ -317,7 +312,6 @@ internal fun CodeBlockPreviewCard(
             border = BorderStroke(borderWidth, borderColor)
         ) {
             if (split) {
-                // 与其它卡同一套行条布局，只是底色上浅下深硬分割（分割线穿过某行条也无妨）
                 Box(modifier = Modifier.fillMaxSize()) {
                     Column(modifier = Modifier.fillMaxSize()) {
                         Box(
@@ -357,13 +351,7 @@ internal fun CodeBlockPreviewCard(
     }
 }
 
-/**
- * 迷你代码块：左侧行号条 + 顶栏语言条 + lines 行代码色条，
- * 行条 SpaceBetween 均匀铺满给定高度；上下 18dp 边距让代码行向中间收拢。
- * - sharp = true：不带圆角（顶满卡片）
- * - transparent = true：不画底色（由外层画硬分割背景）
- * - darkFromLine：从第 index 条（顶栏为 0）起改用深色配色，用于分割卡
- */
+// sharp 顶满卡片；transparent 不画底色；darkFromLine 从该行起转深（顶栏算 0）
 @Composable
 private fun MiniCodeBlock(
     dark: Boolean,
@@ -384,7 +372,7 @@ private fun MiniCodeBlock(
         modifier = modifier
             .then(if (transparent) Modifier else Modifier.background(base.background))
             .clip(shape)
-            // 上下大边距：行条整体向中间收拢，不贴卡的上下边缘
+            // 行条往中间收，不贴卡的上下边缘
             .padding(horizontal = 8.dp, vertical = 18.dp)
     ) {
         Column(
@@ -447,9 +435,9 @@ internal fun themeColorLabel(color: ThemeColor): String {
         ThemeColor.WHITE -> stringResource(R.string.theme_default)
         ThemeColor.CUSTOM -> stringResource(R.string.theme_custom)
         ThemeColor.AUTO_COLOR -> stringResource(R.string.theme_auto_color)
-        ThemeColor.HATSUNE_MIKU -> stringResource(R.string.theme_hatsune_miku)
+        ThemeColor.MIKU_GREEN -> stringResource(R.string.theme_miku_green)
         ThemeColor.TETO_RED -> stringResource(R.string.theme_teto_red)
-        ThemeColor.MI_ORANGE -> stringResource(R.string.theme_mi_orange)
+        ThemeColor.MIYOU_ORANGE -> stringResource(R.string.theme_miyou_orange)
         ThemeColor.GREEN -> stringResource(R.string.theme_green)
         ThemeColor.PURPLE -> stringResource(R.string.theme_purple)
         ThemeColor.DEEP_BLUE -> stringResource(R.string.theme_deep_blue)

@@ -13,9 +13,9 @@
   <string name="theme_default">デフォルト</string>
   <string name="theme_custom">カスタムカラー</string>
   <string name="theme_auto_color">モネカラー</string>
-  <string name="theme_hatsune_miku">ミクグリーン</string>
+  <string name="theme_miku_green">ミクグリーン</string>
   <string name="theme_teto_red">テトレッド</string>
-  <string name="theme_mi_orange">ミオレンジ</string>
+  <string name="theme_miyou_orange">ミオレンジ</string>
   <string name="theme_green">ビビッドグリーン</string>
   <string name="theme_purple">ローラン紫</string>
   <string name="theme_deep_blue">ディープブルー</string>

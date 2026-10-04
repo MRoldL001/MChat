@@ -17,7 +17,6 @@ class PreferencesManager @Inject constructor(
 ) {
     companion object {
         private const val PREFS_NAME = "mimochat_prefs"
-        /** API Key 单独存放：Keystore 主密钥 + AES256-GCM 加密。 */
         private const val SECURE_PREFS_NAME = "mimochat_secure_prefs"
         private const val KEY_THEME_COLOR = "theme_color"
         private const val KEY_THEME_MODE = "theme_mode"
@@ -33,7 +32,7 @@ class PreferencesManager @Inject constructor(
         private const val KEY_NOTIFICATION_PERMISSION_REQUESTED = "notification_permission_requested"
         private const val KEY_ACCEPT_PRERELEASE_UPDATES = "accept_prerelease_updates"
         private const val KEY_SHOW_USAGE = "show_usage"
-        /** 控制台登录 Cookie（api-platform_serviceToken / userId），属敏感信息，优先加密存储。 */
+        // 敏感，走加密
         private const val KEY_USAGE_COOKIE = "usage_cookie"
         private const val KEY_TEMPERATURE = "temperature"
         private const val KEY_TOP_P = "top_p"
@@ -53,11 +52,7 @@ class PreferencesManager @Inject constructor(
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
     }
 
-    /**
-     * 敏感项（API Key）专属存储：Keystore 主密钥 + AES256-GCM。
-     * 首次创建要初始化 Keystore，有几十毫秒开销，因此保持懒加载；
-     * 设备不支持或 Keystore 异常时返回 null，调用方降级到普通 prefs。
-     */
+    // 懒加载，不支持时返回null
     private val securePrefs: SharedPreferences? by lazy {
         runCatching {
             val masterKey = MasterKey.Builder(context)
@@ -89,7 +84,7 @@ class PreferencesManager @Inject constructor(
     private fun readApiKey(): String {
         readSecureApiKey()?.let { return it }
 
-        // 迁移：把升级前明文保存的 Key 搬进加密存储。
+        // 迁移旧明文
         val legacy = prefs.getString(KEY_API_KEY, null).orEmpty()
         if (legacy.isNotBlank() && writeSecureApiKey(legacy)) {
             prefs.edit().remove(KEY_API_KEY).apply()
@@ -132,10 +127,6 @@ class PreferencesManager @Inject constructor(
         prefs.edit().putString(KEY_CODE_BLOCK_COLOR_MODE, mode.name).apply()
     }
 
-    /**
-     * 应用显示语言，默认 "system"（跟随手机系统语言）。
-     * 取值见 ui.settings.AppLocale：system / zh-CN / zh-TW / en / ja。
-     */
     fun getAppLanguage(): String {
         return prefs.getString(KEY_APP_LANGUAGE, "system") ?: "system"
     }
@@ -163,7 +154,6 @@ class PreferencesManager @Inject constructor(
 
     fun saveApiKey(key: String) {
         if (writeSecureApiKey(key)) {
-            // 清掉可能残留的明文副本
             if (prefs.contains(KEY_API_KEY)) prefs.edit().remove(KEY_API_KEY).apply()
         } else {
             prefs.edit().putString(KEY_API_KEY, key).apply()
@@ -240,10 +230,7 @@ class PreferencesManager @Inject constructor(
         prefs.edit().putBoolean(KEY_SHOW_USAGE, enabled).apply()
     }
 
-    /**
-     * 控制台登录 Cookie。小米的用量接口只认这个（API Key 打不通控制台接口），
-     * 属凭证级数据，因此和 API Key 一样优先写入加密存储。
-     */
+    // 用量接口只认这个
     fun getUsageCookie(): String {
         val secure = securePrefs
         if (secure != null) {
@@ -261,7 +248,6 @@ class PreferencesManager @Inject constructor(
                 true
             }.getOrDefault(false)
             if (written) {
-                // 清掉可能残留的明文副本
                 if (prefs.contains(KEY_USAGE_COOKIE)) prefs.edit().remove(KEY_USAGE_COOKIE).apply()
                 return
             }

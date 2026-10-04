@@ -30,10 +30,10 @@ fun supportsDynamicColor(): Boolean {
 enum class ThemeColor {
     WHITE,
     CUSTOM,
-    HATSUNE_MIKU,
+    MIKU_GREEN,
     TETO_RED,
     AUTO_COLOR,
-    MI_ORANGE,
+    MIYOU_ORANGE,
     GREEN,
     PURPLE,
     DEEP_BLUE
@@ -45,18 +45,13 @@ enum class ThemeMode {
     FOLLOW_SYSTEM
 }
 
-/** 代码块配色：深色（黑底）/ 浅色（白底）/ 跟随当前显示模式 */
 enum class CodeBlockColorMode {
     DARK,
     LIGHT,
     FOLLOW
 }
 
-/**
- * 代码块是否使用深色配色（黑底白字）。
- * 由 MIMOChatTheme 依据 CodeBlockColorMode 与当前明暗模式解析后提供，
- * 聊天界面的代码块直接读取，无需层层透传。
- */
+// 免层层透传
 val LocalCodeBlockDark = compositionLocalOf { true }
 
 private fun calculateLightContainerColor(primary: Color): Color {
@@ -187,14 +182,14 @@ private val WhiteDarkColors = darkColorSchemeWithPrimary(
     onPrimary = WhiteDarkOnPrimary
 )
 
-private val MiOrangeLightColors = lightColorSchemeWithPrimary(
-    primary = MiOrangeLightPrimary,
-    onPrimary = MiOrangeLightOnPrimary
+private val MiyouOrangeLightColors = lightColorSchemeWithPrimary(
+    primary = MiyouOrangeLightPrimary,
+    onPrimary = MiyouOrangeLightOnPrimary
 )
 
-private val MiOrangeDarkColors = darkColorSchemeWithPrimary(
-    primary = MiOrangeDarkPrimary,
-    onPrimary = MiOrangeDarkOnPrimary
+private val MiyouOrangeDarkColors = darkColorSchemeWithPrimary(
+    primary = MiyouOrangeDarkPrimary,
+    onPrimary = MiyouOrangeDarkOnPrimary
 )
 
 private val GreenLightColors = lightColorSchemeWithPrimary(
@@ -217,24 +212,24 @@ private val PurpleDarkColors = darkColorSchemeWithPrimary(
     onPrimary = PurpleDarkOnPrimary
 )
 
-private val HatsuneMikuLightColors = lightColorSchemeWithPrimary(
-    primary = HatsuneMikuLightPrimary,
-    onPrimary = HatsuneMikuLightOnPrimary
+private val MikuGreenLightColors = lightColorSchemeWithPrimary(
+    primary = MikuGreenPrimary,
+    onPrimary = MikuGreenOnPrimary
 )
 
-private val HatsuneMikuDarkColors = darkColorSchemeWithPrimary(
-    primary = HatsuneMikuDarkPrimary,
-    onPrimary = HatsuneMikuDarkOnPrimary
+private val MikuGreenDarkColors = darkColorSchemeWithPrimary(
+    primary = MikuGreenPrimary,
+    onPrimary = MikuGreenOnPrimary
 )
 
-private val AccentRedLightColors = lightColorSchemeWithPrimary(
-    primary = AccentRedPrimary,
-    onPrimary = AccentRedOnPrimary
+private val TetoRedLightColors = lightColorSchemeWithPrimary(
+    primary = TetoRedPrimary,
+    onPrimary = TetoRedOnPrimary
 )
 
-private val AccentRedDarkColors = darkColorSchemeWithPrimary(
-    primary = AccentRedPrimary,
-    onPrimary = AccentRedOnPrimary
+private val TetoRedDarkColors = darkColorSchemeWithPrimary(
+    primary = TetoRedPrimary,
+    onPrimary = TetoRedOnPrimary
 )
 
 private val DeepBlueLightColors = lightColorSchemeWithPrimary(
@@ -247,10 +242,6 @@ private val DeepBlueDarkColors = darkColorSchemeWithPrimary(
     onPrimary = DeepBlueDarkOnPrimary
 )
 
-/**
- * 自定义主题色：从 HEX 解析主色，按相对亮度决定黑/白文字。
- * 非法 HEX 回退为黑色（自定义色彩默认值）。
- */
 private fun customColorScheme(dark: Boolean, hex: String): ColorScheme {
     val primary = parseCustomHex(hex) ?: Color(0xFF000000)
     val onPrimary = if (primary.luminance() > 0.5f) Color.Black else Color.White
@@ -312,10 +303,6 @@ private fun autoDarkColorScheme(context: Context): ColorScheme {
     )
 }
 
-/**
- * 取指定主题在指定明暗模式下的配色，供设置页的主题预览卡片使用。
- * 预览卡片内部所有颜色都从返回的 ColorScheme 动态取，不硬编码。
- */
 @Composable
 fun themePreviewColorScheme(
     themeColor: ThemeColor,
@@ -331,9 +318,9 @@ fun themePreviewColorScheme(
     val scheme = when (effectiveColor) {
         ThemeColor.AUTO_COLOR -> if (dark) autoDarkColorScheme(context) else autoLightColorScheme(context)
         ThemeColor.WHITE -> if (dark) WhiteDarkColors else WhiteLightColors
-        ThemeColor.HATSUNE_MIKU -> if (dark) HatsuneMikuDarkColors else HatsuneMikuLightColors
-        ThemeColor.TETO_RED -> if (dark) AccentRedDarkColors else AccentRedLightColors
-        ThemeColor.MI_ORANGE -> if (dark) MiOrangeDarkColors else MiOrangeLightColors
+        ThemeColor.MIKU_GREEN -> if (dark) MikuGreenDarkColors else MikuGreenLightColors
+        ThemeColor.TETO_RED -> if (dark) TetoRedDarkColors else TetoRedLightColors
+        ThemeColor.MIYOU_ORANGE -> if (dark) MiyouOrangeDarkColors else MiyouOrangeLightColors
         ThemeColor.GREEN -> if (dark) GreenDarkColors else GreenLightColors
         ThemeColor.PURPLE -> if (dark) PurpleDarkColors else PurpleLightColors
         ThemeColor.DEEP_BLUE -> if (dark) DeepBlueDarkColors else DeepBlueLightColors
@@ -366,9 +353,9 @@ fun MIMOChatTheme(
         else -> {
             when (themeColor) {
                 ThemeColor.WHITE -> if (darkTheme) WhiteDarkColors else WhiteLightColors
-                ThemeColor.HATSUNE_MIKU -> if (darkTheme) HatsuneMikuDarkColors else HatsuneMikuLightColors
-                ThemeColor.TETO_RED -> if (darkTheme) AccentRedDarkColors else AccentRedLightColors
-                ThemeColor.MI_ORANGE -> if (darkTheme) MiOrangeDarkColors else MiOrangeLightColors
+                ThemeColor.MIKU_GREEN -> if (darkTheme) MikuGreenDarkColors else MikuGreenLightColors
+                ThemeColor.TETO_RED -> if (darkTheme) TetoRedDarkColors else TetoRedLightColors
+                ThemeColor.MIYOU_ORANGE -> if (darkTheme) MiyouOrangeDarkColors else MiyouOrangeLightColors
                 ThemeColor.GREEN -> if (darkTheme) GreenDarkColors else GreenLightColors
                 ThemeColor.PURPLE -> if (darkTheme) PurpleDarkColors else PurpleLightColors
                 ThemeColor.DEEP_BLUE -> if (darkTheme) DeepBlueDarkColors else DeepBlueLightColors

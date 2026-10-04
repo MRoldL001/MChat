@@ -40,7 +40,6 @@ class SearchViewModel @Inject constructor(
     fun updateQuery(query: String) {
         if (_searchQuery.value == query) return
         _searchQuery.value = query
-        // Cancel both the pending debounce and the previous database subscription immediately.
         searchJob?.cancel()
         searchJob = null
         _searchResults.value = emptyList()

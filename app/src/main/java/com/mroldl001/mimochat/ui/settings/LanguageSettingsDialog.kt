@@ -60,7 +60,7 @@ private fun LanguageOptionRow(
     }
 }
 
-/** 除简体中文与「跟随系统」外，在语言名后追加（AI 翻译）标注，使用次级小字样式。 */
+/** 非简体中文加（AI 翻译）标注 */
 @Composable
 private fun languageDisplayLabel(code: String): AnnotatedString {
     val name = AppLocale.label(code)

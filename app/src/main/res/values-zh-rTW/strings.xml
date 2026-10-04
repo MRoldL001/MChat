@@ -13,9 +13,9 @@
   <string name="theme_default">預設</string>
   <string name="theme_custom">自訂色彩</string>
   <string name="theme_auto_color">莫奈取色</string>
-  <string name="theme_hatsune_miku">初音綠</string>
+  <string name="theme_miku_green">初音綠</string>
   <string name="theme_teto_red">重音紅</string>
-  <string name="theme_mi_orange">米柚橙</string>
+  <string name="theme_miyou_orange">米柚橙</string>
   <string name="theme_green">盎然綠</string>
   <string name="theme_purple">羅蘭紫</string>
   <string name="theme_deep_blue">深邃藍</string>

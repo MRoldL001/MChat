@@ -42,17 +42,11 @@ import java.net.URLEncoder
 
 private const val COVER_USER_AGENT = "MChat/2.1.5 (https://github.com/MRoldL001/MChat)"
 
-/**
- * 封面来源，全部走接口动态获取：
- * - Netease：网易云歌曲详情取专辑图
- * - BilibiliBangumi：B 站番剧详情取封面（season_id，接口免签名）
- * - PageIcon：抓取网页 HTML 里的 apple-touch-icon（站点 icon，PNG；站点须国内可直连）
- */
 private sealed interface CoverSource {
     data class Netease(val songId: Long) : CoverSource
     data class BilibiliBangumi(val seasonId: Int) : CoverSource
+    // 站点须国内可直连
     data class PageIcon(val pageUrl: String) : CoverSource
-    /** AniList 动漫封面：通过 GraphQL search 获取 coverImage（extraLarge/large） */
     data class AniList(val title: String) : CoverSource
 }
 
@@ -65,7 +59,6 @@ private data class LegacyEasterEgg(
     val cover: CoverSource
 )
 
-/** 历史彩蛋按新到旧排列：V2.1.x(Show me the castle) → V2.0.x → V1.2.x → V1.1.x → V1.0.x。STEEL BALL RUN 为当前版本，只显示在设置页当前彩蛋栏，不在此历史列表 */
 private val legacyEasterEggs = listOf(
     LegacyEasterEgg(
         versionNumber = "V2.1.x",
@@ -133,10 +126,7 @@ private val TOUCH_ICON_REL_FIRST =
 private val TOUCH_ICON_HREF_FIRST =
     Regex("""<link[^>]+href=['"]([^'"]+)['"][^>]*?rel=['"]apple-touch-icon['"]""")
 
-/**
- * 从网页 HTML 中提取站点 icon（apple-touch-icon）。
- * 只取位图：站点的 favicon 常是 .svg，Coil 默认解码不了。
- */
+// svg 解码不了，只取位图
 private fun extractPageIcon(html: String): String? {
     val raw = TOUCH_ICON_REL_FIRST.find(html)?.groupValues?.getOrNull(1)
         ?: TOUCH_ICON_HREF_FIRST.find(html)?.groupValues?.getOrNull(1)
@@ -147,7 +137,7 @@ private fun extractPageIcon(html: String): String? {
         }
 }
 
-/** B 站番剧详情取封面：该接口免签名、免 cookie，但需带 UA 与 Referer */
+// 免签名免 cookie，但要带 UA 和 Referer
 private fun fetchBilibiliBangumiCover(seasonId: Int): String? {
     val body = httpGet(
         "https://api.bilibili.com/pgc/view/web/season?season_id=$seasonId",
@@ -155,14 +145,10 @@ private fun fetchBilibiliBangumiCover(seasonId: Int): String? {
     ) ?: return null
     val cover = JSONObject(body).optJSONObject("result")?.optString("cover")
         ?.takeIf { it.isNotBlank() } ?: return null
-    // 接口返回的是 http，Android 9+ 默认禁用明文流量，统一走 https
+    // Android 9+ 禁明文
     return cover.replace("http://", "https://")
 }
 
-/**
- * AniList 动漫封面：向 graphql.anilist.co 发起 GraphQL 查询（POST），
- * 按标题搜索 ANIME，优先取 coverImage.extraLarge，否则取 large。
- */
 private fun fetchAniListCover(title: String): String? {
     val query = "query (\$search: String) { Media (search: \$search, type: ANIME) { coverImage { extraLarge large } } }"
     val payload = JSONObject().apply {
@@ -286,10 +272,6 @@ private fun LegacyEasterEggCard(egg: LegacyEasterEgg) {
     )
 }
 
-/**
- * 彩蛋卡：与设置页「Show me the castle」横幅完全一致的设计
- * （primaryContainer 卡底 + 64dp 圆形封面 + 主题色副标题 + 自适应字号标题）。
- */
 @Composable
 internal fun EasterEggBanner(
     versionNumber: String,

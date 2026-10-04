@@ -189,15 +189,7 @@ private fun formatDate(timestamp: Long): String {
     return sdf.format(java.util.Date(timestamp))
 }
 
-/**
- * 选中高亮：动画期间用浮层滑动，动画结束即「固定」在条目上。
- * - 切换选中（selectedIndex 改变）时播放一次从旧位置到新位置的滑动动画（浮层从旧位置滑到新位置），
- *   动画期间 isAnimating=true，条目自身内联背景隐藏，避免双重高亮；
- * - 动画结束后 isAnimating=false，选中态「沉淀」为条目自身内联背景——它是条目的一部分，固定、跟随滚动，不漂移；
- * - 浮层在动画结束后 alpha=0 隐藏，仅作为切换动画的载体。
- * 相比旧版 snapshotFlow 持续对齐（快速滚动/切换时被反复打断导致偏移），这里只在切换瞬间触发一次动画，
- * 滚动时完全由内联背景承担，因此不再漂移。
- */
+// 动画结束高亮就沉淀到条目上，滚动时不漂移
 @Composable
 internal fun ChatSelectionHighlight(
     listState: LazyListState,
@@ -227,8 +219,7 @@ internal fun ChatSelectionHighlight(
             )
     )
 
-    // key 必须包含 selectedChatId：新建对话时新项插在分组最前，索引可能与旧选中项相同
-    // （index 不变），若只监听 selectedIndex 则协程不会重启，高亮会留在旧对话上。
+    // 不带 chatId 的话，新建对话时高亮会留在旧项
     LaunchedEffect(selectedChatId, selectedIndex) {
         if (selectedIndex == prevIndex) {
             settledChatId.value = selectedChatId
