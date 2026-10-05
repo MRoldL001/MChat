@@ -17,6 +17,13 @@ data class ChatScrollPosition(
     val offset: Int
 )
 
+/**
+ * 生成结束后等这么久再滚到底。
+ * Markdown 异步渲染、代码块换行、图片解码都会在最后一帧之后继续撑高内容，
+ * 立刻滚只会滚到一半；等布局基本稳定再一次性滚到位。
+ */
+const val BOTTOM_SETTLE_DELAY_MILLIS = 180L
+
 @Composable
 internal fun PersistChatScrollPosition(
     chatId: Long?,
@@ -60,33 +67,49 @@ internal fun PersistChatScrollPosition(
 }
 
 suspend fun LazyListState.animateScrollToBottomContent() {
-    val lastIndex = layoutInfo.totalItemsCount - 1
-    if (lastIndex < 0) return
-
-    if (layoutInfo.visibleItemsInfo.none { it.index == lastIndex }) {
-        animateScrollToItem(lastIndex)
-        withFrameNanos { }
-    }
-
-    val lastItem = layoutInfo.visibleItemsInfo.lastOrNull { it.index == lastIndex } ?: return
-    val hiddenBottom = lastItem.offset + lastItem.size - layoutInfo.viewportEndOffset
-    if (hiddenBottom > 0) {
-        animateScrollBy(hiddenBottom.toFloat())
+    ensureLastItemVisible(animate = true)
+    val hidden = measureHiddenBottom() ?: return
+    if (hidden > 0) {
+        animateScrollBy(hidden.toFloat())
     }
 }
 
 suspend fun LazyListState.scrollToBottomContent() {
+    ensureLastItemVisible(animate = false)
+    val hidden = measureHiddenBottom() ?: return
+    if (hidden > 0) {
+        scrollBy(hidden.toFloat())
+    }
+}
+
+/** 最后一项底部超出视口底部的距离；列表还没布局好、或最后一项不在可见区时返回 null */
+private fun LazyListState.measureHiddenBottom(): Int? {
+    val lastIndex = layoutInfo.totalItemsCount - 1
+    if (lastIndex < 0) return null
+
+    if (layoutInfo.visibleItemsInfo.none { it.index == lastIndex }) return null
+
+    val lastItem = layoutInfo.visibleItemsInfo.lastOrNull { it.index == lastIndex } ?: return null
+    return lastItem.offset + lastItem.size - layoutInfo.viewportEndOffset
+}
+
+/** 最后一项不在可视区时先跳过去，之后才能算出真实隐藏距离 */
+private suspend fun LazyListState.ensureLastItemVisible(animate: Boolean) {
     val lastIndex = layoutInfo.totalItemsCount - 1
     if (lastIndex < 0) return
+    if (layoutInfo.visibleItemsInfo.any { it.index == lastIndex }) return
 
-    if (layoutInfo.visibleItemsInfo.none { it.index == lastIndex }) {
-        scrollToItem(lastIndex)
-        withFrameNanos { }
-    }
+    if (animate) animateScrollToItem(lastIndex) else scrollToItem(lastIndex)
+    withFrameNanos { }
+}
 
-    val lastItem = layoutInfo.visibleItemsInfo.lastOrNull { it.index == lastIndex } ?: return
-    val hiddenBottom = lastItem.offset + lastItem.size - layoutInfo.viewportEndOffset
-    if (hiddenBottom > 0) {
-        scrollBy(hiddenBottom.toFloat())
-    }
+/**
+ * 等内容布局稳定后再一次性滚到底。
+ * 单次滚动不会来回抖；[BOTTOM_SETTLE_DELAY_MILLIS] 用来盖住渲染期的持续撑高。
+ * 撤回编辑复用同一个时序：消息淡入、Markdown/图片异步渲染，180ms 后高度基本到位。
+ */
+suspend fun LazyListState.awaitStableScrollToBottom() {
+    delay(BOTTOM_SETTLE_DELAY_MILLIS)
+    withFrameNanos { }
+    scrollToBottomContent()
 }

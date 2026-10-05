@@ -38,7 +38,8 @@ private data class BeamPalette(
 @Composable
 fun rememberBeamingSpanStyle(
     baseColor: Color,
-    sweepDurationMillis: Int = SWEEP_DURATION_MILLIS
+    sweepDurationMillis: Int = SWEEP_DURATION_MILLIS,
+    withGlow: Boolean = true
 ): SpanStyle {
     val isLightBackground = MaterialTheme.colorScheme.background.luminance() > 0.5f
     val palette = remember(baseColor, isLightBackground) {
@@ -79,13 +80,15 @@ fun rememberBeamingSpanStyle(
     val density = LocalDensity.current
     val edgeRadius = with(density) { (1.5f + 2.5f * beam).dp.toPx() }
     val edgeAlpha = 0.16f + 0.34f * beam
-    val shadow = remember(palette.edge, edgeRadius, edgeAlpha) {
-        Shadow(
-            color = palette.edge.copy(alpha = edgeAlpha),
-            offset = Offset.Zero,
-            blurRadius = edgeRadius
-        )
-    }
+    val shadow = if (withGlow) {
+        remember(palette.edge, edgeRadius, edgeAlpha) {
+            Shadow(
+                color = palette.edge.copy(alpha = edgeAlpha),
+                offset = Offset.Zero,
+                blurRadius = edgeRadius
+            )
+        }
+    } else null
     return remember(brush, shadow) { SpanStyle(brush = brush, shadow = shadow) }
 }
 
@@ -96,15 +99,16 @@ private fun beamFlash(offset: Float, center: Float): Float {
 
 private fun buildBeamPalette(baseColor: Color, isLightBackground: Boolean): BeamPalette {
     val (hue, saturation, lightness) = rgbToHsl(baseColor.red, baseColor.green, baseColor.blue)
+    val neutral = saturation < 0.15f
     val highlight = hslToColor(
         hue = hue,
-        saturation = saturation.coerceAtLeast(0.7f),
-        lightness = (lightness + 0.28f).coerceIn(0f, 0.9f)
+        saturation = if (neutral) saturation else saturation.coerceAtLeast(0.7f),
+        lightness = (lightness + 0.28f).coerceIn(0f, 0.92f)
     )
     val edge = hslToColor(
         hue = hue,
-        saturation = saturation.coerceAtLeast(0.85f).coerceIn(0f, 1f),
-        lightness = lightness.coerceIn(0.45f, 0.68f)
+        saturation = if (neutral) saturation else saturation.coerceAtLeast(0.85f).coerceIn(0f, 1f),
+        lightness = lightness.coerceIn(0.45f, 0.7f)
     )
     return BeamPalette(base = baseColor, highlight = highlight, edge = edge)
 }

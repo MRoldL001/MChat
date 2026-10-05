@@ -22,7 +22,9 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.saveable.Saver
 import androidx.compose.ui.Modifier
 import com.mroldl001.mimochat.data.preferences.PreferencesManager
+import com.mroldl001.mimochat.domain.model.MessageAttachment
 import com.mroldl001.mimochat.ui.chat.ChatScreen
+import com.mroldl001.mimochat.ui.chat.components.AttachmentViewerScreen
 import com.mroldl001.mimochat.ui.chat.components.ChatScrollPosition
 import com.mroldl001.mimochat.ui.search.SearchScreen
 import com.mroldl001.mimochat.ui.settings.DisclaimerScreen
@@ -41,6 +43,7 @@ sealed class Screen {
     object ExperimentalFeatures : Screen()
     object EasterEggHistory : Screen()
     object Disclaimer : Screen()
+    data class AttachmentViewer(val attachments: List<MessageAttachment>, val index: Int) : Screen()
 }
 
 /** recreate 后还原 */
@@ -53,6 +56,7 @@ private val ScreenSaver = Saver<Screen, String>(
             is Screen.ExperimentalFeatures -> "exp"
             is Screen.EasterEggHistory -> "egg"
             is Screen.Disclaimer -> "disclaimer"
+            is Screen.AttachmentViewer -> "attachment"
         }
     },
     restore = { name ->
@@ -63,6 +67,7 @@ private val ScreenSaver = Saver<Screen, String>(
             "exp" -> Screen.ExperimentalFeatures
             "egg" -> Screen.EasterEggHistory
             "disclaimer" -> Screen.Disclaimer
+            // 附件数据不参与 restore，回退到聊天页
             else -> Screen.Chat
         }
     }
@@ -128,7 +133,6 @@ fun AppNavigation(
             else -> Screen.Chat
         }
     }
-
     AnimatedContent(
         targetState = currentScreen,
         transitionSpec = {
@@ -150,7 +154,8 @@ fun AppNavigation(
                     targetState is Screen.Settings ||
                     targetState is Screen.Disclaimer ||
                     targetState is Screen.ExperimentalFeatures ||
-                    targetState is Screen.EasterEggHistory -> {
+                    targetState is Screen.EasterEggHistory ||
+                    targetState is Screen.AttachmentViewer -> {
                     slideInHorizontally(
                         animationSpec = tween(durationMillis = 300),
                         initialOffsetX = { it }
@@ -203,6 +208,9 @@ fun AppNavigation(
                         suppressInitialScroll = suppressInitialChatScroll,
                         onInitialChatNavigationHandled = {
                             suppressInitialChatScroll = false
+                        },
+                        onAttachmentOpen = { attachments, index ->
+                            currentScreen = Screen.AttachmentViewer(attachments, index)
                         }
                     )
                 }
@@ -254,6 +262,14 @@ fun AppNavigation(
                 is Screen.Disclaimer -> {
                     DisclaimerScreen(
                         onNavigateBack = { currentScreen = Screen.Settings }
+                    )
+                }
+
+                is Screen.AttachmentViewer -> {
+                    AttachmentViewerScreen(
+                        attachments = screen.attachments,
+                        initialIndex = screen.index,
+                        onNavigateBack = { currentScreen = Screen.Chat }
                     )
                 }
 

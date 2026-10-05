@@ -48,6 +48,7 @@ private sealed interface CoverSource {
     // 站点须国内可直连
     data class PageIcon(val pageUrl: String) : CoverSource
     data class AniList(val title: String) : CoverSource
+    data class Douban(val query: String) : CoverSource
 }
 
 private data class LegacyEasterEgg(
@@ -60,6 +61,14 @@ private data class LegacyEasterEgg(
 )
 
 private val legacyEasterEggs = listOf(
+    LegacyEasterEgg(
+        versionNumber = "V2.2.x",
+        versionSubtitle = "Steel Ball Run",
+        description = "",
+        descriptionRes = R.string.easter_egg_sbr_desc,
+        link = "https://zh.moegirl.org.cn/%E9%A3%86%E9%A9%AC%E9%87%8E%E9%83%8E",
+        cover = CoverSource.AniList("JoJo's Bizarre Adventure: Steel Ball Run")
+    ),
     LegacyEasterEgg(
         versionNumber = "V2.1.x",
         versionSubtitle = "Show me the castle",
@@ -179,6 +188,18 @@ private fun fetchAniListCover(title: String): String? {
     }
 }
 
+// 免 key，带 UA + Referer；返回 search_subjects 首条封面
+private fun fetchDoubanCover(query: String): String? {
+    val encoded = URLEncoder.encode(query, "UTF-8")
+    val body = httpGet(
+        "https://movie.douban.com/j/search_subjects?type=movie&q=$encoded",
+        referer = "https://movie.douban.com/"
+    ) ?: return null
+    val subjects = JSONObject(body).optJSONArray("subjects") ?: return null
+    if (subjects.length() == 0) return null
+    return subjects.getJSONObject(0).optString("cover").takeIf { it.isNotBlank() }
+}
+
 private suspend fun fetchCoverUrl(source: CoverSource): String? = withContext(Dispatchers.IO) {
     runCatching {
         when (source) {
@@ -195,6 +216,7 @@ private suspend fun fetchCoverUrl(source: CoverSource): String? = withContext(Di
             is CoverSource.BilibiliBangumi -> fetchBilibiliBangumiCover(source.seasonId)
             is CoverSource.PageIcon -> httpGet(source.pageUrl)?.let { extractPageIcon(it) }
             is CoverSource.AniList -> fetchAniListCover(source.title)
+            is CoverSource.Douban -> fetchDoubanCover(source.query)
         }
     }.getOrNull()
 }
@@ -330,7 +352,7 @@ internal fun EasterEggBanner(
                 verticalArrangement = Arrangement.spacedBy(6.dp)
             ) {
                 BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
-                    val availableWidth = maxWidth
+                    val availableWidth = this.maxWidth
                     val initialTitleFontSize = MaterialTheme.typography.titleLarge.fontSize
                     var titleFontSize by remember(versionNumber, versionSubtitle, availableWidth) {
                         mutableStateOf(initialTitleFontSize)

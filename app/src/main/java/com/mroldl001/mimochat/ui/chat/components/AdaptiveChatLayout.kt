@@ -6,6 +6,7 @@ import android.net.Uri
 import android.widget.Toast
 import androidx.compose.ui.res.stringResource
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
@@ -40,6 +41,8 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -48,6 +51,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.mroldl001.mimochat.domain.model.Chat
 import com.mroldl001.mimochat.domain.model.Message
+import com.mroldl001.mimochat.domain.model.MessageAttachment
 import com.mroldl001.mimochat.domain.model.AIModel
 import com.mroldl001.mimochat.ui.chat.viewmodel.ChatUiState
 import com.mroldl001.mimochat.ui.chat.viewmodel.SkillType
@@ -68,6 +72,7 @@ fun AdaptiveChatLayout(
     streamingContent: String,
     streamingReasoning: String,
     isStreaming: Boolean,
+    streamingStartTime: Long = 0L,
     isThinkingMode: Boolean,
     isWebSearchEnabled: Boolean,
     onThinkingModeChanged: (Boolean) -> Unit,
@@ -102,12 +107,22 @@ fun AdaptiveChatLayout(
     onDownloadUpdate: (com.mroldl001.mimochat.data.update.GitHubRelease) -> Unit,
     onClearUpdateState: () -> Unit,
     onClearError: () -> Unit,
+    onRetryMessage: (Message) -> Unit = {},
+    onEditMessage: (Message) -> Unit = {},
+    animatingOutIds: List<Long> = emptyList(),
+    restoringIds: List<Long> = emptyList(),
+    messageFadeMillis: Int = 200,
+    editScrollToBottomSignal: Int = 0,
+    draftText: String = "",
+    draftToken: Int = 0,
+    isEditing: Boolean = false,
+    onCancelEdit: () -> Unit = {},
     onTakePhoto: () -> Unit = {},
     onSelectFile: () -> Unit = {},
-    onAttachmentCleared: () -> Unit = {},
-    attachmentLabel: String? = null,
-    attachmentUri: String? = null,
-    attachmentMimeType: String? = null,
+    onAttachmentRemoved: (Int) -> Unit = {},
+    onAttachmentClick: ((Int) -> Unit)? = null,
+    onAttachmentOpen: ((List<MessageAttachment>, Int) -> Unit)? = null,
+    attachments: List<MessageAttachment> = emptyList(),
     isAttachmentEnabled: Boolean = true,
     initialChatId: Long? = null,
     chatScrollPositions: MutableMap<Long, ChatScrollPosition>,
@@ -121,9 +136,19 @@ fun AdaptiveChatLayout(
     modifier: Modifier = Modifier
 ) {
     val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
+    val clearInputFocus = {
+        focusManager.clearFocus()
+        SystemInputFocus.clear()
+    }
     val context = LocalContext.current
     val listState = rememberLazyListState()
     val scrollScope = rememberCoroutineScope()
+    // 撤回编辑后要滚到底，消息是淡入 + 异步渲染后才撑开高度，等 180ms 再一次性滚到位
+    LaunchedEffect(editScrollToBottomSignal) {
+        if (editScrollToBottomSignal > 0) {
+            listState.awaitStableScrollToBottom()
+        }
+    }
     val bottomProximityPx = with(LocalDensity.current) { 120.dp.roundToPx() }
     val scrollButtonTravelPx = with(LocalDensity.current) { 76.dp.roundToPx() }
 
@@ -210,9 +235,25 @@ fun AdaptiveChatLayout(
         }
     }
 
+    val haptic = LocalHapticFeedback.current
+    val wasStreaming = remember(uiState.currentChat?.id) { mutableStateOf(false) }
     LaunchedEffect(isStreaming) {
         if (!isStreaming) {
+            val wasFollowing = followStreaming
             followStreaming = false
+            if (wasStreaming.value) {
+                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+            }
+            // 流式结束的 effect 会因为 isStreaming=false 整块跳过，最后一截内容补不上滚。
+            // 这里在跟随状态下等内容稳定后一次性滚到底
+            if (wasFollowing) {
+                automaticStreamScroll = true
+                try {
+                    listState.awaitStableScrollToBottom()
+                } finally {
+                    automaticStreamScroll = false
+                }
+            }
         } else if (
             pendingInitialTopChatId == null &&
             pendingRestoreChatId == null &&
@@ -220,6 +261,7 @@ fun AdaptiveChatLayout(
         ) {
             followStreaming = true
         }
+        wasStreaming.value = isStreaming
     }
 
     LaunchedEffect(listState, isStreaming, bottomProximityPx) {
@@ -318,11 +360,11 @@ fun AdaptiveChatLayout(
                     ChatHistoryHeader(
                         onSettingsBoundsChanged = { settingsAnchorBounds = it },
                         onSearchClick = {
-                            focusManager.clearFocus()
+                            clearInputFocus()
                             onNavigateToSearch()
                         },
                         onSettingsClick = {
-                            focusManager.clearFocus()
+                            clearInputFocus()
                             onNavigateToSettings()
                         },
                         onGitHubClick = {
@@ -378,7 +420,7 @@ fun AdaptiveChatLayout(
                                             settledSelectedChatId = settledChatId.value,
                                             isAnimating = isAnimating.value,
                                             onClick = {
-                                                focusManager.clearFocus()
+                                                clearInputFocus()
                                                 onSelectChat(entry.chat)
                                             },
                                             onDelete = { chatToDelete = entry.chat; showDeleteConfirmDialog = true }
@@ -397,7 +439,7 @@ fun AdaptiveChatLayout(
                             onRefresh = onRefreshUsage,
                             onLogin = onLoginUsage,
                             onCreateNewChat = {
-                                focusManager.clearFocus()
+                                clearInputFocus()
                                 onCreateNewChat()
                             },
                             modifier = Modifier.padding(16.dp)
@@ -405,7 +447,7 @@ fun AdaptiveChatLayout(
                     } else {
                         Button(
                             onClick = {
-                                focusManager.clearFocus()
+                                clearInputFocus()
                                 onCreateNewChat()
                             },
                             modifier = Modifier
@@ -480,11 +522,14 @@ fun AdaptiveChatLayout(
                         isGenerating = isStreaming,
                         onTakePhoto = onTakePhoto,
                         onSelectFile = onSelectFile,
-                        onAttachmentCleared = onAttachmentCleared,
-                        attachmentLabel = attachmentLabel,
-                        attachmentUri = attachmentUri,
-                        attachmentMimeType = attachmentMimeType,
+                        onAttachmentRemoved = onAttachmentRemoved,
+                        onAttachmentClick = onAttachmentClick,
+                        attachments = attachments,
                         isAttachmentEnabled = isAttachmentEnabled
+                        , draftText = draftText
+                        , draftToken = draftToken
+                        , isEditing = isEditing
+                        , onCancelEdit = onCancelEdit
                     )
                 }
             }
@@ -497,7 +542,7 @@ fun AdaptiveChatLayout(
                         indication = null,
                         interactionSource = remember { MutableInteractionSource() }
                     ) { 
-                        focusManager.clearFocus()
+                        clearInputFocus()
                     }
             ) {
                 chatBackgroundUri?.takeIf { it.isNotBlank() }?.let { backgroundUri ->
@@ -516,6 +561,8 @@ fun AdaptiveChatLayout(
                         modifier = Modifier.align(Alignment.Center)
                     )
                 } else {
+                    var listReady by remember { mutableStateOf(false) }
+                    LaunchedEffect(messages.isNotEmpty()) { if (messages.isNotEmpty()) listReady = true }
                     LazyColumn(
                         state = listState,
                         modifier = Modifier.fillMaxSize(),
@@ -526,13 +573,30 @@ fun AdaptiveChatLayout(
                             key = { message -> message.id },
                             contentType = { message -> message.role }
                         ) { message ->
-                            MessageBubble(message = message)
+                            MessageVisibility(
+                                messageId = message.id,
+                                animatingOutIds = animatingOutIds,
+                                restoringIds = restoringIds,
+                                messageFadeMillis = messageFadeMillis,
+                                listReady = listReady
+                            ) {
+                                MessageBubble(
+                                    message = message,
+                                    isLatest = message.id == messages.lastOrNull()?.id,
+                                    onRetry = onRetryMessage,
+                                    onEdit = onEditMessage,
+                                    onAttachmentClick = { index ->
+                                        onAttachmentOpen?.invoke(message.attachments, index)
+                                    }
+                                )
+                            }
                         }
                         if (isStreaming) {
                             item {
                                 StreamingMessageBubble(
                                     content = streamingContent,
-                                    reasoningContent = streamingReasoning
+                                    reasoningContent = streamingReasoning,
+                                    startTime = streamingStartTime
                                 )
                             }
                         }
@@ -701,6 +765,7 @@ fun AdaptiveChatLayout(
     if (showDeleteConfirmDialog) {
         AlertDialog(
             onDismissRequest = { showDeleteConfirmDialog = false },
+            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
             title = {
                 Text(
                     text = stringResource(R.string.confirm_delete),
@@ -709,34 +774,21 @@ fun AdaptiveChatLayout(
                 )
             },
             text = {
-                Text(
-                    text = stringResource(R.string.confirm_delete_message),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = {
+                HoldDeleteLayout(
+                    message = stringResource(R.string.confirm_delete_message),
+                    onConfirm = {
                         chatToDelete?.let { onDeleteChat(it) }
                         showDeleteConfirmDialog = false
                         chatToDelete = null
-                    },
-                    colors = ButtonDefaults.textButtonColors(
-                        contentColor = MaterialTheme.colorScheme.primary
-                    )
-                ) {
-                    Text(stringResource(R.string.confirm))
-                }
+                    }
+                )
             },
+            confirmButton = {},
             dismissButton = {
                 TextButton(
-                    onClick = {
-                        showDeleteConfirmDialog = false
-                        chatToDelete = null
-                    },
+                    onClick = { showDeleteConfirmDialog = false },
                     colors = ButtonDefaults.textButtonColors(
-                        contentColor = MaterialTheme.colorScheme.onSurfaceVariant
+                        contentColor = MaterialTheme.colorScheme.primary
                     )
                 ) {
                     Text(stringResource(R.string.common_cancel))

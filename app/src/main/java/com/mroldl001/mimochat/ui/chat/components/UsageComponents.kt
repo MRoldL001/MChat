@@ -15,6 +15,7 @@ import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -143,7 +144,10 @@ fun UsageWithNewChatCard(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clickable { if (loggedIn) onRefresh() else onLogin() }
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null
+                    ) { if (loggedIn) onRefresh() else onLogin() }
                     .padding(horizontal = 16.dp, vertical = 12.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {

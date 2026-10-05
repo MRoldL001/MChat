@@ -148,7 +148,11 @@ internal fun PrereleaseUpdateSetting(
             )
         }
         Spacer(modifier = Modifier.width(12.dp))
-        Switch(checked = checked, onCheckedChange = onCheckedChange)
+        Switch(
+            checked = checked,
+            onCheckedChange = onCheckedChange,
+            modifier = Modifier
+        )
     }
 }
 

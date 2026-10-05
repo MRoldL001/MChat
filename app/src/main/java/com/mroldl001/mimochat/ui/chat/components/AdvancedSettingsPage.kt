@@ -445,6 +445,7 @@ internal fun themeColorLabel(color: ThemeColor): String {
         ThemeColor.MIKU_GREEN -> stringResource(R.string.theme_miku_green)
         ThemeColor.TETO_RED -> stringResource(R.string.theme_teto_red)
         ThemeColor.MIYOU_ORANGE -> stringResource(R.string.theme_miyou_orange)
+        ThemeColor.SILENCE_GREEN -> stringResource(R.string.theme_silence_green)
         ThemeColor.GREEN -> stringResource(R.string.theme_green)
         ThemeColor.PURPLE -> stringResource(R.string.theme_purple)
         ThemeColor.DEEP_BLUE -> stringResource(R.string.theme_deep_blue)

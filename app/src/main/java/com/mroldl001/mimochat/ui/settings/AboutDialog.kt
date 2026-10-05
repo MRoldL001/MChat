@@ -1,6 +1,5 @@
 package com.mroldl001.mimochat.ui.settings
 
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -19,6 +18,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -26,11 +26,14 @@ import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import android.media.MediaPlayer
+import android.media.AudioAttributes
+import android.media.SoundPool
 import com.mroldl001.mimochat.R
+import com.mroldl001.mimochat.ui.chat.components.BouncyWinkIcon
 import com.mroldl001.mimochat.ui.chat.components.SettingsContainerDialog
 import com.mroldl001.mimochat.ui.chat.components.SettingsTransition
 
@@ -52,6 +55,25 @@ internal fun AboutDialog(
         }.getOrDefault("")
     }
 
+    val soundPool = remember {
+        SoundPool.Builder()
+            .setMaxStreams(2)
+            .setAudioAttributes(
+                AudioAttributes.Builder()
+                    .setUsage(AudioAttributes.USAGE_MEDIA)
+                    .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+                    .build()
+            )
+            .build()
+    }
+    var duckId by remember { mutableStateOf(0) }
+    var duckReady by remember { mutableStateOf(false) }
+    DisposableEffect(Unit) {
+        soundPool.setOnLoadCompleteListener { _, _, status -> duckReady = status == 0 }
+        duckId = soundPool.load(context, R.raw.duck, 1)
+        onDispose { soundPool.release() }
+    }
+
     SettingsContainerDialog(
         anchorBounds = Rect.Zero,
         transition = transition,
@@ -64,10 +86,22 @@ internal fun AboutDialog(
                     .verticalScroll(rememberScrollState()),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Image(
-                    painter = painterResource(R.drawable.ic_launcher_transparent),
+                BouncyWinkIcon(
+                    modifier = Modifier.size(100.dp),
                     contentDescription = stringResource(R.string.about_app_icon_desc),
-                    modifier = Modifier.size(72.dp)
+                    onClick = {
+                        val played = if (duckReady && duckId != 0) {
+                            soundPool.play(duckId, 1f, 1f, 0, 0, 1f)
+                        } else 0
+                        if (played == 0) {
+                            runCatching {
+                                MediaPlayer.create(context, R.raw.duck)?.apply {
+                                    setOnCompletionListener { it.release() }
+                                    start()
+                                }
+                            }
+                        }
+                    }
                 )
                 Text(
                     text = "MChat",
@@ -169,3 +203,4 @@ private fun AboutInfoRow(
         }
     }
 }
+

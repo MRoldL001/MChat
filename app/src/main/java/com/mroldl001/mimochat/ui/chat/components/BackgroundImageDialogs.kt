@@ -61,6 +61,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.IntOffset
@@ -69,7 +70,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.mroldl001.mimochat.R
-import com.mroldl001.mimochat.data.preferences.PreferencesManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -96,6 +96,7 @@ internal fun BackgroundImageSettingsDialog(
         mutableStateOf((opacity * 100).roundToInt().toString())
     }
     var opacityError by remember(opacity) { mutableStateOf(false) }
+    var showRestoreConfirm by remember { mutableStateOf(false) }
 
     AlertDialog(
         modifier = Modifier.settingsDialogWidth(),
@@ -176,7 +177,8 @@ internal fun BackgroundImageSettingsDialog(
                                     .copy(alpha = 0.20f)
                                     .compositeOver(MaterialTheme.colorScheme.background),
                                 inactiveTickColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.45f)
-                            )
+                            ),
+                            modifier = Modifier.fillMaxWidth()
                         )
                     }
                 }
@@ -185,15 +187,8 @@ internal fun BackgroundImageSettingsDialog(
                     icon = Icons.Outlined.Restore,
                     title = stringResource(R.string.bg_restore_default),
                     description = stringResource(R.string.bg_restore_default_desc),
-                    enabled = hasBackgroundImage || temporaryOpacity != PreferencesManager.DEFAULT_CHAT_BACKGROUND_OPACITY,
-                    onClick = {
-                        temporaryOpacity = PreferencesManager.DEFAULT_CHAT_BACKGROUND_OPACITY
-                        opacityText = (PreferencesManager.DEFAULT_CHAT_BACKGROUND_OPACITY * 100)
-                            .roundToInt()
-                            .toString()
-                        opacityError = false
-                        onRestoreDefault()
-                    }
+                    enabled = hasBackgroundImage,
+                    onClick = { showRestoreConfirm = true }
                 )
             }
         },
@@ -213,6 +208,43 @@ internal fun BackgroundImageSettingsDialog(
             }
         }
     )
+
+    if (showRestoreConfirm) {
+        AlertDialog(
+            modifier = Modifier.settingsDialogWidth(),
+            onDismissRequest = { showRestoreConfirm = false },
+            title = {
+                Text(
+                    text = stringResource(R.string.restore_default),
+                    style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
+                    color = MaterialTheme.colorScheme.primary
+                )
+            },
+            text = {
+                HoldDeleteLayout(
+                    message = stringResource(R.string.bg_restore_default_confirm),
+                    onConfirm = {
+                        showRestoreConfirm = false
+                        onRestoreDefault()
+                    }
+                )
+            },
+            confirmButton = {},
+            dismissButton = {
+                TextButton(
+                    onClick = { showRestoreConfirm = false },
+                    colors = ButtonDefaults.textButtonColors(
+                        contentColor = MaterialTheme.colorScheme.primary
+                    )
+                ) {
+                    Text(stringResource(R.string.common_cancel))
+                }
+            },
+            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+            titleContentColor = MaterialTheme.colorScheme.onSurface,
+            textContentColor = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
 }
 
 @Composable

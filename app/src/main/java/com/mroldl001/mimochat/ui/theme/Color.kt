@@ -34,3 +34,8 @@ val DeepBlueLightPrimary = Color(0xFF0B57D0)
 val DeepBlueLightOnPrimary = Color(0xFFFFFFFF)
 val DeepBlueDarkPrimary = Color(0xFFA8C7FA)
 val DeepBlueDarkOnPrimary = Color(0xFF062E6F)
+
+val SilenceGreenLightPrimary = Color(0xFF5ea0aa)
+val SilenceGreenLightOnPrimary = Color(0xFFFFFFFF)
+val SilenceGreenDarkPrimary = Color(0xFF8FCED0)
+val SilenceGreenDarkOnPrimary = Color(0xFF00363A)

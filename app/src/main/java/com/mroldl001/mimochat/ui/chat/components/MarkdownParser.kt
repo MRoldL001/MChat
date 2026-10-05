@@ -7,7 +7,9 @@ enum class ContentType {
     CODE_BLOCK,
     INLINE_CODE,
     LATEX_INLINE,
-    LATEX_BLOCK
+    LATEX_BLOCK,
+    QUOTE,
+    HR
 }
 
 data class ContentSegment(
@@ -48,6 +50,34 @@ private fun lineEnd(text: String, start: Int): Int =
 
 private fun nextLineStart(text: String, end: Int): Int =
     if (end < text.length) end + 1 else end
+
+private fun isQuoteLine(line: String): Boolean {
+    val trimmed = line.trimStart(' ')
+    return trimmed.startsWith('>')
+}
+
+private fun stripQuoteMarker(line: String): String {
+    val trimmed = line.trimStart(' ')
+    val afterMarker = trimmed.drop(1)
+    return if (afterMarker.startsWith(' ')) afterMarker.drop(1) else afterMarker
+}
+
+private fun isHorizontalRule(line: String): Boolean {
+    val trimmed = line.trim()
+    if (trimmed.length < 3) return false
+    val first = trimmed[0]
+    if (first != '-' && first != '*' && first != '_') return false
+    return trimmed.all { it == first }
+}
+
+private fun isStandaloneHorizontalRule(text: String, cursor: Int, line: String): Boolean {
+    if (!isHorizontalRule(line)) return false
+    if (cursor == 0) return true
+    if (cursor < 2) return false
+    if (text[cursor - 1] != '\n') return false
+    val prev = text[cursor - 2]
+    return prev == '\n' || prev == '\r'
+}
 
 private fun withoutFenceLineBreak(content: String): String = when {
     content.endsWith("\r\n") -> content.dropLast(2)
@@ -192,6 +222,33 @@ fun splitContent(text: String, allowUnclosedCodeFence: Boolean = false): List<Co
     while (cursor < text.length) {
         val openingEnd = lineEnd(text, cursor)
         val openingLine = text.substring(cursor, openingEnd).removeSuffix("\r")
+
+        if (isQuoteLine(openingLine)) {
+            appendMarkdown(cursor)
+            var quoteEnd = cursor
+            val builder = StringBuilder()
+            while (quoteEnd < text.length) {
+                val qLineEnd = lineEnd(text, quoteEnd)
+                val rawLine = text.substring(quoteEnd, qLineEnd).removeSuffix("\r")
+                val isBlank = rawLine.isBlank()
+                if (!isBlank && !isQuoteLine(rawLine)) break
+                if (builder.isNotEmpty()) builder.append('\n')
+                builder.append(if (isBlank) "" else stripQuoteMarker(rawLine))
+                quoteEnd = nextLineStart(text, qLineEnd)
+            }
+            segments += ContentSegment(ContentType.QUOTE, builder.toString())
+            cursor = quoteEnd
+            plainStart = quoteEnd
+            continue
+        }
+
+        if (isStandaloneHorizontalRule(text, cursor, openingLine)) {
+            appendMarkdown(cursor)
+            segments += ContentSegment(ContentType.HR, "")
+            cursor = nextLineStart(text, openingEnd)
+            plainStart = cursor
+            continue
+        }
 
         // Render tables separately so inline LaTeX inside a cell does not
         // turn the entire pipe-delimited row into one LaTeX block.
@@ -398,4 +455,125 @@ internal fun stabilizeStreamingMarkdown(text: String): String {
     }
 
     return text
+}
+
+internal fun normalizeHtmlToMarkdown(html: String): String = processBlockquotes(html)
+
+private val htmlBrRegex = Regex("<br\\s*/?>", RegexOption.IGNORE_CASE)
+private val htmlPOpenRegex = Regex("<p[^>]*>", RegexOption.IGNORE_CASE)
+private val htmlPCloseRegex = Regex("</p>", RegexOption.IGNORE_CASE)
+private val htmlAllowedTagRegex = Regex("<(?!/?(?:b|strong|i|em|u|s|del|mark|span|br)\\b)[^>]+>", RegexOption.IGNORE_CASE)
+private val htmlEntityRegex = Regex("&(lt|gt|amp|quot|apos|nbsp|#39|#x27);", RegexOption.IGNORE_CASE)
+private val htmlBlankRunRegex = Regex("\n{3,}")
+
+private fun decodeHtmlEntity(match: MatchResult): String = when (match.value.lowercase()) {
+    "&lt;" -> "<"
+    "&gt;" -> ">"
+    "&amp;" -> "&"
+    "&quot;" -> "\""
+    "&apos;", "&#39;", "&#x27;" -> "'"
+    "&nbsp;" -> "\u00A0"
+    else -> match.value
+}
+
+private fun htmlInlineToMarkdown(html: String): String {
+    return html
+        .replace(htmlBrRegex, "\n")
+        .replace(htmlPOpenRegex, "")
+        .replace(htmlPCloseRegex, "\n\n")
+        .replace(htmlAllowedTagRegex, "")
+        .replace(htmlEntityRegex, ::decodeHtmlEntity)
+        .replace(htmlBlankRunRegex, "\n\n")
+}
+
+private fun findBlockquoteOpenEnd(html: String, openStart: Int): Int {
+    var i = openStart + "<blockquote".length
+    var inSingleQuote = false
+    var inDoubleQuote = false
+    while (i < html.length) {
+        val c = html[i]
+        when {
+            c == '"' && !inSingleQuote -> inDoubleQuote = !inDoubleQuote
+            c == '\'' && !inDoubleQuote -> inSingleQuote = !inSingleQuote
+            c == '>' && !inSingleQuote && !inDoubleQuote -> return i + 1
+        }
+        i++
+    }
+    return html.length
+}
+
+private fun extractBlockquoteContent(html: String, startAt: Int): Pair<String, Int> {
+    var depth = 1
+    var i = startAt
+    while (i < html.length) {
+        val nextOpen = html.indexOf("<blockquote", i, ignoreCase = true)
+        val nextClose = html.indexOf("</blockquote>", i, ignoreCase = true)
+        if (nextClose < 0) return html.substring(startAt) to html.length
+        if (nextOpen >= 0 && nextOpen < nextClose) {
+            depth++
+            i = nextOpen + "<blockquote".length
+        } else {
+            depth--
+            if (depth == 0) {
+                return html.substring(startAt, nextClose) to nextClose + "</blockquote>".length
+            }
+            i = nextClose + "</blockquote>".length
+        }
+    }
+    return html.substring(startAt) to html.length
+}
+
+private fun normalizeTagNewlines(html: String): String {
+    val sb = StringBuilder(html.length)
+    var inTag = false
+    var i = 0
+    while (i < html.length) {
+        val c = html[i]
+        if (
+            c == '<' &&
+            i + 1 < html.length &&
+            html[i + 1].let { it == '/' || it == '!' || it == '?' || it.isLetter() }
+        ) {
+            inTag = true
+        }
+        sb.append(if (inTag && (c == '\n' || c == '\r')) ' ' else c)
+        if (c == '>') inTag = false
+        i++
+    }
+    return sb.toString()
+}
+
+private fun processBlockquotes(html: String, level: Int = 0): String {
+    val normalized = normalizeTagNewlines(html)
+    val sb = StringBuilder()
+    var i = 0
+
+    fun appendWithPrefix(text: String) {
+        if (level == 0) {
+            sb.append(text)
+            return
+        }
+        val prefix = "> ".repeat(level)
+        text.lineSequence().forEach { line ->
+            sb.append(prefix)
+            if (!line.isBlank()) sb.append(line)
+            sb.append('\n')
+        }
+    }
+
+    while (i < normalized.length) {
+        val openStart = normalized.indexOf("<blockquote", i, ignoreCase = true)
+        if (openStart < 0) {
+            appendWithPrefix(htmlInlineToMarkdown(normalized.substring(i)))
+            break
+        }
+        if (openStart > i) {
+            appendWithPrefix(htmlInlineToMarkdown(normalized.substring(i, openStart)))
+        }
+        val openEnd = findBlockquoteOpenEnd(normalized, openStart)
+        val (content, closeEnd) = extractBlockquoteContent(normalized, openEnd)
+        sb.append(processBlockquotes(content, level + 1))
+        i = closeEnd
+    }
+    return sb.toString().trimEnd()
 }

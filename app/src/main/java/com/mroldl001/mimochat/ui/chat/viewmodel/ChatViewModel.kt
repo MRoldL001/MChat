@@ -3,6 +3,8 @@ package com.mroldl001.mimochat.ui.chat.viewmodel
 import android.app.Application
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
+import android.util.Base64
 import android.widget.Toast
 import androidx.core.content.pm.PackageInfoCompat
 import androidx.compose.runtime.mutableStateListOf
@@ -12,6 +14,9 @@ import androidx.lifecycle.viewModelScope
 import com.mroldl001.mimochat.R
 import com.mroldl001.mimochat.data.preferences.PreferencesManager
 import com.mroldl001.mimochat.data.api.ContentPart
+import com.mroldl001.mimochat.data.api.ImageUrl
+import com.mroldl001.mimochat.data.api.InputAudio
+import com.mroldl001.mimochat.data.api.VideoUrl
 import com.mroldl001.mimochat.data.repository.ChatRepository
 import com.mroldl001.mimochat.data.repository.ModelRepository
 import com.mroldl001.mimochat.data.repository.StreamEvent
@@ -25,6 +30,7 @@ import com.mroldl001.mimochat.data.update.UpdateCheckResult
 import com.mroldl001.mimochat.domain.model.AIModel
 import com.mroldl001.mimochat.domain.model.Chat
 import com.mroldl001.mimochat.domain.model.Message
+import com.mroldl001.mimochat.domain.model.MessageAttachment
 import com.mroldl001.mimochat.service.ChatService
 import com.mroldl001.mimochat.service.UpdateDownloadService
 import com.mroldl001.mimochat.ui.chat.components.LatexBitmapRenderer
@@ -35,13 +41,17 @@ import com.mroldl001.mimochat.ui.theme.ThemeMode
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.util.Locale
 import javax.inject.Inject
 
 private const val DEFAULT_MODEL_ID = "mimo-v2.6-flash"
+private const val MAX_ATTACHMENT_BASE64_BYTES = 50L * 1024L * 1024L
 
 enum class SkillType {
     POET,
@@ -101,7 +111,8 @@ data class StreamState(
     val content: String = "",
     val reasoning: String = "",
     val searchResults: List<com.mroldl001.mimochat.domain.model.WebSearchResult>? = null,
-    val isActive: Boolean = false
+    val isActive: Boolean = false,
+    val startTime: Long = 0L
 )
 
 sealed interface UpdateUiState {
@@ -123,6 +134,7 @@ data class ChatUiState(
     val themeColor: ThemeColor = ThemeColor.WHITE,
     val themeMode: ThemeMode = ThemeMode.FOLLOW_SYSTEM,
     val codeBlockColorMode: CodeBlockColorMode = CodeBlockColorMode.DARK,
+    val titleModelId: String = PreferencesManager.DEFAULT_TITLE_MODEL_ID,
     val customSystemPrompt: String = "",
     val chatBackgroundUri: String? = null,
     val chatBackgroundOpacity: Float = PreferencesManager.DEFAULT_CHAT_BACKGROUND_OPACITY,
@@ -161,6 +173,7 @@ class ChatViewModel @Inject constructor(
             themeColor = preferencesManager.getThemeColor(),
             themeMode = preferencesManager.getThemeMode(),
             codeBlockColorMode = preferencesManager.getCodeBlockColorMode(),
+            titleModelId = preferencesManager.getTitleModelId(),
             apiKey = preferencesManager.getApiKey(),
             apiBaseUrl = preferencesManager.getApiBaseUrl(),
             customSystemPrompt = preferencesManager.getCustomSystemPrompt(),
@@ -185,11 +198,29 @@ class ChatViewModel @Inject constructor(
         private set
     var isStreaming = mutableStateOf(false)
         private set
+    var streamingStartTime = mutableStateOf(0L)
+        private set
+
+    val editDraft = mutableStateOf("")
+    val editDraftToken = mutableStateOf(0)
+    val isEditing = mutableStateOf(false)
+    val editAttachments = mutableStateOf<List<MessageAttachment>>(emptyList())
+    val animatingOutIds = mutableStateListOf<Long>()
+    val restoringIds = mutableStateListOf<Long>()
+    val messageFadeMillis = 200
+    /** 撤回编辑后自增，UI 侧等消息淡入 + 布局稳定后再滚到底 */
+    val editScrollToBottomSignal = mutableStateOf(0)
+    private data class EditRestore(
+        val user: Message?,
+        val ai: Message
+    )
+    private var editRestore: EditRestore? = null
 
     private val streamJobs = mutableMapOf<Long, Job>()
     private var messagesJob: Job? = null
     private var chatSelectionJob: Job? = null
     private var chatStreamStates: MutableMap<Long, StreamState> = mutableMapOf()
+    private val chatStreamStartTimes = mutableMapOf<Long, Long>()
     private var activeChatId: Long? = null
     private val activeStreams = mutableSetOf<Long>()
 
@@ -249,6 +280,11 @@ class ChatViewModel @Inject constructor(
     fun setCodeBlockColorMode(mode: CodeBlockColorMode) {
         _uiState.update { it.copy(codeBlockColorMode = mode) }
         preferencesManager.saveCodeBlockColorMode(mode)
+    }
+
+    fun setTitleModelId(modelId: String) {
+        _uiState.update { it.copy(titleModelId = modelId) }
+        preferencesManager.saveTitleModelId(modelId)
     }
 
     fun getCustomThemeColorHex(): String = preferencesManager.getCustomThemeColorHex()
@@ -502,8 +538,9 @@ class ChatViewModel @Inject constructor(
                 
                 streamingContent.value = ""
                 streamingReasoning.value = ""
+                streamingStartTime.value = 0L
                 isStreaming.value = false
-                
+
                 activeChatId = chat.id
                 observeMessages(chat.id)
                 _uiState.update {
@@ -548,10 +585,12 @@ class ChatViewModel @Inject constructor(
             if (savedState != null) {
                 streamingContent.value = savedState.content
                 streamingReasoning.value = savedState.reasoning
+                streamingStartTime.value = if (chatIsActive) savedState.startTime else 0L
                 isStreaming.value = chatIsActive
             } else {
                 streamingContent.value = ""
                 streamingReasoning.value = ""
+                streamingStartTime.value = 0L
                 isStreaming.value = chatIsActive
             }
             
@@ -560,7 +599,40 @@ class ChatViewModel @Inject constructor(
         }
     }
 
-    fun sendMessage(content: String, thinkingEnabled: Boolean = true, attachment: ContentPart? = null, webSearchEnabled: Boolean = true, attachmentUri: String? = null, attachmentMimeType: String? = null) {
+    private suspend fun buildAttachmentParts(attachments: List<MessageAttachment>): List<ContentPart> = withContext(Dispatchers.IO) {
+        attachments.mapNotNull { attachment ->
+            val uri = runCatching { Uri.parse(attachment.uri) }.getOrNull() ?: return@mapNotNull null
+            val mime = attachment.mimeType
+                ?: application.contentResolver.getType(uri)
+                ?: return@mapNotNull null
+            if (!mime.startsWith("image/") && !mime.startsWith("audio/") && !mime.startsWith("video/")) {
+                return@mapNotNull null
+            }
+            val bytes = runCatching {
+                application.contentResolver.openInputStream(uri)?.use { it.readBytes() }
+            }.getOrNull()
+            if (bytes == null || bytes.isEmpty()) {
+                return@mapNotNull null
+            }
+            val encoded = Base64.encodeToString(bytes, Base64.NO_WRAP)
+            if (encoded.length.toLong() > MAX_ATTACHMENT_BASE64_BYTES) {
+                return@mapNotNull null
+            }
+            val data = "data:$mime;base64,$encoded"
+            when {
+                mime.startsWith("image/") -> ContentPart(type = "image_url", imageUrl = ImageUrl(data))
+                mime.startsWith("audio/") -> ContentPart(type = "input_audio", inputAudio = InputAudio(data))
+                else -> ContentPart(
+                    type = "video_url",
+                    videoUrl = VideoUrl(data),
+                    fps = 2.0,
+                    mediaResolution = "default"
+                )
+            }
+        }
+    }
+
+    fun sendMessage(content: String, thinkingEnabled: Boolean = true, attachments: List<MessageAttachment> = emptyList(), webSearchEnabled: Boolean = true) {
         viewModelScope.launch {
             if (activeStreams.contains(activeChatId)) {
                 return@launch
@@ -599,12 +671,22 @@ class ChatViewModel @Inject constructor(
             val isNewChat = chat.title == defaultChatTitle
             android.util.Log.d("ChatViewModel", "Current chat: ${chat.title}, isNewChat: $isNewChat")
 
+            val attachmentParts = buildAttachmentParts(attachments)
+            if (attachments.isNotEmpty() && attachmentParts.isEmpty()) {
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        error = localizedContext.getString(R.string.toast_file_unreadable)
+                    )
+                }
+                return@launch
+            }
+
             val pendingUserMessage = Message(
                 chatId = chat.id,
                 role = "user",
                 content = content,
-                attachmentUri = attachmentUri,
-                attachmentMimeType = attachmentMimeType
+                attachments = attachments
             )
             val userMessageId = chatRepository.saveMessage(pendingUserMessage)
             val userMessage = pendingUserMessage.copy(id = userMessageId)
@@ -622,16 +704,18 @@ class ChatViewModel @Inject constructor(
                 return@launch
             }
 
-            val modelId = if (attachment != null && _uiState.value.selectedModel?.capabilities?.contains("multimodal") != true) DEFAULT_MODEL_ID else (_uiState.value.selectedModel?.id ?: DEFAULT_MODEL_ID)
+            val modelId = if (attachments.isNotEmpty() && _uiState.value.selectedModel?.capabilities?.contains("multimodal") != true) DEFAULT_MODEL_ID else (_uiState.value.selectedModel?.id ?: DEFAULT_MODEL_ID)
             val apiBaseUrl = _uiState.value.apiBaseUrl
             val titleSource = content.ifBlank {
                 when {
-                    attachmentMimeType?.startsWith("image/") == true -> "图片对话"
-                    attachmentMimeType?.startsWith("video/") == true -> "视频对话"
-                    attachmentMimeType?.startsWith("audio/") == true -> "音频对话"
+                    attachments.any { it.mimeType?.startsWith("image/") == true } -> "图片对话"
+                    attachments.any { it.mimeType?.startsWith("video/") == true } -> "视频对话"
+                    attachments.any { it.mimeType?.startsWith("audio/") == true } -> "音频对话"
                     else -> "附件对话"
                 }
             }
+
+            val resolvedTitleModelId = if (_uiState.value.titleModelId == PreferencesManager.DEFAULT_TITLE_MODEL_ID) modelId else _uiState.value.titleModelId
 
             if (isNewChat) {
                 val chatId = chat.id
@@ -640,7 +724,7 @@ class ChatViewModel @Inject constructor(
                         val result = chatRepository.generateChatTitle(
                             apiKey = apiKey,
                         baseUrl = apiBaseUrl,
-                        modelId = modelId,
+                        modelId = resolvedTitleModelId,
                         firstMessage = titleSource
                         )
                         val title = result.getOrNull()
@@ -667,6 +751,9 @@ class ChatViewModel @Inject constructor(
 
             streamingContent.value = ""
             streamingReasoning.value = ""
+            val streamStart = System.currentTimeMillis()
+            chatStreamStartTimes[chat.id] = streamStart
+            streamingStartTime.value = streamStart
             isStreaming.value = true
             activeStreams.add(chat.id)
 
@@ -706,7 +793,8 @@ class ChatViewModel @Inject constructor(
                         content = currentContent,
                         reasoning = currentReasoning,
                         searchResults = streamSearchResults,
-                        isActive = true
+                        isActive = true,
+                        startTime = chatStreamStartTimes[targetChatId] ?: streamStart
                     )
 
                     val now = System.currentTimeMillis()
@@ -762,7 +850,7 @@ class ChatViewModel @Inject constructor(
                         thinkingEnabled = effectiveThinkingEnabled,
                         skillPrompt = skillPrompt,
                         customSystemPrompt = _uiState.value.customSystemPrompt,
-                        attachment = attachment,
+                        attachment = attachmentParts,
                         webSearchEnabled = webSearchEnabled
                     ).conflate().collect { event ->
                         when (event) {
@@ -818,8 +906,10 @@ class ChatViewModel @Inject constructor(
                             content = currentContent,
                             reasoning = currentReasoning,
                             searchResults = streamSearchResults,
-                            isActive = false
+                            isActive = false,
+                            startTime = chatStreamStartTimes[targetChatId] ?: streamStart
                         )
+                        chatStreamStartTimes.remove(targetChatId)
                         if (activeChatId == targetChatId) {
                             isStreaming.value = false
                         }
@@ -837,6 +927,94 @@ class ChatViewModel @Inject constructor(
         }
     }
 
+    fun retryMessage(
+        message: Message,
+        thinkingEnabled: Boolean = true,
+        webSearchEnabled: Boolean = true
+    ) {
+        viewModelScope.launch {
+            if (message.role == "assistant") {
+                val precedingUser = messages
+                    .filter { it.chatId == message.chatId && it.role == "user" && it.timestamp < message.timestamp }
+                    .maxByOrNull { it.timestamp }
+                val outIds = listOfNotNull(message.id, precedingUser?.id)
+                animatingOutIds.addAll(outIds)
+                delay(messageFadeMillis.toLong())
+                chatRepository.deleteMessage(message)
+                precedingUser?.let { chatRepository.deleteMessage(it) }
+                messages.removeAll { it.id in outIds }
+                animatingOutIds.removeAll { it in outIds }
+                if (precedingUser != null) {
+                    sendMessage(
+                        content = precedingUser.content,
+                        thinkingEnabled = thinkingEnabled,
+                        attachments = precedingUser.attachments,
+                        webSearchEnabled = webSearchEnabled
+                    )
+                }
+            } else {
+                animatingOutIds.add(message.id)
+                delay(messageFadeMillis.toLong())
+                chatRepository.deleteMessage(message)
+                messages.removeAll { it.id == message.id }
+                animatingOutIds.remove(message.id)
+                sendMessage(
+                    content = message.content,
+                    thinkingEnabled = thinkingEnabled,
+                    attachments = message.attachments,
+                    webSearchEnabled = webSearchEnabled
+                )
+            }
+        }
+    }
+
+    fun editMessage(message: Message) {
+        viewModelScope.launch {
+            val precedingUser = messages
+                .filter { it.chatId == message.chatId && it.role == "user" && it.timestamp < message.timestamp }
+                .maxByOrNull { it.timestamp }
+        editRestore = EditRestore(precedingUser, message)
+        val outIds = listOfNotNull(message.id, precedingUser?.id)
+            animatingOutIds.addAll(outIds)
+            delay(messageFadeMillis.toLong())
+            chatRepository.deleteMessage(message)
+            precedingUser?.let { chatRepository.deleteMessage(it) }
+            messages.removeAll { it.id in outIds }
+            animatingOutIds.removeAll { it in outIds }
+            editDraft.value = precedingUser?.content ?: ""
+            editAttachments.value = precedingUser?.attachments.orEmpty()
+            editDraftToken.value = editDraftToken.value + 1
+            isEditing.value = true
+        }
+    }
+
+    fun cancelEdit() {
+        val restore = editRestore ?: return
+        viewModelScope.launch {
+            val (user, ai) = restore
+            val restoreIds = listOfNotNull(user?.id, ai.id)
+            restoringIds.addAll(restoreIds)
+            user?.let { chatRepository.saveMessage(it) }
+            chatRepository.saveMessage(ai)
+            editRestore = null
+            editDraft.value = ""
+            editAttachments.value = emptyList()
+            editDraftToken.value = editDraftToken.value + 1
+            isEditing.value = false
+            // 消息已重新插入，UI 侧等淡入 + 布局稳定后自己滚，这里只发信号
+            editScrollToBottomSignal.value += 1
+            delay(messageFadeMillis.toLong() * 2)
+            restoringIds.removeAll { it in restoreIds }
+        }
+    }
+
+    fun clearEditState() {
+        editRestore = null
+        editDraft.value = ""
+        editAttachments.value = emptyList()
+        isEditing.value = false
+    }
+
     fun stopGenerating() {
         val chatId = activeChatId ?: return
         val state = chatStreamStates[chatId]
@@ -850,8 +1028,10 @@ class ChatViewModel @Inject constructor(
             content = content,
             reasoning = reasoning,
             searchResults = searchResults,
-            isActive = false
+            isActive = false,
+            startTime = chatStreamStartTimes[chatId] ?: streamingStartTime.value
         )
+        chatStreamStartTimes.remove(chatId)
 
         if (content.isNotBlank() || reasoning.isNotBlank()) {
             val abortedMessage = Message(
@@ -869,6 +1049,7 @@ class ChatViewModel @Inject constructor(
 
         streamingContent.value = ""
         streamingReasoning.value = ""
+        streamingStartTime.value = 0L
         isStreaming.value = false
         _uiState.update { it.copy(isLoading = false) }
 
@@ -885,6 +1066,7 @@ class ChatViewModel @Inject constructor(
         streamJobs.remove(chat.id)?.cancel()
         activeStreams.remove(chat.id)
         chatStreamStates.remove(chat.id)
+        chatStreamStartTimes.remove(chat.id)
         viewModelScope.launch {
             chatRepository.deleteChat(chat.id)
             if (_uiState.value.currentChat?.id == chat.id) {
@@ -892,6 +1074,7 @@ class ChatViewModel @Inject constructor(
                 messages.clear()
                 streamingContent.value = ""
                 streamingReasoning.value = ""
+                streamingStartTime.value = 0L
                 isStreaming.value = false
                 _uiState.update { it.copy(currentChat = null, isLoading = false) }
             }

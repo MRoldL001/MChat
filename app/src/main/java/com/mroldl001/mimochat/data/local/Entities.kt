@@ -17,7 +17,8 @@ data class MessageEntity(
     val isAborted: Boolean = false,
     val isFailed: Boolean = false,
     val attachmentUri: String? = null,
-    val attachmentMimeType: String? = null
+    val attachmentMimeType: String? = null,
+    val attachmentsJson: String? = null
 )
 
 @Entity(tableName = "chats")

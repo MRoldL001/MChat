@@ -29,6 +29,8 @@ class PreferencesManager @Inject constructor(
         private const val KEY_CHAT_BACKGROUND_URI = "chat_background_uri"
         private const val KEY_CHAT_BACKGROUND_OPACITY = "chat_background_opacity"
         private const val KEY_SELECTED_MODEL_ID = "selected_model_id"
+        private const val KEY_TITLE_MODEL_ID = "title_model_id"
+        const val DEFAULT_TITLE_MODEL_ID = "FOLLOW"
         private const val KEY_NOTIFICATION_PERMISSION_REQUESTED = "notification_permission_requested"
         private const val KEY_ACCEPT_PRERELEASE_UPDATES = "accept_prerelease_updates"
         private const val KEY_SHOW_USAGE = "show_usage"
@@ -44,7 +46,7 @@ class PreferencesManager @Inject constructor(
         const val DEFAULT_TOP_P = 0.95f
         const val DEFAULT_FREQUENCY_PENALTY = 0.0f
         const val DEFAULT_PRESENCE_PENALTY = 0.0f
-        const val DEFAULT_CHAT_BACKGROUND_OPACITY = 0.28f
+        const val DEFAULT_CHAT_BACKGROUND_OPACITY = 0.10f
         const val DEFAULT_CUSTOM_THEME_COLOR_HEX = "#000000"
     }
 
@@ -204,6 +206,14 @@ class PreferencesManager @Inject constructor(
 
     fun saveSelectedModelId(modelId: String) {
         prefs.edit().putString(KEY_SELECTED_MODEL_ID, modelId).apply()
+    }
+
+    fun getTitleModelId(): String {
+        return prefs.getString(KEY_TITLE_MODEL_ID, DEFAULT_TITLE_MODEL_ID) ?: DEFAULT_TITLE_MODEL_ID
+    }
+
+    fun saveTitleModelId(modelId: String) {
+        prefs.edit().putString(KEY_TITLE_MODEL_ID, modelId).apply()
     }
 
     fun hasRequestedNotificationPermission(): Boolean {

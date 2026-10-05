@@ -4,21 +4,22 @@
   <!-- 設定：外観 -->
   <string name="settings_title">設定</string>
   <string name="back">戻る</string>
+  <string name="attachment_preview">添付プレビュー</string>
   <string name="group_appearance">外観</string>
   <string name="display_mode">表示モード</string>
   <string name="preview_day">ライト</string>
   <string name="preview_night">ダーク</string>
   <string name="preview_follow_system">システムに合わせる</string>
   <string name="theme_color">テーマカラー</string>
-  <string name="theme_default">デフォルト</string>
+  <string name="theme_default">墨白素箋</string>
   <string name="theme_custom">カスタムカラー</string>
   <string name="theme_auto_color">モネカラー</string>
-  <string name="theme_miku_green">ミクグリーン</string>
-  <string name="theme_teto_red">テトレッド</string>
-  <string name="theme_miyou_orange">ミオレンジ</string>
-  <string name="theme_green">ビビッドグリーン</string>
-  <string name="theme_purple">ローラン紫</string>
-  <string name="theme_deep_blue">ディープブルー</string>
+  <string name="theme_miku_green">初音の調べ</string>
+  <string name="theme_teto_red">吉原ラメント</string>
+  <string name="theme_miyou_orange">米柚の微光</string>
+  <string name="theme_green">森盎の青影</string>
+  <string name="theme_purple">永遠の幽夢</string>
+  <string name="theme_deep_blue">深海沈藍</string>
   <string name="code_block_color">コードブロックの色</string>
   <string name="code_block_dark">ダークコードブロック</string>
   <string name="code_block_light">ライトコードブロック</string>
@@ -50,6 +51,7 @@
   <string name="usage_login_load_failed">ページの読み込みに失敗しました。再試行してください。</string>
   <string name="usage_expired">セッションの有効期限が切れました。再度ログインしてください。</string>
   <string name="retry">再試行</string>
+  <string name="cancel_edit">編集を取り消し</string>
 
   <!-- 設定：体験 -->
   <string name="group_experience">体験</string>
@@ -75,6 +77,7 @@
   <string name="easter_egg_v2_0_desc">その偏執狂は今も MIMO Chat を更新し続けている。彼は私を全く新しい Android 16 へと移行させた</string>
   <string name="easter_egg_v1_2_desc">まるでティーンエイジャーがやりそうなことのようだ。バックグラウンドの生存維持を最適化した MIMO Chat のようだ</string>
   <string name="easter_egg_v1_0_desc">これはきっと素晴らしい遠征になるだろう！千里の道も一歩から</string>
+  <string name="easter_egg_v2_2_desc">テーマを選べ。会話タイトル生成モデルを選べ。削除を選べ。リトライを選べ…</string>
   <string name="easter_egg_sbr_desc">LESSON4：敬意を払え、敬意を払え、そしてMChatの新たな段階へ</string>
   <string name="about_mchat">MChat について</string>
   <string name="about_mchat_desc">アプリ情報と告知</string>
@@ -91,6 +94,7 @@
   <!-- バナー -->
   <string name="banner_castle_desc">ファイルを添付し、カメラを開き、MChat に全新 UI とモーションで築かれた雄大な城を見せてください</string>
   <string name="banner_cover_desc">Show me the castle のカバー</string>
+  <string name="banner_trainspotting_cover_desc">Trainspotting のカバー</string>
 
   <!-- 約について -->
   <string name="about_app_icon_desc">MChat アイコン</string>
@@ -150,6 +154,8 @@
   <string name="jump_to_bottom">一番下へ</string>
   <string name="confirm_delete">削除の確認</string>
   <string name="confirm_delete_message">本当に削除しますか？</string>
+  <string name="hold_to_confirm">長押しで確認</string>
+  <string name="hold_to_confirm_done">削除済み</string>
   <string name="restore_default">デフォルトに戻す</string>
   <string name="common_done">完了</string>
 
@@ -168,7 +174,8 @@
   <string name="bg_change_opacity">背景の不透明度を変更</string>
   <string name="bg_opacity_error">0〜100の数値を入力してください</string>
   <string name="bg_restore_default">デフォルト背景に戻す</string>
-  <string name="bg_restore_default_desc">背景画像を削除し、デフォルトの不透明度に戻します</string>
+  <string name="bg_restore_default_desc">背景画像を削除します</string>
+  <string name="bg_restore_default_confirm">本当にデフォルトの背景に戻しますか？</string>
   <string name="bg_crop_title">背景画像をトリミング</string>
   <string name="bg_crop_hint">ドラッグで位置を調整、ピンチで拡大縮小</string>
   <string name="bg_load_failed">選択した画像を読み込めませんでした</string>
@@ -250,4 +257,9 @@
   <string name="toast_check_update_failed">確認に失敗しました：%1$s</string>
   <string name="error_stream_interrupted">ストリーミング接続が予期せず中断されました</string>
   <string name="error_stream_failed">ストリーミング出力に失敗しました</string>
+  <string name="title_model">タイトル生成モデル</string>
+  <string name="title_model_desc">タイトル生成時に使用するモデル</string>
+  <string name="title_model_follow">会話のモデルに従う</string>
+  <string name="title_model_dialog_title">タイトル生成モデル</string>
+  <string name="theme_silence_green">寂靜碧語</string>
 </resources>

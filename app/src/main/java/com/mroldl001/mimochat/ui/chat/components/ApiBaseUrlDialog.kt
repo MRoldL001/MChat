@@ -5,6 +5,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 // 必须通配导入：精确导入会选中同名的 internal weight，报 internal 不可访问
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -46,7 +47,7 @@ internal fun ApiBaseUrlDialog(
     var apiBaseUrl by rememberSaveable(currentUrl) { mutableStateOf(currentUrl) }
     val normalizedUrl = apiBaseUrl.trim().trimEnd('/')
     val colors = MaterialTheme.colorScheme
-    val tonalColor = colors.primary.copy(alpha = 0.12f).compositeOver(colors.surfaceContainerHigh)
+    val sliderColor = colors.primary.copy(alpha = 0.35f).compositeOver(colors.surfaceContainerHigh)
     val confirm = { if (apiBaseUrl.isNotBlank()) onConfirm(apiBaseUrl.trim()) }
 
     AlertDialog(
@@ -81,26 +82,35 @@ internal fun ApiBaseUrlDialog(
                 BoxWithConstraints(
                     modifier = Modifier
                         .fillMaxWidth()
+                        .height(36.dp)
                         .clip(RoundedCornerShape(28.dp))
                         .border(BorderStroke(1.dp, colors.outline), RoundedCornerShape(28.dp))
                 ) {
-                    val segmentWidth = maxWidth / 2
+                    val segmentWidth = this.maxWidth / 2
                     val targetOffset = if (normalizedUrl == StandardApiUrl) 0.dp else segmentWidth
                     val indicatorOffset by animateDpAsState(
                         targetValue = targetOffset,
                         label = "api_url_indicator_offset"
                     )
+                    val progress = if (segmentWidth > 0.dp) indicatorOffset / segmentWidth else 0f
+                    val fullRadius = 28.dp
+                    val innerRadius = fullRadius * (1f - kotlin.math.abs(progress - 0.5f) * 2f)
+                    val indicatorShape = RoundedCornerShape(
+                        topStart = if (progress <= 0.5f) fullRadius else innerRadius,
+                        topEnd = if (progress >= 0.5f) fullRadius else innerRadius,
+                        bottomEnd = if (progress >= 0.5f) fullRadius else innerRadius,
+                        bottomStart = if (progress <= 0.5f) fullRadius else innerRadius
+                    )
 
-                    // 底层滑动指示块
                     Box(
                         modifier = Modifier
                             .fillMaxHeight()
                             .fillMaxWidth(0.5f)
                             .offset(x = indicatorOffset)
-                            .background(tonalColor, RoundedCornerShape(28.dp))
+                            .background(sliderColor, indicatorShape)
                     )
 
-                    Row(modifier = Modifier.fillMaxWidth()) {
+                    Row(modifier = Modifier.fillMaxWidth().fillMaxHeight()) {
                         listOf(
                             stringResource(R.string.api_url_standard_label) to StandardApiUrl,
                             stringResource(R.string.api_url_subscription_label) to SubscriptionApiUrl
@@ -110,15 +120,18 @@ internal fun ApiBaseUrlDialog(
                                 modifier = Modifier
                                     .weight(1f)
                                     .clip(RoundedCornerShape(28.dp))
-                                    .clickable { apiBaseUrl = url }
-                                    .padding(vertical = 12.dp, horizontal = 4.dp),
+                                    .clickable(
+                                        interactionSource = remember { MutableInteractionSource() },
+                                        indication = null
+                                    ) { apiBaseUrl = url }
+                                    .padding(vertical = 8.dp, horizontal = 4.dp),
                                 contentAlignment = Alignment.Center
                             ) {
                                 AutoFitText(
                                     text = label,
                                     style = MaterialTheme.typography.labelLarge.localeScaled(),
                                     textAlign = TextAlign.Center,
-                                    color = if (selected) colors.primary else colors.onSurfaceVariant
+                                    color = if (selected) colors.onPrimaryContainer else colors.onSurfaceVariant
                                 )
                             }
                             if (index == 0) {

@@ -4,21 +4,22 @@
   <!-- 设置页：外观 -->
   <string name="settings_title">设置</string>
   <string name="back">返回</string>
+  <string name="attachment_preview">附件预览</string>
   <string name="group_appearance">外观</string>
   <string name="display_mode">显示模式</string>
   <string name="preview_day">白天</string>
   <string name="preview_night">夜间</string>
   <string name="preview_follow_system">跟随系统</string>
   <string name="theme_color">主题色彩</string>
-  <string name="theme_default">默认</string>
+  <string name="theme_default">墨白素笺</string>
   <string name="theme_custom">自定义色彩</string>
   <string name="theme_auto_color">莫奈取色</string>
-  <string name="theme_miku_green">初音绿</string>
-  <string name="theme_teto_red">重音红</string>
-  <string name="theme_miyou_orange">米柚橙</string>
-  <string name="theme_green">盎然绿</string>
-  <string name="theme_purple">罗兰紫</string>
-  <string name="theme_deep_blue">深邃蓝</string>
+  <string name="theme_miku_green">初音之籁</string>
+  <string name="theme_teto_red">吉原哀歌</string>
+  <string name="theme_miyou_orange">米柚微光</string>
+  <string name="theme_green">森盎青影</string>
+  <string name="theme_purple">永恒幽梦</string>
+  <string name="theme_deep_blue">深海沉蓝</string>
   <string name="code_block_color">代码块配色</string>
   <string name="code_block_dark">深色代码块</string>
   <string name="code_block_light">浅色代码块</string>
@@ -50,6 +51,7 @@
   <string name="usage_login_load_failed">页面加载失败，请重试</string>
   <string name="usage_expired">登录态已过期，请重新登录</string>
   <string name="retry">重试</string>
+  <string name="cancel_edit">撤回编辑</string>
 
   <!-- 设置页：体验 -->
   <string name="group_experience">体验</string>
@@ -75,6 +77,7 @@
   <string name="easter_egg_v2_0_desc">那个偏执狂依旧在更新 MIMO Chat，他将我迁移到了全新的 Android 16</string>
   <string name="easter_egg_v1_2_desc">闻起来就像青少年会干的事，闻起来就像优化了后台保活机制的 MIMO Chat</string>
   <string name="easter_egg_v1_0_desc">这或许会是一次伟大的远征！千里之行，始于足下</string>
+  <string name="easter_egg_v2_2_desc">选择主题，选择对话标题生成模型，选择删除，选择重试…</string>
   <string name="easter_egg_sbr_desc">LESSON4: 表达敬意吧，表达出敬意，然后迈向 MChat 的另一个全新阶段</string>
   <string name="about_mchat">关于 MChat</string>
   <string name="about_mchat_desc">应用信息与声明</string>
@@ -91,6 +94,7 @@
   <!-- 横幅 -->
   <string name="banner_castle_desc">上传附件，打开相机，让 MChat 看到一座由全新 UI 与动效砌成的雄伟城堡</string>
   <string name="banner_cover_desc">Show me the castle 封面</string>
+  <string name="banner_trainspotting_cover_desc">Trainspotting 封面</string>
 
   <!-- 关于页 -->
   <string name="about_app_icon_desc">MChat 图标</string>
@@ -150,6 +154,8 @@
   <string name="jump_to_bottom">跳转到底部</string>
   <string name="confirm_delete">确认删除</string>
   <string name="confirm_delete_message">你真的要删除吗？</string>
+  <string name="hold_to_confirm">长按以确认</string>
+  <string name="hold_to_confirm_done">已删除</string>
   <string name="restore_default">恢复默认</string>
   <string name="common_done">完成</string>
 
@@ -168,7 +174,8 @@
   <string name="bg_change_opacity">更改背景透明度</string>
   <string name="bg_opacity_error">请输入 0 到 100 之间的数值</string>
   <string name="bg_restore_default">恢复默认背景</string>
-  <string name="bg_restore_default_desc">移除背景图片并恢复默认透明度</string>
+  <string name="bg_restore_default_desc">移除背景图片</string>
+  <string name="bg_restore_default_confirm">你真的要恢复默认背景吗？</string>
   <string name="bg_crop_title">裁剪背景图</string>
   <string name="bg_crop_hint">拖动图片调整位置，双指缩放</string>
   <string name="bg_load_failed">无法读取所选图片</string>
@@ -250,4 +257,9 @@
   <string name="toast_check_update_failed">检查失败：%1$s</string>
   <string name="error_stream_interrupted">流式连接意外中断</string>
   <string name="error_stream_failed">流式输出失败</string>
+  <string name="title_model">对话标题生成模型</string>
+  <string name="title_model_desc">生成对话标题时使用的模型</string>
+  <string name="title_model_follow">跟随对话模型</string>
+  <string name="title_model_dialog_title">对话标题生成模型</string>
+  <string name="theme_silence_green">寂静碧语</string>
 </resources>

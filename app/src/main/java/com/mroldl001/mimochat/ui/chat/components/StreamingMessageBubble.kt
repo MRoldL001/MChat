@@ -11,6 +11,7 @@ import androidx.compose.ui.unit.dp
 fun StreamingMessageBubble(
     content: String,
     reasoningContent: String,
+    startTime: Long = 0L,
     modifier: Modifier = Modifier
 ) {
     val textColor = MaterialTheme.colorScheme.onSurface
@@ -38,6 +39,7 @@ fun StreamingMessageBubble(
         }
 
         StreamingIndicator(
+            startTime = startTime,
             modifier = Modifier.padding(top = 8.dp)
         )
     }

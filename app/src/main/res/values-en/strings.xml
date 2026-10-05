@@ -4,21 +4,22 @@
   <!-- Settings: Appearance -->
   <string name="settings_title">Settings</string>
   <string name="back">Back</string>
+  <string name="attachment_preview">Attachment preview</string>
   <string name="group_appearance">Appearance</string>
   <string name="display_mode">Display Mode</string>
   <string name="preview_day">Light</string>
   <string name="preview_night">Dark</string>
   <string name="preview_follow_system">Follow System</string>
   <string name="theme_color">Theme Color</string>
-  <string name="theme_default">Default</string>
+  <string name="theme_default">Ink &amp; Paper</string>
   <string name="theme_custom">Custom Color</string>
   <string name="theme_auto_color">Monet Color</string>
-  <string name="theme_miku_green">Miku Green</string>
-  <string name="theme_teto_red">Teto Red</string>
-  <string name="theme_miyou_orange">Mi Orange</string>
-  <string name="theme_green">Vibrant Green</string>
-  <string name="theme_purple">Roland Purple</string>
-  <string name="theme_deep_blue">Deep Blue</string>
+  <string name="theme_miku_green">Hatsune Resonance</string>
+  <string name="theme_teto_red">Yoshiwara Lament</string>
+  <string name="theme_miyou_orange">Miyou Glimmer</string>
+  <string name="theme_green">Verdant Shade</string>
+  <string name="theme_purple">Eternal Reverie</string>
+  <string name="theme_deep_blue">Abyssal Blue</string>
   <string name="code_block_color">Code Block Color</string>
   <string name="code_block_dark">Dark Code Block</string>
   <string name="code_block_light">Light Code Block</string>
@@ -50,6 +51,7 @@
   <string name="usage_login_load_failed">Failed to load page. Tap to retry.</string>
   <string name="usage_expired">Session expired. Please sign in again.</string>
   <string name="retry">Retry</string>
+  <string name="cancel_edit">Cancel edit</string>
 
   <!-- Settings: Experience -->
   <string name="group_experience">Experience</string>
@@ -75,6 +77,7 @@
   <string name="easter_egg_v2_0_desc">That paranoid android keeps updating MIMO Chat — he migrated me to the brand-new Android 16</string>
   <string name="easter_egg_v1_2_desc">Smells like something a teenager would do — smells like MIMO Chat with an optimized background-keepalive mechanism</string>
   <string name="easter_egg_v1_0_desc">This might just be a great expedition! A journey of a thousand miles begins with a single step</string>
+  <string name="easter_egg_v2_2_desc">Choose theme. Choose conversation title generation model. Choose delete. Choose retry…</string>
   <string name="easter_egg_sbr_desc">LESSON4: Show your respect, show your respect, and then move towards a brand new stage of MChat!</string>
   <string name="about_mchat">About MChat</string>
   <string name="about_mchat_desc">App info and notices</string>
@@ -91,6 +94,7 @@
   <!-- Banner -->
   <string name="banner_castle_desc">Attach files, open the camera, and let MChat witness a majestic castle built from a brand-new UI and motion design</string>
   <string name="banner_cover_desc">Show me the castle cover</string>
+  <string name="banner_trainspotting_cover_desc">Trainspotting cover</string>
 
   <!-- About -->
   <string name="about_app_icon_desc">MChat icon</string>
@@ -150,6 +154,8 @@
   <string name="jump_to_bottom">Jump to bottom</string>
   <string name="confirm_delete">Confirm Delete</string>
   <string name="confirm_delete_message">Do you really want to delete this?</string>
+  <string name="hold_to_confirm">Hold to confirm</string>
+  <string name="hold_to_confirm_done">Deleted</string>
   <string name="restore_default">Restore Default</string>
   <string name="common_done">Done</string>
 
@@ -168,7 +174,8 @@
   <string name="bg_change_opacity">Background opacity</string>
   <string name="bg_opacity_error">Enter a value between 0 and 100</string>
   <string name="bg_restore_default">Restore Default Background</string>
-  <string name="bg_restore_default_desc">Remove the background image and restore default opacity</string>
+  <string name="bg_restore_default_desc">Remove the background image</string>
+  <string name="bg_restore_default_confirm">Do you really want to restore the default background?</string>
   <string name="bg_crop_title">Crop Background</string>
   <string name="bg_crop_hint">Drag to adjust position, pinch to zoom</string>
   <string name="bg_load_failed">Failed to load the selected image</string>
@@ -250,4 +257,9 @@
   <string name="toast_check_update_failed">Check failed: %1$s</string>
   <string name="error_stream_interrupted">Stream connection unexpectedly interrupted</string>
   <string name="error_stream_failed">Stream output failed</string>
+  <string name="title_model">Title Generation Model</string>
+  <string name="title_model_desc">Model used when generating conversation titles</string>
+  <string name="title_model_follow">Follow conversation model</string>
+  <string name="title_model_dialog_title">Title Generation Model</string>
+  <string name="theme_silence_green">Silent Jade Whisper</string>
 </resources>

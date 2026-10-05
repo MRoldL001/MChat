@@ -34,6 +34,7 @@ enum class ThemeColor {
     TETO_RED,
     AUTO_COLOR,
     MIYOU_ORANGE,
+    SILENCE_GREEN,
     GREEN,
     PURPLE,
     DEEP_BLUE
@@ -192,6 +193,16 @@ private val MiyouOrangeDarkColors = darkColorSchemeWithPrimary(
     onPrimary = MiyouOrangeDarkOnPrimary
 )
 
+private val SilenceGreenLightColors = lightColorSchemeWithPrimary(
+    primary = SilenceGreenLightPrimary,
+    onPrimary = SilenceGreenLightOnPrimary
+)
+
+private val SilenceGreenDarkColors = darkColorSchemeWithPrimary(
+    primary = SilenceGreenDarkPrimary,
+    onPrimary = SilenceGreenDarkOnPrimary
+)
+
 private val GreenLightColors = lightColorSchemeWithPrimary(
     primary = GreenLightPrimary,
     onPrimary = GreenLightOnPrimary
@@ -321,6 +332,7 @@ fun themePreviewColorScheme(
         ThemeColor.MIKU_GREEN -> if (dark) MikuGreenDarkColors else MikuGreenLightColors
         ThemeColor.TETO_RED -> if (dark) TetoRedDarkColors else TetoRedLightColors
         ThemeColor.MIYOU_ORANGE -> if (dark) MiyouOrangeDarkColors else MiyouOrangeLightColors
+        ThemeColor.SILENCE_GREEN -> if (dark) SilenceGreenDarkColors else SilenceGreenLightColors
         ThemeColor.GREEN -> if (dark) GreenDarkColors else GreenLightColors
         ThemeColor.PURPLE -> if (dark) PurpleDarkColors else PurpleLightColors
         ThemeColor.DEEP_BLUE -> if (dark) DeepBlueDarkColors else DeepBlueLightColors
@@ -356,6 +368,7 @@ fun MIMOChatTheme(
                 ThemeColor.MIKU_GREEN -> if (darkTheme) MikuGreenDarkColors else MikuGreenLightColors
                 ThemeColor.TETO_RED -> if (darkTheme) TetoRedDarkColors else TetoRedLightColors
                 ThemeColor.MIYOU_ORANGE -> if (darkTheme) MiyouOrangeDarkColors else MiyouOrangeLightColors
+                ThemeColor.SILENCE_GREEN -> if (darkTheme) SilenceGreenDarkColors else SilenceGreenLightColors
                 ThemeColor.GREEN -> if (darkTheme) GreenDarkColors else GreenLightColors
                 ThemeColor.PURPLE -> if (darkTheme) PurpleDarkColors else PurpleLightColors
                 ThemeColor.DEEP_BLUE -> if (darkTheme) DeepBlueDarkColors else DeepBlueLightColors

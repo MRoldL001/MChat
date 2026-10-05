@@ -239,25 +239,15 @@ internal fun ParameterSettingsDialog(
                 )
             },
             text = {
-                Text(
-                    text = stringResource(R.string.restore_default_confirm),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = {
+                HoldDeleteLayout(
+                    message = stringResource(R.string.restore_default_confirm),
+                    onConfirm = {
                         showResetConfirmDialog = false
                         onReset()
-                    },
-                    colors = ButtonDefaults.textButtonColors(
-                        contentColor = MaterialTheme.colorScheme.primary
-                    )
-                ) {
-                    Text(stringResource(R.string.confirm))
-                }
+                    }
+                )
             },
+            confirmButton = {},
             dismissButton = {
                 TextButton(
                     onClick = { showResetConfirmDialog = false },
@@ -335,7 +325,7 @@ internal fun ParameterSettingsDialog(
                     }
                     Slider(
                         value = temperature,
-                        onValueChange = { 
+                        onValueChange = {
                             temperature = it
                             temperatureText = String.format("%.2f", it)
                             temperatureError = false
@@ -404,7 +394,7 @@ internal fun ParameterSettingsDialog(
                     }
                     Slider(
                         value = topP,
-                        onValueChange = { 
+                        onValueChange = {
                             topP = it
                             topPText = String.format("%.2f", it)
                             topPError = false

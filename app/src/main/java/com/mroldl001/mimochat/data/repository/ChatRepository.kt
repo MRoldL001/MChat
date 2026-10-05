@@ -13,6 +13,7 @@ import com.mroldl001.mimochat.di.ApiServiceFactory
 import com.mroldl001.mimochat.domain.model.ApiErrorCode
 import com.mroldl001.mimochat.domain.model.Chat
 import com.mroldl001.mimochat.domain.model.Message
+import com.mroldl001.mimochat.domain.model.MessageAttachment
 import com.mroldl001.mimochat.domain.model.SearchResult
 import com.mroldl001.mimochat.domain.model.WebSearchResult
 import kotlinx.coroutines.Dispatchers
@@ -43,6 +44,7 @@ class ChatRepository @Inject constructor(
 ) {
     private val gson = Gson()
     private val searchResultsType = object : TypeToken<List<WebSearchResult>>() {}.type
+    private val attachmentsType = object : TypeToken<List<MessageAttachment>>() {}.type
 
     private fun currentAppLanguageName(): String {
         val code = preferencesManager.getAppLanguage()
@@ -145,6 +147,10 @@ class ChatRepository @Inject constructor(
         messageDao.updateMessage(message.toEntity())
     }
 
+    suspend fun deleteMessage(message: Message) {
+        messageDao.deleteMessage(message.toEntity())
+    }
+
     suspend fun sendMessage(
         apiKey: String,
         baseUrl: String,
@@ -198,7 +204,7 @@ class ChatRepository @Inject constructor(
         thinkingEnabled: Boolean = true,
         skillPrompt: String = "",
         customSystemPrompt: String = "",
-        attachment: ContentPart? = null,
+        attachment: List<ContentPart> = emptyList(),
         webSearchEnabled: Boolean = true
     ): Flow<StreamEvent> = callbackFlow {
         fun sendEvent(event: StreamEvent): Boolean = trySendBlocking(event).isSuccess
@@ -412,7 +418,7 @@ class ChatRepository @Inject constructor(
         stream: Boolean,
         skillPrompt: String = "",
         customSystemPrompt: String = "",
-        attachment: ContentPart? = null,
+        attachment: List<ContentPart> = emptyList(),
         webSearchEnabled: Boolean = true
     ): ChatCompletionRequest {
         val effectiveThinking = if (thinkingEnabled) ThinkingConfig("enabled") else ThinkingConfig("disabled")
@@ -467,9 +473,9 @@ class ChatRepository @Inject constructor(
         requestMessages.addAll(messages.mapIndexed { index, message ->
             MessageRequest(
                 role = message.role,
-                content = if (attachment != null && index == messages.lastIndex && message.role == "user") {
+                content = if (attachment.isNotEmpty() && index == messages.lastIndex && message.role == "user") {
                     buildList {
-                        add(attachment)
+                        addAll(attachment)
                         if (message.content.isNotBlank()) {
                             add(ContentPart(type = "text", text = message.content))
                         }
@@ -539,8 +545,15 @@ class ChatRepository @Inject constructor(
         isStreaming = isStreaming,
         isAborted = isAborted,
         isFailed = isFailed,
-        attachmentUri = attachmentUri,
-        attachmentMimeType = attachmentMimeType
+        attachments = attachmentsJson?.let { json ->
+            try {
+                gson.fromJson<List<MessageAttachment>>(json, attachmentsType) ?: emptyList()
+            } catch (e: Exception) {
+                emptyList()
+            }
+        } ?: listOfNotNull(
+            attachmentUri?.let { MessageAttachment(uri = it, mimeType = attachmentMimeType) }
+        )
     )
 
     private fun Message.toEntity() = MessageEntity(
@@ -554,8 +567,9 @@ class ChatRepository @Inject constructor(
         isStreaming = isStreaming,
         isAborted = isAborted,
         isFailed = isFailed,
-        attachmentUri = attachmentUri,
-        attachmentMimeType = attachmentMimeType
+        attachmentUri = attachments.firstOrNull()?.uri,
+        attachmentMimeType = attachments.firstOrNull()?.mimeType,
+        attachmentsJson = attachments.takeIf { it.isNotEmpty() }?.let { gson.toJson(it) }
     )
 }
 

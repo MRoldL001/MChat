@@ -57,6 +57,7 @@ import com.mroldl001.mimochat.ui.theme.themePreviewColorScheme
 import com.mroldl001.mimochat.R
 import com.mroldl001.mimochat.ui.settings.AppLocale
 import com.mroldl001.mimochat.ui.settings.LanguageSettingsDialog
+import com.mroldl001.mimochat.domain.model.AIModel
 import coil.compose.AsyncImage
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -90,6 +91,7 @@ fun SettingsScreen(
     var showAbout by remember { mutableStateOf(false) }
     var showCustomColor by remember { mutableStateOf(false) }
     var showLanguageDialog by remember { mutableStateOf(false) }
+    var showTitleModel by remember { mutableStateOf(false) }
     var customColorHex by remember { mutableStateOf(viewModel.getCustomThemeColorHex()) }
     var pendingCropUri by rememberSaveable { mutableStateOf<String?>(null) }
 
@@ -102,7 +104,6 @@ fun SettingsScreen(
     val clearBackground = {
         deleteStoredChatBackground(context, uiState.chatBackgroundUri)
         viewModel.setChatBackgroundUri(null)
-        viewModel.setChatBackgroundOpacity(PreferencesManager.DEFAULT_CHAT_BACKGROUND_OPACITY)
     }
 
     SettingsPageContent(
@@ -127,6 +128,9 @@ fun SettingsScreen(
         customColorHex = customColorHex,
         onCustomColorClicked = { showCustomColor = true },
         onLanguageClick = { showLanguageDialog = true },
+        onTitleModelClick = { showTitleModel = true },
+        titleModelId = uiState.titleModelId,
+        availableModels = uiState.availableModels,
         codeBlockColorMode = uiState.codeBlockColorMode,
         onCodeBlockColorModeSelected = { mode ->
             viewModel.setCodeBlockColorMode(mode)
@@ -241,6 +245,17 @@ fun SettingsScreen(
             onDismiss = { showLanguageDialog = false }
         )
     }
+    if (showTitleModel) {
+        TitleModelSettingsDialog(
+            currentTitleModelId = uiState.titleModelId,
+            models = uiState.availableModels,
+            onTitleModelSelected = { id ->
+                viewModel.setTitleModelId(id)
+                showTitleModel = false
+            },
+            onDismiss = { showTitleModel = false }
+        )
+    }
     (uiState.updateState as? UpdateUiState.Available)?.let { update ->
         UpdateReleaseDialog(
             release = update.release,
@@ -270,6 +285,9 @@ private fun SettingsPageContent(
         customColorHex: String,
         onCustomColorClicked: () -> Unit,
         onLanguageClick: () -> Unit,
+        onTitleModelClick: () -> Unit,
+        titleModelId: String = PreferencesManager.DEFAULT_TITLE_MODEL_ID,
+        availableModels: List<AIModel> = emptyList(),
     codeBlockColorMode: CodeBlockColorMode,
     onCodeBlockColorModeSelected: (CodeBlockColorMode) -> Unit,
     isExpandedScreen: Boolean,
@@ -335,37 +353,80 @@ private fun SettingsPageContent(
                     .padding(horizontal = 24.dp, vertical = 12.dp),
                 verticalArrangement = Arrangement.spacedBy(20.dp)
             ) {
-                SteelBallRunBanner()
+                TrainspottingBanner()
 
                 SettingsGroupTitle(stringResource(R.string.group_appearance))
 
                 SettingSectionHeader(Icons.Outlined.Brightness7, stringResource(R.string.display_mode))
                 // 自定义色也要灌进显示模式预览，否则回退成默认黑
                 val displayModeCustomHex = if (themeColor == ThemeColor.CUSTOM) customColorHex else null
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = if (isExpandedScreen) {
-                        Arrangement.spacedBy(12.dp, Alignment.Start)
-                    } else {
-                        Arrangement.SpaceEvenly
+                if (isExpandedScreen) {
+                    LazyRow(
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        item {
+                            ThemePreviewCard(
+                                label = stringResource(R.string.preview_day),
+                                scheme = themePreviewColorScheme(themeColor, dark = false, customColorHex = displayModeCustomHex),
+                                selected = themeMode == ThemeMode.LIGHT,
+                                width = 104.dp
+                            ) { onThemeChanged(themeColor, ThemeMode.LIGHT) }
+                        }
+                        item {
+                            ThemePreviewCard(
+                                label = stringResource(R.string.preview_night),
+                                scheme = themePreviewColorScheme(themeColor, dark = true, customColorHex = displayModeCustomHex),
+                                selected = themeMode == ThemeMode.DARK,
+                                width = 104.dp
+                            ) { onThemeChanged(themeColor, ThemeMode.DARK) }
+                        }
+                        item {
+                            ThemePreviewCard(
+                                label = stringResource(R.string.preview_follow_system),
+                                scheme = themePreviewColorScheme(themeColor, dark = false, customColorHex = displayModeCustomHex),
+                                bottomScheme = themePreviewColorScheme(themeColor, dark = true, customColorHex = displayModeCustomHex),
+                                selected = themeMode == ThemeMode.FOLLOW_SYSTEM,
+                                width = 104.dp
+                            ) { onThemeChanged(themeColor, ThemeMode.FOLLOW_SYSTEM) }
+                        }
                     }
-                ) {
-                    ThemePreviewCard(
-                        label = stringResource(R.string.preview_day),
-                        scheme = themePreviewColorScheme(themeColor, dark = false, customColorHex = displayModeCustomHex),
-                        selected = themeMode == ThemeMode.LIGHT
-                    ) { onThemeChanged(themeColor, ThemeMode.LIGHT) }
-                    ThemePreviewCard(
-                        label = stringResource(R.string.preview_night),
-                        scheme = themePreviewColorScheme(themeColor, dark = true, customColorHex = displayModeCustomHex),
-                        selected = themeMode == ThemeMode.DARK
-                    ) { onThemeChanged(themeColor, ThemeMode.DARK) }
-                    ThemePreviewCard(
-                        label = stringResource(R.string.preview_follow_system),
-                        scheme = themePreviewColorScheme(themeColor, dark = false, customColorHex = displayModeCustomHex),
-                        bottomScheme = themePreviewColorScheme(themeColor, dark = true, customColorHex = displayModeCustomHex),
-                        selected = themeMode == ThemeMode.FOLLOW_SYSTEM
-                    ) { onThemeChanged(themeColor, ThemeMode.FOLLOW_SYSTEM) }
+                } else {
+                    BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+                        val fullRowWidth = this.maxWidth + 24.dp
+                        val startPadding = ((this.maxWidth - 104.dp * 3) / 4).coerceAtLeast(0.dp)
+                        LazyRow(
+                            contentPadding = PaddingValues(start = startPadding),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            modifier = Modifier.requiredWidth(fullRowWidth)
+                        ) {
+                            item {
+                                ThemePreviewCard(
+                                    label = stringResource(R.string.preview_day),
+                                    scheme = themePreviewColorScheme(themeColor, dark = false, customColorHex = displayModeCustomHex),
+                                    selected = themeMode == ThemeMode.LIGHT,
+                                    width = 104.dp
+                                ) { onThemeChanged(themeColor, ThemeMode.LIGHT) }
+                            }
+                            item {
+                                ThemePreviewCard(
+                                    label = stringResource(R.string.preview_night),
+                                    scheme = themePreviewColorScheme(themeColor, dark = true, customColorHex = displayModeCustomHex),
+                                    selected = themeMode == ThemeMode.DARK,
+                                    width = 104.dp
+                                ) { onThemeChanged(themeColor, ThemeMode.DARK) }
+                            }
+                            item {
+                                ThemePreviewCard(
+                                    label = stringResource(R.string.preview_follow_system),
+                                    scheme = themePreviewColorScheme(themeColor, dark = false, customColorHex = displayModeCustomHex),
+                                    bottomScheme = themePreviewColorScheme(themeColor, dark = true, customColorHex = displayModeCustomHex),
+                                    selected = themeMode == ThemeMode.FOLLOW_SYSTEM,
+                                    width = 104.dp
+                                ) { onThemeChanged(themeColor, ThemeMode.FOLLOW_SYSTEM) }
+                            }
+                        }
+                    }
                 }
 
                 SettingSectionHeader(Icons.Outlined.Palette, stringResource(R.string.theme_color))
@@ -376,6 +437,7 @@ private fun SettingsPageContent(
                     add(ThemeColor.MIKU_GREEN)
                     add(ThemeColor.TETO_RED)
                     add(ThemeColor.MIYOU_ORANGE)
+                    add(ThemeColor.SILENCE_GREEN)
                     add(ThemeColor.GREEN)
                     add(ThemeColor.PURPLE)
                     add(ThemeColor.DEEP_BLUE)
@@ -395,13 +457,15 @@ private fun SettingsPageContent(
                         }
                     }
                 } else {
-                    // 与显示模式行的首卡左对齐：SpaceEvenly 的首卡左侧留白 = 剩余空间 / 4
+                    // 与显示模式/代码块预览行的首卡左对齐：SpaceEvenly 的首卡左侧留白 = 剩余空间 / 4
+                    // 行宽 = 内容区宽 + 24dp，顶到屏幕右缘消除右侧白色遮挡；用 requiredWidth 避免负边距导致的 minWidth<0 崩溃
                     BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
-                        val themeRowStartPadding = ((maxWidth - 100.dp * 3) / 4).coerceAtLeast(0.dp)
+                        val fullRowWidth = this.maxWidth + 24.dp
+                        val themeRowStartPadding = ((this.maxWidth - 104.dp * 3) / 4).coerceAtLeast(0.dp)
                         LazyRow(
                             contentPadding = PaddingValues(start = themeRowStartPadding),
                             horizontalArrangement = Arrangement.spacedBy(12.dp),
-                            modifier = Modifier.fillMaxWidth()
+                            modifier = Modifier.requiredWidth(fullRowWidth)
                         ) {
                             items(colors, key = { it.name }) { option ->
                                 ThemePreviewCard(
@@ -416,30 +480,73 @@ private fun SettingsPageContent(
                 }
 
                 SettingSectionHeader(Icons.Outlined.Code, stringResource(R.string.code_block_color))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = if (isExpandedScreen) {
-                        Arrangement.spacedBy(12.dp, Alignment.Start)
-                    } else {
-                        Arrangement.SpaceEvenly
+                if (isExpandedScreen) {
+                    LazyRow(
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        item {
+                            CodeBlockPreviewCard(
+                                label = stringResource(R.string.code_block_dark),
+                                dark = true,
+                                selected = codeBlockColorMode == CodeBlockColorMode.DARK,
+                                width = 104.dp
+                            ) { onCodeBlockColorModeSelected(CodeBlockColorMode.DARK) }
+                        }
+                        item {
+                            CodeBlockPreviewCard(
+                                label = stringResource(R.string.code_block_light),
+                                dark = false,
+                                selected = codeBlockColorMode == CodeBlockColorMode.LIGHT,
+                                width = 104.dp
+                            ) { onCodeBlockColorModeSelected(CodeBlockColorMode.LIGHT) }
+                        }
+                        item {
+                            CodeBlockPreviewCard(
+                                label = stringResource(R.string.code_block_follow),
+                                dark = previewDark,
+                                split = true,
+                                selected = codeBlockColorMode == CodeBlockColorMode.FOLLOW,
+                                width = 104.dp
+                            ) { onCodeBlockColorModeSelected(CodeBlockColorMode.FOLLOW) }
+                        }
                     }
-                ) {
-                    CodeBlockPreviewCard(
-                        label = stringResource(R.string.code_block_dark),
-                        dark = true,
-                        selected = codeBlockColorMode == CodeBlockColorMode.DARK
-                    ) { onCodeBlockColorModeSelected(CodeBlockColorMode.DARK) }
-                    CodeBlockPreviewCard(
-                        label = stringResource(R.string.code_block_light),
-                        dark = false,
-                        selected = codeBlockColorMode == CodeBlockColorMode.LIGHT
-                    ) { onCodeBlockColorModeSelected(CodeBlockColorMode.LIGHT) }
-                    CodeBlockPreviewCard(
-                        label = stringResource(R.string.code_block_follow),
-                        dark = previewDark,
-                        split = true,
-                        selected = codeBlockColorMode == CodeBlockColorMode.FOLLOW
-                    ) { onCodeBlockColorModeSelected(CodeBlockColorMode.FOLLOW) }
+                } else {
+                    BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+                        val fullRowWidth = this.maxWidth + 24.dp
+                        val startPadding = ((this.maxWidth - 104.dp * 3) / 4).coerceAtLeast(0.dp)
+                        LazyRow(
+                            contentPadding = PaddingValues(start = startPadding),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            modifier = Modifier.requiredWidth(fullRowWidth)
+                        ) {
+                            item {
+                                CodeBlockPreviewCard(
+                                    label = stringResource(R.string.code_block_dark),
+                                    dark = true,
+                                    selected = codeBlockColorMode == CodeBlockColorMode.DARK,
+                                    width = 104.dp
+                                ) { onCodeBlockColorModeSelected(CodeBlockColorMode.DARK) }
+                            }
+                            item {
+                                CodeBlockPreviewCard(
+                                    label = stringResource(R.string.code_block_light),
+                                    dark = false,
+                                    selected = codeBlockColorMode == CodeBlockColorMode.LIGHT,
+                                    width = 104.dp
+                                ) { onCodeBlockColorModeSelected(CodeBlockColorMode.LIGHT) }
+                            }
+                            item {
+                                CodeBlockPreviewCard(
+                                    label = stringResource(R.string.code_block_follow),
+                                    dark = previewDark,
+                                    split = true,
+                                    selected = codeBlockColorMode == CodeBlockColorMode.FOLLOW,
+                                    width = 104.dp
+                                ) { onCodeBlockColorModeSelected(CodeBlockColorMode.FOLLOW) }
+                            }
+                        }
+                    }
                 }
 
                 SettingAction(Icons.Outlined.Image, stringResource(R.string.chat_background), stringResource(R.string.chat_background_desc), onBackgroundImageClick)
@@ -482,6 +589,17 @@ private fun SettingsPageContent(
                     AppLocale.label(appLanguage),
                     onClick = onLanguageClick
                 )
+                val titleModelLabel = if (titleModelId == PreferencesManager.DEFAULT_TITLE_MODEL_ID) {
+                    stringResource(R.string.title_model_follow)
+                } else {
+                    availableModels.find { it.id == titleModelId }?.name ?: titleModelId
+                }
+                SettingAction(
+                    Icons.Outlined.Title,
+                    stringResource(R.string.title_model),
+                    titleModelLabel,
+                    onClick = onTitleModelClick
+                )
                 SettingAction(Icons.Outlined.Chat, stringResource(R.string.custom_system_prompt), stringResource(R.string.custom_system_prompt_desc), onCustomPromptClick)
                 SettingAction(Icons.Outlined.Tune, stringResource(R.string.parameter_settings), stringResource(R.string.parameter_settings_desc), onParameterSettingsClick)
 
@@ -496,32 +614,22 @@ private fun SettingsPageContent(
     }
 }
 
-private suspend fun fetchAniListCover(title: String): String? = withContext(Dispatchers.IO) {
+private suspend fun fetchNeteaseCover(songId: Long): String? = withContext(Dispatchers.IO) {
     runCatching {
-        val query = "query (\$search: String) { Media (search: \$search, type: ANIME) { coverImage { extraLarge large } } }"
-        val payload = JSONObject().apply {
-            put("query", query)
-            put("variables", JSONObject().apply { put("search", title) })
-        }.toString()
-        val connection = URL("https://graphql.anilist.co").openConnection() as HttpURLConnection
+        val ids = URLEncoder.encode("[$songId]", "UTF-8")
+        val connection = URL("https://music.163.com/api/song/detail/?id=$songId&ids=$ids").openConnection() as HttpURLConnection
         try {
             connection.apply {
-                requestMethod = "POST"
+                requestMethod = "GET"
                 connectTimeout = 5_000
                 readTimeout = 5_000
-                doOutput = true
-                setRequestProperty("Content-Type", "application/json")
-                setRequestProperty("Accept", "application/json")
                 setRequestProperty("User-Agent", "Mozilla/5.0")
             }
-            connection.outputStream.use { it.write(payload.toByteArray(Charsets.UTF_8)) }
             if (connection.responseCode !in 200..299) return@runCatching null
             val body = connection.inputStream.bufferedReader().use { it.readText() }
-            val cover = JSONObject(body)
-                .optJSONObject("data")?.optJSONObject("Media")
-                ?.optJSONObject("coverImage")
-            cover?.optString("extraLarge")?.takeIf { it.isNotBlank() }
-                ?: cover?.optString("large")?.takeIf { it.isNotBlank() }
+            val song = JSONObject(body).getJSONArray("songs").getJSONObject(0)
+            (song.optJSONObject("al") ?: song.optJSONObject("album"))
+                ?.optString("picUrl")?.takeIf { it.isNotBlank() }
         } finally {
             connection.disconnect()
         }
@@ -529,7 +637,7 @@ private suspend fun fetchAniListCover(title: String): String? = withContext(Disp
 }
 
 @Composable
-private fun SteelBallRunBanner() {
+private fun TrainspottingBanner() {
     val context = LocalContext.current
     val versionName = remember(context) {
         context.packageManager.getPackageInfo(context.packageName, 0).versionName.orEmpty()
@@ -537,28 +645,24 @@ private fun SteelBallRunBanner() {
     val versionSeparator = versionName.indexOf('-')
     val rawVersionNumber = if (versionSeparator >= 0) versionName.substring(0, versionSeparator) else versionName
     val versionNumber = "V" + rawVersionNumber.removePrefix("v").removePrefix("V")
-    val versionSubtitle = if (versionSeparator >= 0) {
-        versionName.substring(versionSeparator + 1).replace('-', ' ').trim()
-    } else {
-        ""
-    }
+    val versionSubtitle = "Trainspotting"
     val cardColor by animateColorAsState(
         targetValue = MaterialTheme.colorScheme.primaryContainer,
         animationSpec = tween(durationMillis = 450),
-        label = "castle_card_color"
+        label = "trainspotting_card_color"
     )
     val cardContentColor by animateColorAsState(
         targetValue = MaterialTheme.colorScheme.onPrimaryContainer,
         animationSpec = tween(durationMillis = 450),
-        label = "castle_card_content_color"
+        label = "trainspotting_card_content_color"
     )
     val accentColor by animateColorAsState(
         targetValue = MaterialTheme.colorScheme.primary,
         animationSpec = tween(durationMillis = 450),
-        label = "castle_card_accent_color"
+        label = "trainspotting_card_accent_color"
     )
     val coverUrl by produceState<String?>(initialValue = null) {
-        value = fetchAniListCover("JoJo's Bizarre Adventure: Steel Ball Run")
+        value = fetchNeteaseCover(5056908L)
     }
     val interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
     Surface(
@@ -572,7 +676,7 @@ private fun SteelBallRunBanner() {
                 context.startActivity(
                     Intent(
                         Intent.ACTION_VIEW,
-                        Uri.parse("https://zh.moegirl.org.cn/" + URLEncoder.encode("飙马野郎", "UTF-8"))
+                        Uri.parse("https://movie.douban.com/subject/1292528/")
                     )
                 )
             },
@@ -599,7 +703,7 @@ private fun SteelBallRunBanner() {
                 coverUrl?.let { imageUrl ->
                     AsyncImage(
                         model = imageUrl,
-                        contentDescription = stringResource(R.string.banner_cover_desc),
+                        contentDescription = stringResource(R.string.banner_trainspotting_cover_desc),
                         contentScale = ContentScale.Crop,
                         modifier = Modifier.fillMaxSize()
                     )
@@ -611,7 +715,7 @@ private fun SteelBallRunBanner() {
                 verticalArrangement = Arrangement.spacedBy(6.dp)
             ) {
                 BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
-                    val availableWidth = maxWidth
+                    val availableWidth = this.maxWidth
                     val initialTitleFontSize = MaterialTheme.typography.titleLarge.fontSize
                     var titleFontSize by remember(versionName, availableWidth, initialTitleFontSize) {
                         mutableStateOf(initialTitleFontSize)
@@ -644,7 +748,7 @@ private fun SteelBallRunBanner() {
                     )
                 }
                 Text(
-                    text = stringResource(R.string.easter_egg_sbr_desc),
+                    text = stringResource(R.string.easter_egg_v2_2_desc),
                     style = MaterialTheme.typography.bodyMedium,
                     color = cardContentColor.copy(alpha = 0.82f)
                 )

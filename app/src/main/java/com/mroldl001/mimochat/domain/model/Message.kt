@@ -3,6 +3,13 @@ package com.mroldl001.mimochat.domain.model
 import androidx.compose.runtime.Immutable
 
 @Immutable
+data class MessageAttachment(
+    val uri: String,
+    val mimeType: String? = null,
+    val label: String? = null
+)
+
+@Immutable
 data class Message(
     val id: Long = 0,
     val chatId: Long,
@@ -13,7 +20,6 @@ data class Message(
     val timestamp: Long = System.currentTimeMillis(),
     val isStreaming: Boolean = false,
     val isAborted: Boolean = false,
-    val isFailed: Boolean = false
-    , val attachmentUri: String? = null
-    , val attachmentMimeType: String? = null
+    val isFailed: Boolean = false,
+    val attachments: List<MessageAttachment> = emptyList()
 )

@@ -4,11 +4,11 @@ import com.mroldl001.mimochat.R
 import com.mroldl001.mimochat.ui.chat.components.MiMoLoginScreen
 import android.content.Intent
 import android.net.Uri
-import android.util.Base64
 import android.widget.Toast
 import android.provider.OpenableColumns
 import androidx.compose.ui.res.stringResource
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
@@ -51,6 +51,8 @@ import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.foundation.text.KeyboardOptions
@@ -63,6 +65,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.mroldl001.mimochat.ui.chat.components.*
 import com.mroldl001.mimochat.ui.chat.viewmodel.ChatViewModel
 import com.mroldl001.mimochat.data.api.*
+import com.mroldl001.mimochat.domain.model.MessageAttachment
 import com.mroldl001.mimochat.ui.theme.ThemeColor
 import com.mroldl001.mimochat.ui.theme.ThemeMode
 import kotlinx.coroutines.flow.first
@@ -98,7 +101,8 @@ fun ChatScreen(
     onChatScrollPositionChanged: (Long, Int, Int) -> Unit = { _, _, _ -> },
     onCurrentChatChanged: (Long?) -> Unit = {},
     suppressInitialScroll: Boolean = false,
-    onInitialChatNavigationHandled: () -> Unit = {}
+    onInitialChatNavigationHandled: () -> Unit = {},
+    onAttachmentOpen: (List<MessageAttachment>, Int) -> Unit = { _, _ -> }
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val messages = viewModel.messages
@@ -106,11 +110,12 @@ fun ChatScreen(
     val streamingContent by viewModel.streamingContent
     val streamingReasoning by viewModel.streamingReasoning
     val isStreaming by viewModel.isStreaming
-    var attachment by remember { mutableStateOf<ContentPart?>(null) }
-    var attachmentLabel by remember { mutableStateOf<String?>(null) }
-    var attachmentUri by remember { mutableStateOf<String?>(null) }
-    var attachmentMimeType by remember { mutableStateOf<String?>(null) }
-    var attachmentOwnedPath by remember { mutableStateOf<String?>(null) }
+    val streamingStartTime by viewModel.streamingStartTime
+    var pendingAttachments by remember { mutableStateOf<List<MessageAttachment>>(emptyList()) }
+    var pendingOwnedPaths by remember { mutableStateOf<List<String>>(emptyList()) }
+    val isEditing by viewModel.isEditing
+    val editAttachments by viewModel.editAttachments
+    val displayAttachments = if (isEditing) editAttachments + pendingAttachments else pendingAttachments
     var showMiMoLogin by rememberSaveable { mutableStateOf(false) }
     var pendingCameraUri by rememberSaveable { mutableStateOf<String?>(null) }
     var pendingCameraPath by rememberSaveable { mutableStateOf<String?>(null) }
@@ -120,18 +125,38 @@ fun ChatScreen(
     var pendingInitialTopChatId by remember(initialChatId, suppressInitialScroll) {
         mutableStateOf(initialChatId.takeIf { suppressInitialScroll })
     }
-    fun clearAttachment(deleteOwnedFile: Boolean = false) {
-        if (deleteOwnedFile) {
-            attachmentOwnedPath?.let { path -> runCatching { File(path).delete() } }
+    fun clearAttachments(deleteOwnedFiles: Boolean = false) {
+        if (deleteOwnedFiles) {
+            pendingOwnedPaths.forEach { path -> runCatching { File(path).delete() } }
         }
-        attachment = null
-        attachmentLabel = null
-        attachmentUri = null
-        attachmentMimeType = null
-        attachmentOwnedPath = null
+        pendingAttachments = emptyList()
+        pendingOwnedPaths = emptyList()
+        if (isEditing) {
+            viewModel.editAttachments.value = emptyList()
+        }
     }
 
-    fun prepareAttachment(uri: Uri, mimeOverride: String? = null): Boolean {
+    fun removeAttachment(index: Int) {
+        val editCount = if (isEditing) editAttachments.size else 0
+        if (index < editCount) {
+            viewModel.editAttachments.value = editAttachments.filterIndexed { i, _ -> i != index }
+            return
+        }
+        val localIndex = index - editCount
+        val current = pendingAttachments.toMutableList()
+        val owned = pendingOwnedPaths.toMutableList()
+        if (localIndex in owned.indices) {
+            runCatching { File(owned[localIndex]).delete() }
+            owned.removeAt(localIndex)
+        }
+        if (localIndex in current.indices) {
+            current.removeAt(localIndex)
+        }
+        pendingAttachments = current
+        pendingOwnedPaths = owned
+    }
+
+    fun prepareAttachment(uri: Uri, mimeOverride: String? = null, ownedPath: String? = null): Boolean {
         var displayName: String? = null
         var rawSize = -1L
         runCatching {
@@ -158,6 +183,7 @@ fun ChatScreen(
         val mime = mimeOverride ?: context.contentResolver.getType(uri) ?: "application/octet-stream"
         if (!mime.startsWith("image/") && !mime.startsWith("audio/") && !mime.startsWith("video/")) {
             Toast.makeText(context, context.getString(R.string.toast_attachment_type), Toast.LENGTH_LONG).show()
+            if (ownedPath != null) runCatching { File(ownedPath).delete() }
             return false
         }
 
@@ -166,68 +192,53 @@ fun ChatScreen(
             val estimatedEncodedSize = ((rawSize + 2L) / 3L) * 4L
             if (estimatedEncodedSize > maxEncodedBytes) {
                 Toast.makeText(context, context.getString(R.string.toast_file_too_large), Toast.LENGTH_LONG).show()
+                if (ownedPath != null) runCatching { File(ownedPath).delete() }
                 return false
             }
         }
 
-        val bytes = runCatching {
-            context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
-        }.getOrNull()
-        if (bytes == null || bytes.isEmpty()) {
-            Toast.makeText(context, context.getString(R.string.toast_file_unreadable), Toast.LENGTH_LONG).show()
+        val uriString = uri.toString()
+        if (pendingAttachments.any { it.uri == uriString }) {
+            if (ownedPath != null) runCatching { File(ownedPath).delete() }
             return false
         }
 
-        val encoded = Base64.encodeToString(bytes, Base64.NO_WRAP)
-        if (encoded.length.toLong() > maxEncodedBytes) {
-            Toast.makeText(context, context.getString(R.string.toast_file_too_large), Toast.LENGTH_LONG).show()
-            return false
-        }
-
-        val data = "data:$mime;base64,$encoded"
-        attachmentOwnedPath?.let { path -> runCatching { File(path).delete() } }
-        attachmentOwnedPath = null
-        attachment = when {
-            mime.startsWith("image/") -> ContentPart(type = "image_url", imageUrl = ImageUrl(data))
-            mime.startsWith("audio/") -> ContentPart(type = "input_audio", inputAudio = InputAudio(data))
-            else -> ContentPart(
-                type = "video_url",
-                videoUrl = VideoUrl(data),
-                fps = 2.0,
-                mediaResolution = "default"
-            )
-        }
-        attachmentLabel = displayName ?: uri.lastPathSegment?.substringAfterLast('/') ?: context.getString(R.string.attachment_selected)
-        attachmentUri = uri.toString()
-        attachmentMimeType = mime
+        val label = displayName ?: uri.lastPathSegment?.substringAfterLast('/')
+            ?: context.getString(R.string.attachment_selected)
+        pendingAttachments = pendingAttachments + MessageAttachment(
+            uri = uriString,
+            mimeType = mime,
+            label = label
+        )
+        pendingOwnedPaths = pendingOwnedPaths + (ownedPath ?: "")
         return true
     }
 
     val supportsMultimodal = uiState.selectedModel?.capabilities?.contains("multimodal") == true
     LaunchedEffect(supportsMultimodal) {
         if (!supportsMultimodal) {
-            clearAttachment(deleteOwnedFile = true)
+            clearAttachments(deleteOwnedFiles = true)
         }
     }
 
-    val filePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-        if (uri != null) {
-            runCatching {
-                context.contentResolver.takePersistableUriPermission(
-                    uri,
-                    Intent.FLAG_GRANT_READ_URI_PERMISSION
-                )
+    val filePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
+        if (uris.isNotEmpty()) {
+            uris.forEach { picked ->
+                runCatching {
+                    context.contentResolver.takePersistableUriPermission(
+                        picked,
+                        Intent.FLAG_GRANT_READ_URI_PERMISSION
+                    )
+                }
+                prepareAttachment(picked)
             }
-            prepareAttachment(uri)
         }
     }
 
     val cameraLauncher = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { captured ->
         val cameraUri = pendingCameraUri?.let(Uri::parse)
-        val prepared = captured && cameraUri != null && prepareAttachment(cameraUri, "image/jpeg")
-        if (prepared) {
-            attachmentOwnedPath = pendingCameraPath
-        } else {
+        val prepared = captured && cameraUri != null && prepareAttachment(cameraUri, "image/jpeg", pendingCameraPath)
+        if (!prepared) {
             pendingCameraPath?.let { path -> runCatching { File(path).delete() } }
         }
         pendingCameraUri = null
@@ -277,7 +288,6 @@ fun ChatScreen(
     val clearBackgroundImage = {
         deleteStoredChatBackground(context, uiState.chatBackgroundUri)
         viewModel.setChatBackgroundUri(null)
-        viewModel.setChatBackgroundOpacity(com.mroldl001.mimochat.data.preferences.PreferencesManager.DEFAULT_CHAT_BACKGROUND_OPACITY)
     }
 
     // 必须在平板分支提前返回前处理
@@ -307,6 +317,7 @@ fun ChatScreen(
             streamingContent = streamingContent,
             streamingReasoning = streamingReasoning,
             isStreaming = isStreaming,
+            streamingStartTime = streamingStartTime,
             isThinkingMode = isThinkingMode,
             isWebSearchEnabled = isWebSearchEnabled,
             onThinkingModeChanged = { newValue ->
@@ -317,8 +328,9 @@ fun ChatScreen(
                 if (uiState.apiKey.isBlank()) {
                     return@AdaptiveChatLayout
                 }
-                viewModel.sendMessage(content, isThinkingMode, attachment, isWebSearchEnabled, attachmentUri, attachmentMimeType)
-                clearAttachment()
+                viewModel.sendMessage(content, isThinkingMode, displayAttachments, isWebSearchEnabled)
+                clearAttachments()
+                viewModel.clearEditState()
             },
             onStopGenerating = { viewModel.stopGenerating() },
             onCreateNewChat = { viewModel.createNewChat() },
@@ -375,13 +387,27 @@ fun ChatScreen(
             onAcceptPrereleaseUpdatesChanged = viewModel::setAcceptPrereleaseUpdates,
             onDownloadUpdate = viewModel::downloadUpdate,
             onClearUpdateState = viewModel::clearUpdateState,
-            onClearError = { viewModel.clearError() }
+            onClearError = { viewModel.clearError() },
+            onRetryMessage = { viewModel.retryMessage(it, isThinkingMode, isWebSearchEnabled) }
+            , onEditMessage = { viewModel.editMessage(it) }
+            , animatingOutIds = viewModel.animatingOutIds
+            , restoringIds = viewModel.restoringIds
+            , messageFadeMillis = viewModel.messageFadeMillis
+            , editScrollToBottomSignal = viewModel.editScrollToBottomSignal.value
+            , draftText = viewModel.editDraft.value
+            , draftToken = viewModel.editDraftToken.value
+            , isEditing = isEditing
+            , onCancelEdit = { viewModel.cancelEdit() }
             , onTakePhoto = takePhoto
             , onSelectFile = pickAttachmentFile
-            , onAttachmentCleared = { clearAttachment(deleteOwnedFile = true) }
-            , attachmentLabel = attachmentLabel
-            , attachmentUri = attachmentUri
-            , attachmentMimeType = attachmentMimeType
+            , onAttachmentRemoved = { removeAttachment(it) }
+            , onAttachmentClick = { index ->
+                onAttachmentOpen(displayAttachments, index)
+            }
+            , onAttachmentOpen = { list, index ->
+                onAttachmentOpen(list, index)
+            }
+            , attachments = displayAttachments
             , isAttachmentEnabled = supportsMultimodal
             , initialChatId = initialChatId
             , chatScrollPositions = chatScrollPositions
@@ -432,6 +458,12 @@ fun ChatScreen(
     val scope = rememberCoroutineScope()
     val listState = rememberLazyListState()
     val historyListState = rememberLazyListState()
+    // 撤回编辑后要滚到底，消息是淡入 + 异步渲染后才撑开高度，等 180ms 再一次性滚到位
+    LaunchedEffect(viewModel.editScrollToBottomSignal.value) {
+        if (viewModel.editScrollToBottomSignal.value > 0) {
+            listState.awaitStableScrollToBottom()
+        }
+    }
     var pendingSelectedChatId by remember { mutableStateOf<Long?>(null) }
     var pendingSelectJob by remember { mutableStateOf<Job?>(null) }
     LaunchedEffect(uiState.currentChat?.id, pendingSelectedChatId) {
@@ -440,6 +472,10 @@ fun ChatScreen(
         }
     }
     val focusManager = LocalFocusManager.current
+    val clearInputFocus = {
+        focusManager.clearFocus()
+        SystemInputFocus.clear()
+    }
     val nearBottomThresholdPx = with(LocalDensity.current) { 120.dp.roundToPx() }
     val scrollButtonTravelPx = with(LocalDensity.current) { 72.dp.roundToPx() }
     var pendingRestoreChatId by remember { mutableStateOf<Long?>(null) }
@@ -481,13 +517,30 @@ fun ChatScreen(
         }
     }
 
+    val haptic = LocalHapticFeedback.current
+    val wasStreaming = remember(uiState.currentChat?.id) { mutableStateOf(false) }
     LaunchedEffect(isStreaming, uiState.currentChat?.id) {
         if (!isStreaming) {
+            val wasFollowing = followStreaming
             followStreaming = false
+            if (wasStreaming.value) {
+                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+            }
+            // 流式结束的 effect 会因为 isStreaming=false 整块跳过，最后一截内容补不上滚。
+            // 这里在跟随状态下等内容稳定后一次性滚到底
+            if (wasFollowing) {
+                automaticStreamScroll = true
+                try {
+                    listState.awaitStableScrollToBottom()
+                } finally {
+                    automaticStreamScroll = false
+                }
+            }
         } else if (pendingInitialTopChatId == null && pendingRestoreChatId == null) {
             withFrameNanos { }
             followStreaming = listState.isNearBottom(nearBottomThresholdPx)
         }
+        wasStreaming.value = isStreaming
     }
 
     LaunchedEffect(listState, isStreaming, nearBottomThresholdPx) {
@@ -734,7 +787,7 @@ fun ChatScreen(
                     },
                     navigationIcon = {
                         IconButton(onClick = {
-                            focusManager.clearFocus()
+                            clearInputFocus()
                             scope.launch { drawerState.open() }
                         }) {
                             Icon(Icons.Default.Menu, contentDescription = stringResource(R.string.menu))
@@ -775,19 +828,25 @@ fun ChatScreen(
                             } else {
                                 pendingRestoreChatId = null
                                 pendingSendMessageCount = messages.size
-                                viewModel.sendMessage(it, isThinkingMode, attachment, isWebSearchEnabled, attachmentUri, attachmentMimeType)
-                                clearAttachment()
+                                viewModel.sendMessage(it, isThinkingMode, displayAttachments, isWebSearchEnabled)
+                                clearAttachments()
+                                viewModel.clearEditState()
                             }
                         },
                         onStopGenerating = { viewModel.stopGenerating() },
                         isGenerating = isStreaming
                         , onTakePhoto = takePhoto
                         , onSelectFile = pickAttachmentFile
-                        , onAttachmentCleared = { clearAttachment(deleteOwnedFile = true) }
-                        , attachmentLabel = attachmentLabel
-                        , attachmentUri = attachmentUri
-                        , attachmentMimeType = attachmentMimeType
+                        , onAttachmentRemoved = { removeAttachment(it) }
+                        , onAttachmentClick = { index ->
+                            onAttachmentOpen(displayAttachments, index)
+                        }
+                        , attachments = displayAttachments
                         , isAttachmentEnabled = supportsMultimodal
+                        , draftText = viewModel.editDraft.value
+                        , draftToken = viewModel.editDraftToken.value
+                        , isEditing = isEditing
+                        , onCancelEdit = { viewModel.cancelEdit() }
                     )
                 }
             }
@@ -799,7 +858,7 @@ fun ChatScreen(
                     .clickable(
                         indication = null,
                         interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
-                    ) { focusManager.clearFocus() }
+                    ) { clearInputFocus() }
             ) {
                 uiState.chatBackgroundUri?.let { backgroundUri ->
                     coil.compose.AsyncImage(
@@ -816,6 +875,8 @@ fun ChatScreen(
                         modifier = Modifier.align(Alignment.Center)
                     )
                 } else {
+                    var listReady by remember { mutableStateOf(false) }
+                    LaunchedEffect(messages.isNotEmpty()) { if (messages.isNotEmpty()) listReady = true }
                     LazyColumn(
                         state = listState,
                         modifier = Modifier.fillMaxSize(),
@@ -826,14 +887,31 @@ fun ChatScreen(
                             key = { message -> message.id },
                             contentType = { message -> message.role }
                         ) { message ->
-                            MessageBubble(message = message)
+                            MessageVisibility(
+                                messageId = message.id,
+                                animatingOutIds = viewModel.animatingOutIds,
+                                restoringIds = viewModel.restoringIds,
+                                messageFadeMillis = viewModel.messageFadeMillis,
+                                listReady = listReady
+                            ) {
+                                MessageBubble(
+                                    message = message,
+                                    isLatest = message.id == messages.lastOrNull()?.id,
+                                    onRetry = { viewModel.retryMessage(it, isThinkingMode, isWebSearchEnabled) },
+                                    onEdit = { viewModel.editMessage(it) },
+                                    onAttachmentClick = { index ->
+                                        onAttachmentOpen(message.attachments, index)
+                                    }
+                                )
+                            }
                         }
                         if (isStreaming) {
                             item {
                                 StreamingMessageBubble(
-                                content = streamingContent,
-                                reasoningContent = streamingReasoning
-                            )
+                                    content = streamingContent,
+                                    reasoningContent = streamingReasoning,
+                                    startTime = streamingStartTime
+                                )
                             }
                         }
                     }
@@ -1022,40 +1100,27 @@ fun ChatScreen(
                 )
             },
             text = {
-                Text(
-                    text = stringResource(R.string.confirm_delete_message),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = {
+                HoldDeleteLayout(
+                    message = stringResource(R.string.confirm_delete_message),
+                    onConfirm = {
                         chatToDelete?.let { viewModel.deleteChat(it) }
                         showDeleteConfirmDialog = false
                         chatToDelete = null
-                    },
-                    colors = ButtonDefaults.textButtonColors(
-                        contentColor = MaterialTheme.colorScheme.primary
-                    )
-                ) {
-                    Text(stringResource(R.string.confirm))
-                }
+                    }
+                )
             },
+            confirmButton = {},
             dismissButton = {
                 TextButton(
-                    onClick = {
-                        showDeleteConfirmDialog = false
-                        chatToDelete = null
-                    },
+                    onClick = { showDeleteConfirmDialog = false },
                     colors = ButtonDefaults.textButtonColors(
-                        contentColor = MaterialTheme.colorScheme.onSurfaceVariant
+                        contentColor = MaterialTheme.colorScheme.primary
                     )
                 ) {
                     Text(stringResource(R.string.common_cancel))
                 }
             },
-            containerColor = MaterialTheme.colorScheme.background,
+            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
             titleContentColor = MaterialTheme.colorScheme.onSurface,
             textContentColor = MaterialTheme.colorScheme.onSurfaceVariant
         )

@@ -1,13 +1,22 @@
 package com.mroldl001.mimochat.ui.chat.components
+import android.text.InputType
+import android.view.Gravity
 import com.mroldl001.mimochat.R
+import com.mroldl001.mimochat.domain.model.MessageAttachment
 import androidx.compose.ui.res.stringResource
 
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandHorizontally
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkHorizontally
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -32,9 +41,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Outline
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.TransformOrigin
-import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Density
@@ -43,9 +52,11 @@ import androidx.compose.ui.unit.IntRect
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupPositionProvider
 import androidx.compose.ui.window.PopupProperties
+import java.lang.ref.WeakReference
 
 @Composable
 fun InputBar(
@@ -54,11 +65,14 @@ fun InputBar(
     isGenerating: Boolean = false,
     onTakePhoto: () -> Unit = {},
     onSelectFile: () -> Unit = {},
-    onAttachmentCleared: () -> Unit = {},
-    attachmentUri: String? = null,
-    attachmentMimeType: String? = null,
-    attachmentLabel: String? = null,
+    onAttachmentRemoved: (Int) -> Unit = {},
+    onAttachmentClick: ((Int) -> Unit)? = null,
+    attachments: List<MessageAttachment> = emptyList(),
     isAttachmentEnabled: Boolean = true,
+    draftText: String = "",
+    draftToken: Int = 0,
+    isEditing: Boolean = false,
+    onCancelEdit: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     var messageText by remember { mutableStateOf("") }
@@ -67,7 +81,7 @@ fun InputBar(
     val attachmentMenuProgress = remember { Animatable(0f) }
     val focusManager = LocalFocusManager.current
     val density = LocalDensity.current
-    val canSend = (messageText.isNotBlank() || attachmentUri != null) && !isGenerating
+    val canSend = (messageText.isNotBlank() || attachments.isNotEmpty()) && !isGenerating
     val menuGapPx = with(density) { 8.dp.roundToPx() }
     val menuMarginPx = with(density) { 8.dp.roundToPx() }
     val menuHeightPx = with(density) { 128.dp.roundToPx() }
@@ -98,6 +112,12 @@ fun InputBar(
         }
     }
 
+    LaunchedEffect(draftToken) {
+        if (draftToken != 0) {
+            messageText = draftText
+        }
+    }
+
     LaunchedEffect(attachmentMenuExpanded) {
         if (attachmentMenuExpanded) {
             attachmentMenuProgress.animateTo(
@@ -124,14 +144,11 @@ fun InputBar(
         color = MaterialTheme.colorScheme.surface
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
-            if (attachmentUri != null) {
-                AttachmentPreview(
-                    uri = attachmentUri,
-                    mimeType = attachmentMimeType,
-                    label = attachmentLabel,
-                    compact = attachmentMimeType?.startsWith("image/") == true ||
-                        attachmentMimeType?.startsWith("video/") == true,
-                    onClear = onAttachmentCleared,
+            if (attachments.isNotEmpty()) {
+                AttachmentPreviewList(
+                    attachments = attachments,
+                    onClear = onAttachmentRemoved,
+                    onClick = onAttachmentClick,
                     modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp)
                 )
             }
@@ -139,8 +156,7 @@ fun InputBar(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp, vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                verticalAlignment = Alignment.CenterVertically
             ) {
             val attachmentActive = !isGenerating && isAttachmentEnabled
             val attachmentPrimary = MaterialTheme.colorScheme.primary
@@ -160,6 +176,7 @@ fun InputBar(
                 FilledIconButton(
                     onClick = {
                         focusManager.clearFocus()
+                        SystemInputFocus.clear()
                         if (attachmentMenuExpanded) {
                             attachmentMenuExpanded = false
                         } else {
@@ -211,16 +228,41 @@ fun InputBar(
                     }
                 }
             }
-            OutlinedTextField(
+            Spacer(Modifier.width(8.dp))
+            AnimatedVisibility(
+                visible = isEditing,
+                enter = fadeIn(tween(200)) + expandHorizontally(tween(200), expandFrom = Alignment.Start),
+                exit = fadeOut(tween(200)) + shrinkHorizontally(tween(200), shrinkTowards = Alignment.Start)
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    FilledIconButton(
+                        onClick = onCancelEdit,
+                        colors = IconButtonDefaults.filledIconButtonColors(
+                            containerColor = attachmentContainerColor,
+                            contentColor = attachmentContentColor,
+                            disabledContainerColor = attachmentContainerColor,
+                            disabledContentColor = attachmentContentColor
+                        ),
+                        modifier = Modifier
+                            .size(48.dp)
+                            .alpha(attachmentAlpha)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.Undo,
+                            contentDescription = stringResource(R.string.cancel_edit)
+                        )
+                    }
+                    Spacer(Modifier.width(8.dp))
+                }
+            }
+            SystemTextField(
                 value = messageText,
                 onValueChange = { messageText = it },
-                modifier = Modifier.weight(1f),
-                placeholder = { Text(stringResource(R.string.input_message_hint)) },
                 enabled = !isGenerating,
-                maxLines = 4,
-                shape = RoundedCornerShape(24.dp)
+                modifier = Modifier.weight(1f)
             )
 
+            Spacer(Modifier.width(8.dp))
             if (isGenerating) {
                 FilledIconButton(
                     onClick = onStopGenerating,
@@ -280,6 +322,109 @@ fun InputBar(
             }
             }
         }
+    }
+}
+
+// AndroidView 里的 EditText 焦点不在 Compose 焦点树里，focusManager.clearFocus() 管不到它，
+// 点击聊天区收起键盘时需要手动清掉
+internal object SystemInputFocus {
+    private var target: WeakReference<android.widget.EditText>? = null
+
+    fun attach(view: android.widget.EditText) {
+        target = WeakReference(view)
+    }
+
+    fun detach(view: android.widget.EditText) {
+        if (target?.get() === view) target = null
+    }
+
+    fun clear() {
+        target?.get()?.clearFocus()
+    }
+}
+
+@Composable
+private fun SystemTextField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    enabled: Boolean,
+    modifier: Modifier = Modifier
+) {
+    // 用真实 EditText，长按弹出的选择菜单才是系统原生那套（与消息气泡内的 TextView 一致）
+    val textColor = MaterialTheme.colorScheme.onSurface
+    val hintColor = MaterialTheme.colorScheme.onSurfaceVariant
+    val primary = MaterialTheme.colorScheme.primary
+    val outline = MaterialTheme.colorScheme.outline
+    val textSize = MaterialTheme.typography.bodyLarge.fontSize.value
+    val currentOnValueChange by rememberUpdatedState(onValueChange)
+    var focused by remember { mutableStateOf(false) }
+    var hasText by remember { mutableStateOf(value.isNotEmpty()) }
+    val shape = RoundedCornerShape(24.dp)
+
+    Box(
+        modifier = modifier
+            .heightIn(min = 56.dp)
+            .clip(shape)
+            .background(MaterialTheme.colorScheme.surface)
+            .border(
+                width = if (focused) 2.dp else 1.dp,
+                color = if (focused) primary else outline,
+                shape = shape
+            )
+            .padding(start = 16.dp, top = 12.dp, end = 16.dp, bottom = 12.dp),
+        // EditText 高度自适应，单行时撑不满 56dp，不居中会偏上
+        contentAlignment = Alignment.CenterStart
+    ) {
+        if (!hasText) {
+            Text(
+                text = stringResource(R.string.input_message_hint),
+                style = MaterialTheme.typography.bodyLarge,
+                color = hintColor
+            )
+        }
+        AndroidView(
+            factory = { context ->
+                android.widget.EditText(context).apply {
+                    setBackgroundColor(android.graphics.Color.TRANSPARENT)
+                    setPadding(0, 0, 0, 0)
+                    includeFontPadding = false
+                    gravity = Gravity.TOP or Gravity.START
+                    setLineSpacing(0f, 1.1f)
+                    inputType = InputType.TYPE_CLASS_TEXT or
+                        InputType.TYPE_TEXT_FLAG_CAP_SENTENCES or
+                        InputType.TYPE_TEXT_FLAG_MULTI_LINE
+                    maxLines = 4
+                    setOnFocusChangeListener { _, hasFocus ->
+                        focused = hasFocus
+                    }
+                    addTextChangedListener(object : android.text.TextWatcher {
+                        override fun beforeTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) = Unit
+                        override fun onTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) = Unit
+                        override fun afterTextChanged(s: android.text.Editable?) {
+                            val text = s?.toString().orEmpty()
+                            hasText = text.isNotEmpty()
+                            currentOnValueChange(text)
+                        }
+                    })
+                    SystemInputFocus.attach(this)
+                }
+            },
+            update = { editText ->
+                if (editText.text.toString() != value) {
+                    val selection = editText.selectionStart.coerceAtLeast(0)
+                    editText.setText(value)
+                    editText.setSelection(selection.coerceIn(0, value.length))
+                }
+                hasText = value.isNotEmpty()
+                editText.isEnabled = enabled
+                editText.setTextColor((if (enabled) textColor else hintColor).toArgb())
+                editText.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, textSize)
+            },
+            onRelease = { editText ->
+                SystemInputFocus.detach(editText)
+            },
+            modifier = Modifier.fillMaxWidth()
+        )
     }
 }
 
@@ -406,21 +551,19 @@ private fun AttachmentMenuItem(
             )
         },
         leadingIcon = {
-            Surface(
-                modifier = Modifier.size(40.dp),
-                shape = CircleShape,
-                color = MaterialTheme.colorScheme.primary
-                    .copy(alpha = 0.12f)
-                    .compositeOver(MaterialTheme.colorScheme.surfaceContainerHigh)
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)),
+                contentAlignment = Alignment.Center
             ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Icon(
-                        imageVector = icon,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(22.dp)
-                    )
-                }
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(22.dp)
+                )
             }
         },
         onClick = onClick,

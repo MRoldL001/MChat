@@ -71,7 +71,9 @@ internal fun SettingsContainerDialog(
     // 交给系统处理居中、dim 和超高滚动，自定义全屏 Dialog 会不居中
     AlertDialog(
         onDismissRequest = onDismissRequest,
-        modifier = Modifier.settingsDialogWidth().widthIn(max = maxWidth),
+        modifier = Modifier
+            .settingsDialogWidth()
+            .widthIn(max = maxWidth),
         containerColor = containerColor,
         shape = RoundedCornerShape(28.dp),
         icon = icon,

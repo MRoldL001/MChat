@@ -6,7 +6,11 @@ import android.net.Uri
 import android.text.util.Linkify
 import android.widget.Toast
 import androidx.compose.ui.res.stringResource
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.core.*
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -14,6 +18,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -37,6 +43,8 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -312,8 +320,8 @@ fun MixedMarkdownLatex(
             delay(80)
         }
     }
-    val segments by remember(renderedText, isStreaming) {
-        derivedStateOf { splitContent(renderedText, allowUnclosedCodeFence = isStreaming) }
+    val segments by remember(renderedText) {
+        derivedStateOf { splitContent(normalizeHtmlToMarkdown(renderedText), allowUnclosedCodeFence = true) }
     }
 
     Column(
@@ -375,9 +383,63 @@ fun MixedMarkdownLatex(
                         onWidthMeasured = onLatexWidthMeasured
                     )
                 }
+                ContentType.QUOTE -> {
+                    QuoteBlockView(content = segment.content, textColor = textColor)
+                }
+                ContentType.HR -> {
+                    HrView()
+                }
                 else -> {}
             }
         }
+    }
+}
+
+@Composable
+private fun QuoteBlockView(
+    content: String,
+    textColor: Color,
+    modifier: Modifier = Modifier
+) {
+    val quoteBar = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
+    val quoteBackground = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(IntrinsicSize.Min)
+            .padding(vertical = 2.dp)
+            .background(quoteBackground, RoundedCornerShape(8.dp))
+            .padding(vertical = 6.dp, horizontal = 12.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .width(4.dp)
+                .fillMaxHeight()
+                .clip(RoundedCornerShape(2.dp))
+                .background(quoteBar)
+        )
+        Spacer(modifier = Modifier.width(12.dp))
+        Box(modifier = Modifier.weight(1f)) {
+            MixedMarkdownLatex(text = content, textColor = textColor)
+        }
+    }
+}
+
+@Composable
+private fun HrView() {
+    val hrColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(4.dp)
+                .clip(RoundedCornerShape(2.dp))
+                .background(hrColor)
+        )
     }
 }
 
@@ -484,11 +546,14 @@ private val winkFrames = listOf(
 @Composable
 fun StreamingIndicator(
     modifier: Modifier = Modifier,
-    startTime: Long? = null
+    startTime: Long = 0L
 ) {
     val primary = MaterialTheme.colorScheme.primary
-    val softer = lerp(primary, Color.White, 0.3f)
-    val actualStart = startTime ?: remember { System.currentTimeMillis() }
+    val softer = lerp(primary, Color.White, 0.55f)
+    val beamStyle = rememberBeamingSpanStyle(softer, sweepDurationMillis = 1500, withGlow = false)
+    val actualStart = remember(startTime) {
+        if (startTime > 0L) startTime else System.currentTimeMillis()
+    }
     var elapsedText by remember(actualStart) {
         mutableStateOf(formatElapsedTime(System.currentTimeMillis() - actualStart))
     }
@@ -549,19 +614,136 @@ fun StreamingIndicator(
                 .size(22.dp)
                 .scale(scaleX.value, scaleY.value)
         )
-        Spacer(modifier = Modifier.width(8.dp))
+        Spacer(modifier = Modifier.width(2.dp))
         Text(
-            text = stringResource(R.string.ai_replying),
-            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
-            color = softer
+            text = buildAnnotatedString {
+                withStyle(
+                    style = beamStyle.copy(
+                        fontWeight = FontWeight.Bold,
+                        fontSize = MaterialTheme.typography.bodyMedium.fontSize
+                    )
+                ) {
+                    append(stringResource(R.string.ai_replying))
+                }
+            }
         )
-        Spacer(modifier = Modifier.width(8.dp))
+        Spacer(modifier = Modifier.width(5.dp))
         Text(
             text = elapsedText,
             style = MaterialTheme.typography.bodySmall,
             color = softer
         )
     }
+}
+
+@Composable
+internal fun MessageVisibility(
+    messageId: Long,
+    animatingOutIds: List<Long>,
+    restoringIds: List<Long>,
+    messageFadeMillis: Int,
+    listReady: Boolean,
+    content: @Composable () -> Unit
+) {
+    // 撤回编辑时消息是从列表里重新插入的，AnimatedVisibility 首次组合不会播 enter，
+    // 所以先以 visible=false 入场，再在下一帧放开让 fadeIn 跑起来
+    var entering by remember(messageId) { mutableStateOf(messageId !in restoringIds) }
+    LaunchedEffect(messageId, entering) {
+        if (!entering) {
+            withFrameNanos { }
+            entering = true
+        }
+    }
+    AnimatedVisibility(
+        visible = entering && messageId !in animatingOutIds,
+        enter = if (listReady) fadeIn(tween(messageFadeMillis)) else EnterTransition.None,
+        exit = fadeOut(tween(messageFadeMillis))
+    ) {
+        content()
+    }
+}
+
+@Composable
+internal fun BouncyWinkIcon(
+    modifier: Modifier = Modifier,
+    contentDescription: String? = null,
+    tint: Color? = null,
+    onClick: (() -> Unit)? = null
+) {
+    var frameIndex by remember { mutableStateOf(0) }
+    var clickSquash by remember { mutableStateOf(0) }
+    val scaleX = remember { Animatable(1f) }
+    val scaleY = remember { Animatable(1f) }
+    val squashX = remember { Animatable(1f) }
+    val squashY = remember { Animatable(1f) }
+
+    LaunchedEffect(Unit) {
+        val idle = spring<Float>(dampingRatio = 0.45f, stiffness = 110f)
+        val bounce = spring<Float>(dampingRatio = 0.35f, stiffness = 320f)
+        while (true) {
+            scaleY.animateTo(1.05f, idle)
+            scaleY.animateTo(1f, idle)
+            delay(1100)
+            listOf(
+                async { scaleY.animateTo(0.86f, bounce) },
+                async { scaleX.animateTo(1.10f, bounce) },
+                async {
+                    for (i in 1..4) {
+                        frameIndex = i
+                        delay(45)
+                    }
+                    delay(140)
+                }
+            ).awaitAll()
+            listOf(
+                async { scaleY.animateTo(1f, bounce) },
+                async { scaleX.animateTo(1f, bounce) },
+                async {
+                    for (i in 3 downTo 1) {
+                        frameIndex = i
+                        delay(45)
+                    }
+                    frameIndex = 0
+                }
+            ).awaitAll()
+            delay(900)
+        }
+    }
+
+    LaunchedEffect(clickSquash) {
+        if (clickSquash == 0) return@LaunchedEffect
+        val b = spring<Float>(dampingRatio = 0.5f, stiffness = 800f)
+        listOf(
+            async { squashY.animateTo(0.7f, b) },
+            async { squashX.animateTo(1.25f, b) }
+        ).awaitAll()
+        listOf(
+            async { squashY.animateTo(1f, b) },
+            async { squashX.animateTo(1f, b) }
+        ).awaitAll()
+    }
+
+    Image(
+        painter = painterResource(winkFrames[frameIndex]),
+        contentDescription = contentDescription,
+        colorFilter = if (tint != null) ColorFilter.tint(tint) else null,
+        modifier = modifier
+            .then(
+                if (onClick != null) {
+                    Modifier.pointerInput(onClick) {
+                        detectTapGestures(
+                            onPress = {
+                                onClick.invoke()
+                                clickSquash++
+                            }
+                        )
+                    }
+                } else {
+                    Modifier
+                }
+            )
+            .scale(scaleX.value * squashX.value, scaleY.value * squashY.value)
+    )
 }
 
 private fun formatElapsedTime(elapsedMillis: Long): String {
