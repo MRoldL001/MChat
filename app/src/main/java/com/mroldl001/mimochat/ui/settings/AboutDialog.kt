@@ -2,6 +2,7 @@ package com.mroldl001.mimochat.ui.settings
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -160,11 +161,16 @@ private fun AboutInfoRow(
     description: String,
     onClick: (() -> Unit)? = null
 ) {
+    val rowInteractionSource = remember { MutableInteractionSource() }
     val rowModifier = if (onClick != null) {
         Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(14.dp))
-            .clickable(onClick = onClick)
+            .clickable(
+                interactionSource = rowInteractionSource,
+                indication = null,
+                onClick = onClick
+            )
     } else {
         Modifier.fillMaxWidth()
     }

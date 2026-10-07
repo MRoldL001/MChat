@@ -3,6 +3,7 @@ import com.mroldl001.mimochat.R
 
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -70,10 +71,15 @@ internal fun ExperimentalFeaturesScreen(
                     checked = uiState.acceptPrereleaseUpdates,
                     onCheckedChange = viewModel::setAcceptPrereleaseUpdates
                 )
+                val usageInteractionSource = remember { MutableInteractionSource() }
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clickable { viewModel.setShowUsage(!uiState.showUsage) }
+                        .clickable(
+                            interactionSource = usageInteractionSource,
+                            indication = null,
+                            onClick = { viewModel.setShowUsage(!uiState.showUsage) }
+                        )
                         .padding(vertical = 12.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
