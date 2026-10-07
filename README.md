@@ -22,7 +22,10 @@ MChat - 一款为 MiMo 大模型优化，专注于原生 Android 体验的 AI �
 ![Compose BOM](https://img.shields.io/badge/Compose%20BOM-2024.12.01-4285F4?style=flat-square\&logo=jetpackcompose\&logoColor=white)
 ![Target API](https://img.shields.io/badge/Target%20API-36%20%28Android%2016%29-3DDC84?style=flat-square\&logo=android\&logoColor=white)
 
-<img src="MChat.gif" align="center" title="" alt="" width="100">
+<div align="center">
+  <img src="MChat.gif" width="100">
+</div>
+
 ---
 
 ## ✨ 功能
