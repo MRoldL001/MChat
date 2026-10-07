@@ -6,6 +6,8 @@
 
 MChat - 一款为 MiMo 大模型优化，专注于原生 Android 体验的 AI 聊天客户端
 
+![GitHub stars](https://img.shields.io/github/stars/MRoldL001/MChat?style=flat-square&label=Stars)
+![GitHub Release Downloads](https://img.shields.io/github/downloads/MRoldL001/MChat/total?style=flat-square&label=Downloads)
 ![MiMo](https://img.shields.io/badge/MiMo-console-FF7E00?style=for-the-badge\&logo=xiaomi\&logoColor=white)
 ![README](https://img.shields.io/badge/MiMo-README-FF7E00?style=for-the-badge\&logo=xiaomi\&logoColor=white)
 
@@ -26,6 +28,7 @@ MChat - 一款为 MiMo 大模型优化，专注于原生 Android 体验的 AI �
 
 <div align="center">
   <img src="MChat.gif" width="100">
+  <br>
   <a href="https://git.io/typing-svg"><img src="https://readme-typing-svg.demolab.com?font=Basic&size=30&duration=1&pause=1&color=000000&center=true&repeat=false&width=435&lines=V2.3.x+Trainspotting" alt="Typing SVG" /></a>
 </div>
 
