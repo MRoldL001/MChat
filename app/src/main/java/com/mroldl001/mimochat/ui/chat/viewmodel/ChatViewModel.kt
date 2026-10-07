@@ -145,6 +145,7 @@ data class ChatUiState(
     val presencePenalty: Float = PreferencesManager.DEFAULT_PRESENCE_PENALTY,
     val acceptPrereleaseUpdates: Boolean = false,
     val updateState: UpdateUiState = UpdateUiState.Idle,
+    val predictiveBack: Boolean = true,
     // API Key 只是兜底
     val showUsage: Boolean = false,
     val usageLoading: Boolean = false,
@@ -185,6 +186,7 @@ class ChatViewModel @Inject constructor(
             presencePenalty = preferencesManager.getPresencePenalty(),
             acceptPrereleaseUpdates = preferencesManager.getAcceptPrereleaseUpdates(),
             showUsage = preferencesManager.getShowUsage(),
+            predictiveBack = preferencesManager.getPredictiveBack(),
             usageLoggedIn = preferencesManager.getUsageCookie().isNotBlank()
         )
     )
@@ -310,6 +312,11 @@ class ChatViewModel @Inject constructor(
         _uiState.update { it.copy(showUsage = enabled) }
         preferencesManager.saveShowUsage(enabled)
         if (enabled) refreshUsage()
+    }
+
+    fun setPredictiveBack(enabled: Boolean) {
+        preferencesManager.savePredictiveBack(enabled)
+        _uiState.update { it.copy(predictiveBack = enabled) }
     }
 
     fun saveUsageCookie(cookie: String) {

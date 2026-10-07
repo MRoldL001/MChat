@@ -2,6 +2,7 @@ package com.mroldl001.mimochat.data.preferences
 
 import android.content.Context
 import android.content.SharedPreferences
+import android.os.Build
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
 import com.mroldl001.mimochat.ui.theme.CodeBlockColorMode
@@ -34,6 +35,7 @@ class PreferencesManager @Inject constructor(
         private const val KEY_NOTIFICATION_PERMISSION_REQUESTED = "notification_permission_requested"
         private const val KEY_ACCEPT_PRERELEASE_UPDATES = "accept_prerelease_updates"
         private const val KEY_SHOW_USAGE = "show_usage"
+        private const val KEY_PREDICTIVE_BACK = "predictive_back"
         // 敏感，走加密
         private const val KEY_USAGE_COOKIE = "usage_cookie"
         private const val KEY_TEMPERATURE = "temperature"
@@ -238,6 +240,23 @@ class PreferencesManager @Inject constructor(
 
     fun saveShowUsage(enabled: Boolean) {
         prefs.edit().putBoolean(KEY_SHOW_USAGE, enabled).apply()
+    }
+
+    fun getPredictiveBack(): Boolean {
+        val default = Build.VERSION.SDK_INT >= 34
+        return prefs.getBoolean(KEY_PREDICTIVE_BACK, default)
+    }
+
+    fun savePredictiveBack(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_PREDICTIVE_BACK, enabled).apply()
+    }
+
+    fun registerPredictiveBackListener(callback: (Boolean) -> Unit): () -> Unit {
+        val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+            if (key == KEY_PREDICTIVE_BACK) callback(getPredictiveBack())
+        }
+        prefs.registerOnSharedPreferenceChangeListener(listener)
+        return { prefs.unregisterOnSharedPreferenceChangeListener(listener) }
     }
 
     // 用量接口只认这个

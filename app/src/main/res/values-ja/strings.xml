@@ -13,7 +13,7 @@
   <string name="theme_color">テーマカラー</string>
   <string name="theme_default">墨白素箋</string>
   <string name="theme_custom">カスタムカラー</string>
-  <string name="theme_auto_color">モネカラー</string>
+  <string name="theme_auto_color">ダイナミックカラー</string>
   <string name="theme_miku_green">初音の調べ</string>
   <string name="theme_teto_red">吉原ラメント</string>
   <string name="theme_miyou_orange">米柚の微光</string>
@@ -63,6 +63,7 @@
   <string name="language_zh_tw">繁体字中国語</string>
   <string name="language_en">英語</string>
   <string name="language_ja">日本語</string>
+  <string name="language_ai_translated">（AI 翻訳）</string>
   <string name="custom_system_prompt">カスタムシステムプロンプト</string>
   <string name="custom_system_prompt_desc">パーソナライズしたシステムプロンプトを設定</string>
   <string name="parameter_settings">パラメータ設定</string>
@@ -85,6 +86,8 @@
   <string name="check_update_desc">GitHub Releases から最新版を取得</string>
   <string name="prerelease_update_title">プレリリース更新を受け入れる</string>
   <string name="prerelease_update_desc">プレリリース版は不安定な場合がありますが、新機能をいち早く体験できます</string>
+  <string name="predictive_back_title">予測バック</string>
+  <string name="predictive_back_desc">Android 14 以降で利用可能。戻る際に前の画面をプレビューします</string>
 
   <!-- 更新ダイアログ -->
   <string name="update_release_notes">リリースノート</string>

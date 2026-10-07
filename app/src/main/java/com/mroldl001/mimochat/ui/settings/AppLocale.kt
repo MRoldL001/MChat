@@ -54,10 +54,10 @@ object AppLocale {
     @Composable
     fun label(code: String): String = when (code) {
         SYSTEM -> stringResource(R.string.language_system)
-        ZH_CN -> stringResource(R.string.language_zh_cn)
-        ZH_TW -> stringResource(R.string.language_zh_tw)
-        EN -> stringResource(R.string.language_en)
-        JA -> stringResource(R.string.language_ja)
+        ZH_CN -> "简体中文"
+        ZH_TW -> "繁體中文"
+        EN -> "English"
+        JA -> "日本語"
         else -> stringResource(R.string.language_system)
     }
 }

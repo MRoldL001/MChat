@@ -51,6 +51,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.activity.compose.BackHandler
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -211,6 +212,10 @@ fun MiMoLoginScreen(
     onCookieObtained: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    BackHandler(enabled = true) {
+        onNavigateBack()
+    }
+
     val currentOnCookieObtained by rememberUpdatedState(onCookieObtained)
 
     var isLoading by remember { mutableStateOf(true) }

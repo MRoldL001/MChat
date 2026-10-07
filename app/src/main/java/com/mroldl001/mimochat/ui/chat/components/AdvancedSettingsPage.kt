@@ -113,6 +113,40 @@ internal fun SettingAction(icon: ImageVector, title: String, description: String
 }
 
 @Composable
+internal fun SettingSwitchRow(
+    icon: ImageVector,
+    title: String,
+    description: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        SettingPageIcon(icon)
+        Spacer(Modifier.width(16.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                title,
+                style = MaterialTheme.typography.titleMedium,
+                color = animateThemeColor(MaterialTheme.colorScheme.onSurface, "setting_switch_title")
+            )
+            Text(
+                description,
+                style = MaterialTheme.typography.bodySmall,
+                color = animateThemeColor(MaterialTheme.colorScheme.onSurfaceVariant, "setting_switch_desc")
+            )
+        }
+        Spacer(Modifier.width(12.dp))
+        Switch(checked = checked, onCheckedChange = onCheckedChange)
+    }
+}
+
+@Composable
 internal fun SettingPageIcon(icon: ImageVector) {
     val iconColor by animateColorAsState(
         targetValue = MaterialTheme.colorScheme.primary,

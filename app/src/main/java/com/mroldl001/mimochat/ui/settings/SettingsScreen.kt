@@ -139,7 +139,9 @@ fun SettingsScreen(
         isExpandedScreen = isExpandedScreen,
         scrollState = scrollState,
         appLanguage = appLanguage,
-        onLanguageSelected = onLanguageSelected
+        onLanguageSelected = onLanguageSelected,
+        predictiveBack = uiState.predictiveBack,
+        onPredictiveBackChanged = viewModel::setPredictiveBack
     )
 
     if (showApiKey) {
@@ -291,7 +293,9 @@ private fun SettingsPageContent(
     isExpandedScreen: Boolean,
     scrollState: ScrollState,
     appLanguage: String,
-    onLanguageSelected: (String) -> Unit
+    onLanguageSelected: (String) -> Unit,
+    predictiveBack: Boolean,
+    onPredictiveBackChanged: (Boolean) -> Unit
 ) {
     val pageColor by animateColorAsState(
         targetValue = MaterialTheme.colorScheme.background,
@@ -573,6 +577,16 @@ private fun SettingsPageContent(
                 )
                 SettingAction(Icons.Outlined.Chat, stringResource(R.string.custom_system_prompt), stringResource(R.string.custom_system_prompt_desc), onCustomPromptClick)
                 SettingAction(Icons.Outlined.Tune, stringResource(R.string.parameter_settings), stringResource(R.string.parameter_settings_desc), onParameterSettingsClick)
+
+                if (android.os.Build.VERSION.SDK_INT >= 34) {
+                    SettingSwitchRow(
+                        Icons.AutoMirrored.Outlined.ArrowBack,
+                        stringResource(R.string.predictive_back_title),
+                        stringResource(R.string.predictive_back_desc),
+                        predictiveBack,
+                        onPredictiveBackChanged
+                    )
+                }
 
                 SettingsGroupTitle(stringResource(R.string.group_other))
 

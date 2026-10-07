@@ -7,6 +7,7 @@ import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import android.util.DisplayMetrics
+import android.window.OnBackInvokedCallback
 import android.view.WindowManager
 import android.content.pm.ActivityInfo
 import androidx.activity.ComponentActivity
@@ -24,6 +25,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.setValue
 import kotlinx.coroutines.launch
 import androidx.compose.ui.Modifier
@@ -137,6 +139,21 @@ private fun MainContent(
 
     val activity = LocalContext.current as? ComponentActivity
     val scope = rememberCoroutineScope()
+
+    DisposableEffect(activity) {
+        val apply = {
+            if (Build.VERSION.SDK_INT >= 34 && activity != null) {
+                applyPredictiveBack(activity, viewModel.preferencesManager.getPredictiveBack())
+            }
+        }
+        apply()
+        val unregister = viewModel.preferencesManager.registerPredictiveBackListener { enabled ->
+            if (Build.VERSION.SDK_INT >= 34 && activity != null) {
+                applyPredictiveBack(activity, enabled)
+            }
+        }
+        onDispose { unregister() }
+    }
     val langSwitchProgress = remember { Animatable(0f) }
 
     BackHandler(enabled = isDrawerOpen) {
@@ -201,6 +218,30 @@ private fun MainContent(
                 }
             }
         }
+    }
+}
+
+private var predictiveBackOverrideCallback: OnBackInvokedCallback? = null
+
+private fun applyPredictiveBack(activity: ComponentActivity, enabled: Boolean) {
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
+        predictiveBackOverrideCallback = null
+        return
+    }
+    val dispatcher = activity.onBackInvokedDispatcher
+    predictiveBackOverrideCallback?.let { cb ->
+        runCatching { dispatcher.unregisterOnBackInvokedCallback(cb) }
+        predictiveBackOverrideCallback = null
+    }
+    if (!enabled) {
+        val cb = OnBackInvokedCallback {
+            activity.onBackPressedDispatcher.onBackPressed()
+        }
+        dispatcher.registerOnBackInvokedCallback(
+            android.window.OnBackInvokedDispatcher.PRIORITY_DEFAULT,
+            cb
+        )
+        predictiveBackOverrideCallback = cb
     }
 }
 

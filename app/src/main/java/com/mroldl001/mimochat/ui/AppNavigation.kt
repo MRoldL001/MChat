@@ -1,27 +1,20 @@
 package com.mroldl001.mimochat.ui
 
-import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedContentTransitionScope
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideOutHorizontally
-import androidx.compose.animation.togetherWith
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
+import androidx.navigation.NavBackStackEntry
+import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.rememberScrollState
-import androidx.activity.compose.BackHandler
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.MutableState
+import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
-import androidx.compose.runtime.snapshotFlow
-import androidx.compose.runtime.saveable.Saver
 import androidx.compose.ui.Modifier
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
 import com.mroldl001.mimochat.data.preferences.PreferencesManager
 import com.mroldl001.mimochat.domain.model.MessageAttachment
 import com.mroldl001.mimochat.ui.chat.ChatScreen
@@ -32,10 +25,10 @@ import com.mroldl001.mimochat.ui.settings.DisclaimerScreen
 import com.mroldl001.mimochat.ui.settings.EasterEggHistoryScreen
 import com.mroldl001.mimochat.ui.settings.ExperimentalFeaturesScreen
 import com.mroldl001.mimochat.ui.settings.SettingsScreen
+import com.mroldl001.mimochat.ui.settings.AppLocale
 import com.mroldl001.mimochat.ui.theme.CodeBlockColorMode
 import com.mroldl001.mimochat.ui.theme.ThemeColor
 import com.mroldl001.mimochat.ui.theme.ThemeMode
-import com.mroldl001.mimochat.ui.settings.AppLocale
 
 sealed class Screen {
     object Chat : Screen()
@@ -46,33 +39,6 @@ sealed class Screen {
     object Disclaimer : Screen()
     data class AttachmentViewer(val attachments: List<MessageAttachment>, val index: Int) : Screen()
 }
-
-/** recreate 后还原 */
-private val ScreenSaver = Saver<Screen, String>(
-    save = { screen ->
-        when (screen) {
-            is Screen.Chat -> "chat"
-            is Screen.Search -> "search"
-            is Screen.Settings -> "settings"
-            is Screen.ExperimentalFeatures -> "exp"
-            is Screen.EasterEggHistory -> "egg"
-            is Screen.Disclaimer -> "disclaimer"
-            is Screen.AttachmentViewer -> "attachment"
-        }
-    },
-    restore = { name ->
-        when (name) {
-            "chat" -> Screen.Chat
-            "search" -> Screen.Search
-            "settings" -> Screen.Settings
-            "exp" -> Screen.ExperimentalFeatures
-            "egg" -> Screen.EasterEggHistory
-            "disclaimer" -> Screen.Disclaimer
-            // 附件数据不参与 restore，回退到聊天页
-            else -> Screen.Chat
-        }
-    }
-)
 
 @Composable
 fun AppNavigation(
@@ -87,8 +53,7 @@ fun AppNavigation(
     onNavigateFromDrawer: (Boolean) -> Unit = {},
     onBackToChat: ((() -> Unit) -> Unit)? = null
 ) {
-    var currentScreen by rememberSaveable(stateSaver = ScreenSaver) { mutableStateOf<Screen>(Screen.Chat) }
-    var selectedChatId by remember { mutableStateOf(initialChatId) }
+    var selectedChatId by rememberSaveable { mutableStateOf(initialChatId) }
     var suppressInitialChatScroll by remember { mutableStateOf(false) }
     // 从二级页返回聊天页时 +1，触发 ChatScreen 恢复滚动位置（不跳到底部）
     var chatScrollRestoreSignal by remember { mutableStateOf(0) }
@@ -96,27 +61,42 @@ fun AppNavigation(
     // recreate 后停在原处
     var settingsScrollOffset by rememberSaveable { mutableStateOf(0) }
     val settingsScrollState = rememberScrollState(initial = settingsScrollOffset)
-    var previousScreen by rememberSaveable(stateSaver = ScreenSaver) { mutableStateOf<Screen>(Screen.Chat) }
+    var attachmentViewer by remember { mutableStateOf<Screen.AttachmentViewer?>(null) }
     val pendingAttachmentsState = remember { mutableStateOf<List<MessageAttachment>>(emptyList()) }
     val pendingOwnedPathsState = remember { mutableStateOf<List<String>>(emptyList()) }
+
+    val navController = rememberNavController()
+
     LaunchedEffect(initialChatId) {
         if (initialChatId != null) selectedChatId = initialChatId
     }
     LaunchedEffect(settingsScrollState) {
         snapshotFlow { settingsScrollState.value }.collect { settingsScrollOffset = it }
     }
-    LaunchedEffect(currentScreen) {
+
+    var previousRoute by remember { mutableStateOf("chat") }
+    val navBackStackEntry by navController.currentBackStackEntryAsState()
+    val currentRoute = navBackStackEntry?.destination?.route ?: "chat"
+    LaunchedEffect(currentRoute) {
         // 从任意二级页回到聊天页：触发滚动位置恢复，不跳到底部
-        if (currentScreen is Screen.Chat && previousScreen !is Screen.Chat) {
+        if (currentRoute == "chat" && previousRoute != "chat") {
             chatScrollRestoreSignal++
         }
         // 二级页返回不回顶部
-        if (currentScreen is Screen.Settings &&
-            (previousScreen is Screen.Chat || previousScreen is Screen.Search)
+        if (currentRoute == "settings" &&
+            (previousRoute == "chat" || previousRoute == "search")
         ) {
             settingsScrollState.scrollTo(0)
         }
-        previousScreen = currentScreen
+        previousRoute = currentRoute
+    }
+
+    LaunchedEffect(Unit) {
+        onBackToChat?.invoke {
+            navController.navigate("chat") {
+                popUpTo("chat") { inclusive = true }
+            }
+        }
     }
 
     val loadChatScrollPosition: (Long) -> ChatScrollPosition? = { chatId ->
@@ -129,162 +109,180 @@ fun AppNavigation(
         preferencesManager.saveChatScrollPosition(chatId, index, offset)
     }
 
-    LaunchedEffect(Unit) {
-        onBackToChat?.invoke {
-            currentScreen = Screen.Chat
-        }
+    val enter: AnimatedContentTransitionScope<NavBackStackEntry>.() -> EnterTransition = {
+        slideIntoContainer(
+            AnimatedContentTransitionScope.SlideDirection.Start,
+            animationSpec = tween(300)
+        )
+    }
+    val exit: AnimatedContentTransitionScope<NavBackStackEntry>.() -> ExitTransition = {
+        slideOutOfContainer(
+            AnimatedContentTransitionScope.SlideDirection.Start,
+            animationSpec = tween(300)
+        )
+    }
+    val popEnter: AnimatedContentTransitionScope<NavBackStackEntry>.() -> EnterTransition = {
+        slideIntoContainer(
+            AnimatedContentTransitionScope.SlideDirection.End,
+            animationSpec = tween(300)
+        )
+    }
+    val popExit: AnimatedContentTransitionScope<NavBackStackEntry>.() -> ExitTransition = {
+        slideOutOfContainer(
+            AnimatedContentTransitionScope.SlideDirection.End,
+            animationSpec = tween(300)
+        )
     }
 
-    BackHandler(enabled = currentScreen != Screen.Chat) {
-        suppressInitialChatScroll = false
-        currentScreen = when (currentScreen) {
-            Screen.Disclaimer, Screen.ExperimentalFeatures, Screen.EasterEggHistory -> Screen.Settings
-            else -> Screen.Chat
-        }
-    }
-    AnimatedContent(
-        targetState = currentScreen,
-        transitionSpec = {
-            when {
-                targetState is Screen.Settings &&
-                    (initialState is Screen.Disclaimer ||
-                        initialState is Screen.ExperimentalFeatures ||
-                        initialState is Screen.EasterEggHistory) -> {
-                    slideInHorizontally(
-                        animationSpec = tween(durationMillis = 300),
-                        initialOffsetX = { -it / 3 }
-                    ) + fadeIn(animationSpec = tween(durationMillis = 300)) togetherWith
-                            slideOutHorizontally(
-                                animationSpec = tween(durationMillis = 300),
-                                targetOffsetX = { it }
-                            ) + fadeOut(animationSpec = tween(durationMillis = 300))
-                }
-                targetState is Screen.Search ||
-                    targetState is Screen.Settings ||
-                    targetState is Screen.Disclaimer ||
-                    targetState is Screen.ExperimentalFeatures ||
-                    targetState is Screen.EasterEggHistory ||
-                    targetState is Screen.AttachmentViewer -> {
-                    slideInHorizontally(
-                        animationSpec = tween(durationMillis = 300),
-                        initialOffsetX = { it }
-                    ) + fadeIn(animationSpec = tween(durationMillis = 300)) togetherWith
-                            slideOutHorizontally(
-                                animationSpec = tween(durationMillis = 300),
-                                targetOffsetX = { -it / 3 }
-                            ) + fadeOut(animationSpec = tween(durationMillis = 300))
-                }
-                targetState is Screen.Chat -> {
-                    slideInHorizontally(
-                        animationSpec = tween(durationMillis = 300),
-                        initialOffsetX = { -it / 3 }
-                    ) + fadeIn(animationSpec = tween(durationMillis = 300)) togetherWith
-                            slideOutHorizontally(
-                                animationSpec = tween(durationMillis = 300),
-                                targetOffsetX = { it }
-                            ) + fadeOut(animationSpec = tween(durationMillis = 300))
-                }
-                else -> {
-                    fadeIn() togetherWith fadeOut()
-                }
+    NavHost(
+        navController = navController,
+        startDestination = "chat",
+        modifier = Modifier.fillMaxSize()
+    ) {
+        composable(
+            route = "chat",
+            enterTransition = enter,
+            exitTransition = exit,
+            popEnterTransition = popEnter,
+            popExitTransition = popExit
+        ) {
+            Box(modifier = Modifier.fillMaxSize()) {
+                ChatScreen(
+                    isExpandedScreen = isExpandedScreen,
+                    onNavigateToSearch = { navController.navigate("search") },
+                    onNavigateToSettings = { navController.navigate("settings") },
+                    onNavigateToChat = { chatId ->
+                        selectedChatId = chatId
+                    },
+                    onThemeChanged = onThemeChanged,
+                    onNavigateFromDrawer = onNavigateFromDrawer,
+                    initialChatId = selectedChatId,
+                    chatScrollPositions = chatScrollPositions,
+                    loadChatScrollPosition = loadChatScrollPosition,
+                    onChatScrollPositionChanged = saveChatScrollPosition,
+                    onCurrentChatChanged = { chatId ->
+                        if (chatId != null) selectedChatId = chatId
+                    },
+                    suppressInitialScroll = suppressInitialChatScroll,
+                    scrollRestoreSignal = chatScrollRestoreSignal,
+                    onInitialChatNavigationHandled = {
+                        suppressInitialChatScroll = false
+                    },
+                    onAttachmentOpen = { attachments, index ->
+                        attachmentViewer = Screen.AttachmentViewer(attachments, index)
+                        navController.navigate("attachmentViewer")
+                    },
+                    pendingAttachments = pendingAttachmentsState,
+                    pendingOwnedPaths = pendingOwnedPathsState
+                )
             }
-        },
-        label = "ScreenTransition"
-    ) { screen ->
-        Box(modifier = Modifier.fillMaxSize()) {
-            when (screen) {
-                is Screen.Chat -> {
-                    ChatScreen(
-                        isExpandedScreen = isExpandedScreen,
-                        onNavigateToSearch = {
-                            currentScreen = Screen.Search
-                        },
-                        onNavigateToSettings = {
-                            currentScreen = Screen.Settings
-                        },
-                        onNavigateToChat = { chatId ->
-                            selectedChatId = chatId
-                        },
-                        onThemeChanged = onThemeChanged,
-                        onNavigateFromDrawer = onNavigateFromDrawer,
-                        initialChatId = selectedChatId,
-                        chatScrollPositions = chatScrollPositions,
-                        loadChatScrollPosition = loadChatScrollPosition,
-                        onChatScrollPositionChanged = saveChatScrollPosition,
-                        onCurrentChatChanged = { chatId ->
-                            if (chatId != null) selectedChatId = chatId
-                        },
-                        suppressInitialScroll = suppressInitialChatScroll,
-                        scrollRestoreSignal = chatScrollRestoreSignal,
-                        onInitialChatNavigationHandled = {
-                            suppressInitialChatScroll = false
-                        },
-                        onAttachmentOpen = { attachments, index ->
-                            currentScreen = Screen.AttachmentViewer(attachments, index)
-                        },
-                        pendingAttachments = pendingAttachmentsState,
-                        pendingOwnedPaths = pendingOwnedPathsState
-                    )
-                }
+        }
 
-                is Screen.Search -> {
-                    SearchScreen(
-                        onNavigateBack = {
-                            suppressInitialChatScroll = false
-                            currentScreen = Screen.Chat
-                        },
-                        onNavigateToChat = { chatId ->
-                            selectedChatId = chatId
-                            suppressInitialChatScroll = true
-                            currentScreen = Screen.Chat
-                        },
-                        onNavigateFromSearch = onNavigateFromSearch
-                    )
-                }
+        composable(
+            route = "search",
+            enterTransition = enter,
+            exitTransition = exit,
+            popEnterTransition = popEnter,
+            popExitTransition = popExit
+        ) {
+            Box(modifier = Modifier.fillMaxSize()) {
+                SearchScreen(
+                    onNavigateBack = { navController.popBackStack() },
+                    onNavigateToChat = { chatId ->
+                        selectedChatId = chatId
+                        suppressInitialChatScroll = true
+                        navController.navigate("chat") {
+                            popUpTo("chat") { inclusive = true }
+                        }
+                    },
+                    onNavigateFromSearch = onNavigateFromSearch
+                )
+            }
+        }
 
-                is Screen.Settings -> {
-                    SettingsScreen(
-                        onNavigateBack = { currentScreen = Screen.Chat },
-                        onThemeChanged = onThemeChanged,
-                        onCodeBlockColorModeChanged = onCodeBlockColorModeChanged,
-                        onNavigateToDisclaimer = { currentScreen = Screen.Disclaimer },
-                        onNavigateToExperimentalFeatures = { currentScreen = Screen.ExperimentalFeatures },
-                        onNavigateToEasterEggHistory = { currentScreen = Screen.EasterEggHistory },
-                        isExpandedScreen = isExpandedScreen,
-                        scrollState = settingsScrollState,
-                        appLanguage = appLanguage,
-                        onLanguageSelected = onLanguageSelected
-                    )
-                }
+        composable(
+            route = "settings",
+            enterTransition = enter,
+            exitTransition = exit,
+            popEnterTransition = popEnter,
+            popExitTransition = popExit
+        ) {
+            Box(modifier = Modifier.fillMaxSize()) {
+                SettingsScreen(
+                    onNavigateBack = { navController.popBackStack() },
+                    onThemeChanged = onThemeChanged,
+                    onCodeBlockColorModeChanged = onCodeBlockColorModeChanged,
+                    onNavigateToDisclaimer = { navController.navigate("disclaimer") },
+                    onNavigateToExperimentalFeatures = { navController.navigate("experimental") },
+                    onNavigateToEasterEggHistory = { navController.navigate("egg") },
+                    isExpandedScreen = isExpandedScreen,
+                    scrollState = settingsScrollState,
+                    appLanguage = appLanguage,
+                    onLanguageSelected = onLanguageSelected
+                )
+            }
+        }
 
-                is Screen.ExperimentalFeatures -> {
-                    ExperimentalFeaturesScreen(
-                        onNavigateBack = { currentScreen = Screen.Settings },
-                        isExpandedScreen = isExpandedScreen
-                    )
-                }
+        composable(
+            route = "experimental",
+            enterTransition = enter,
+            exitTransition = exit,
+            popEnterTransition = popEnter,
+            popExitTransition = popExit
+        ) {
+            Box(modifier = Modifier.fillMaxSize()) {
+                ExperimentalFeaturesScreen(
+                    onNavigateBack = { navController.popBackStack() },
+                    isExpandedScreen = isExpandedScreen
+                )
+            }
+        }
 
-                is Screen.EasterEggHistory -> {
-                    EasterEggHistoryScreen(
-                        onNavigateBack = { currentScreen = Screen.Settings },
-                        isExpandedScreen = isExpandedScreen
-                    )
-                }
+        composable(
+            route = "egg",
+            enterTransition = enter,
+            exitTransition = exit,
+            popEnterTransition = popEnter,
+            popExitTransition = popExit
+        ) {
+            Box(modifier = Modifier.fillMaxSize()) {
+                EasterEggHistoryScreen(
+                    onNavigateBack = { navController.popBackStack() },
+                    isExpandedScreen = isExpandedScreen
+                )
+            }
+        }
 
-                is Screen.Disclaimer -> {
-                    DisclaimerScreen(
-                        onNavigateBack = { currentScreen = Screen.Settings }
-                    )
-                }
+        composable(
+            route = "disclaimer",
+            enterTransition = enter,
+            exitTransition = exit,
+            popEnterTransition = popEnter,
+            popExitTransition = popExit
+        ) {
+            Box(modifier = Modifier.fillMaxSize()) {
+                DisclaimerScreen(
+                    onNavigateBack = { navController.popBackStack() }
+                )
+            }
+        }
 
-                is Screen.AttachmentViewer -> {
-                    AttachmentViewerScreen(
-                        attachments = screen.attachments,
-                        initialIndex = screen.index,
-                        onNavigateBack = { currentScreen = Screen.Chat }
-                    )
-                }
-
+        composable(
+            route = "attachmentViewer",
+            enterTransition = enter,
+            exitTransition = exit,
+            popEnterTransition = popEnter,
+            popExitTransition = popExit
+        ) {
+            Box(modifier = Modifier.fillMaxSize()) {
+                AttachmentViewerScreen(
+                    attachments = attachmentViewer?.attachments ?: emptyList(),
+                    initialIndex = attachmentViewer?.index ?: 0,
+                    onNavigateBack = {
+                        attachmentViewer = null
+                        navController.popBackStack()
+                    }
+                )
             }
         }
     }

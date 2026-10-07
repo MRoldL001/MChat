@@ -15,6 +15,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
@@ -60,10 +61,13 @@ private fun LanguageOptionRow(
     }
 }
 
-/** 非简体中文加（AI 翻译）标注 */
+/** 语言名始终按母语显示；非简体/非系统项附（AI 翻译）标注，标注随显示语言变动 */
 @Composable
-private fun languageDisplayLabel(code: String): AnnotatedString {
+private fun languageDisplayLabel(code: String, displayLanguage: String): AnnotatedString {
     val name = AppLocale.label(code)
+    val context = LocalContext.current
+    val aiMarker = AppLocale.wrap(context, displayLanguage)
+        .resources.getString(R.string.language_ai_translated)
     return buildAnnotatedString {
         append(name)
         if (code != AppLocale.ZH_CN && code != AppLocale.SYSTEM) {
@@ -73,7 +77,7 @@ private fun languageDisplayLabel(code: String): AnnotatedString {
                     fontSize = 12.sp
                 )
             )
-            append("  （AI 翻译）")
+            append("  " + aiMarker)
             pop()
         }
     }
@@ -102,7 +106,7 @@ fun LanguageSettingsDialog(
             Column(modifier = Modifier.fillMaxWidth()) {
                 AppLocale.ORDERED.forEach { lang ->
                     LanguageOptionRow(
-                        label = languageDisplayLabel(lang),
+                        label = languageDisplayLabel(lang, currentLanguage),
                         selected = lang == currentLanguage,
                         onClick = { onLanguageSelected(lang) }
                     )

@@ -13,7 +13,7 @@
   <string name="theme_color">Theme Color</string>
   <string name="theme_default">Ink &amp; Paper</string>
   <string name="theme_custom">Custom Color</string>
-  <string name="theme_auto_color">Monet Color</string>
+  <string name="theme_auto_color">Dynamic Color</string>
   <string name="theme_miku_green">Hatsune Resonance</string>
   <string name="theme_teto_red">Yoshiwara Lament</string>
   <string name="theme_miyou_orange">Miyou Glimmer</string>
@@ -63,6 +63,7 @@
   <string name="language_zh_tw">Traditional Chinese</string>
   <string name="language_en">English</string>
   <string name="language_ja">Japanese</string>
+  <string name="language_ai_translated">(AI translated)</string>
   <string name="custom_system_prompt">Custom System Prompt</string>
   <string name="custom_system_prompt_desc">Set a personalized system prompt</string>
   <string name="parameter_settings">Parameter Settings</string>
@@ -85,6 +86,8 @@
   <string name="check_update_desc">Get the latest version from GitHub Releases</string>
   <string name="prerelease_update_title">Accept Prerelease Updates</string>
   <string name="prerelease_update_desc">Prerelease versions may be unstable, but let you try new features early</string>
+  <string name="predictive_back_title">Predictive Back</string>
+  <string name="predictive_back_desc">Available on Android 14 and above; previews the previous screen on back</string>
 
   <!-- Update dialog -->
   <string name="update_release_notes">Release Notes</string>

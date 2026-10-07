@@ -13,7 +13,7 @@
   <string name="theme_color">主題色彩</string>
   <string name="theme_default">墨白素箋</string>
   <string name="theme_custom">自訂色彩</string>
-  <string name="theme_auto_color">莫奈取色</string>
+  <string name="theme_auto_color">動態色彩</string>
   <string name="theme_miku_green">初音之籟</string>
   <string name="theme_teto_red">吉原哀歌</string>
   <string name="theme_miyou_orange">米柚微光</string>
@@ -63,6 +63,7 @@
   <string name="language_zh_tw">繁體中文</string>
   <string name="language_en">English</string>
   <string name="language_ja">日本語</string>
+  <string name="language_ai_translated">（AI 翻譯）</string>
   <string name="custom_system_prompt">自訂系統提示詞</string>
   <string name="custom_system_prompt_desc">設定個人化的系統提示詞</string>
   <string name="parameter_settings">參數設定</string>
@@ -85,6 +86,8 @@
   <string name="check_update_desc">從 GitHub Releases 獲取最新版本</string>
   <string name="prerelease_update_title">接受測試版更新</string>
   <string name="prerelease_update_desc">測試版並不穩定，但可以提前體驗新功能</string>
+  <string name="predictive_back_title">預測性返回</string>
+  <string name="predictive_back_desc">返回時預覽上一層</string>
 
   <!-- 更新彈窗 -->
   <string name="update_release_notes">發行版說明</string>
