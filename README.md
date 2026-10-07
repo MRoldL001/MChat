@@ -7,7 +7,6 @@
 MChat - 一款为 MiMo 大模型优化，专注于原生 Android 体验的 AI 聊天客户端
 
 ![MiMo](https://img.shields.io/badge/MiMo-console-FF7E00?style=for-the-badge\&logo=xiaomi\&logoColor=white)
-
 ![README](https://img.shields.io/badge/MiMo-README-FF7E00?style=for-the-badge\&logo=xiaomi\&logoColor=white)
 
 ---
@@ -19,13 +18,11 @@ MChat - 一款为 MiMo 大模型优化，专注于原生 Android 体验的 AI �
 > 基于 Kotlin 与 Jetpack Compose 开发的原生 Android Al 聊天客户端，支持多模型对话、多模态输入、联网搜索、思考模式及 Markdown/LaTeX/代码高亮
 
 ![Kotlin](https://img.shields.io/badge/Kotlin-2.0.21-7F52FF?style=flat-square\&logo=kotlin\&logoColor=white)
-
 ![Gradle](https://img.shields.io/badge/Gradle-8.13.0-02303A?style=flat-square\&logo=gradle\&logoColor=white)
-
 ![Compose BOM](https://img.shields.io/badge/Compose%20BOM-2024.12.01-4285F4?style=flat-square\&logo=jetpackcompose\&logoColor=white)
-
 ![Target API](https://img.shields.io/badge/Target%20API-36%20%28Android%2016%29-3DDC84?style=flat-square\&logo=android\&logoColor=white)
 
+<img src="file:///D:/code/MIMOChat/MChat.gif" align="center" title="" alt="" width="100">
 ---
 
 ## ✨ 功能
@@ -310,9 +307,9 @@ MChat - 一款为 MiMo 大模型优化，专注于原生 Android 体验的 AI �
   - 修复了代码块预览不随着主题切换播放渐变动画的 bug
   - 还修复了其它一些各种各样的 bug
   - 哦对了，初四来福
-  
-- v2.3.1
 
+- v2.3.1
+  
   - 为移除附件这一动作加入了动画
   - 优化了版本号比较的逻辑
   - 现在“查看剩余用量”设置项被移动到实验性功能中了
