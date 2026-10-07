@@ -172,6 +172,19 @@ fun InputBar(
                 targetValue = if (attachmentActive) 1f else 0.7f,
                 label = "attachmentAlpha"
             )
+            val cancelEditActive = !isGenerating
+            val cancelEditContainerColor by animateColorAsState(
+                targetValue = if (cancelEditActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
+                label = "cancelEditContainerColor"
+            )
+            val cancelEditContentColor by animateColorAsState(
+                targetValue = if (cancelEditActive) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.primary.copy(alpha = 0.4f),
+                label = "cancelEditContentColor"
+            )
+            val cancelEditAlpha by animateFloatAsState(
+                targetValue = if (cancelEditActive) 1f else 0.7f,
+                label = "cancelEditAlpha"
+            )
             Box {
                 FilledIconButton(
                     onClick = {
@@ -235,23 +248,23 @@ fun InputBar(
                 exit = fadeOut(tween(200)) + shrinkHorizontally(tween(200), shrinkTowards = Alignment.Start)
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    FilledIconButton(
-                        onClick = onCancelEdit,
-                        colors = IconButtonDefaults.filledIconButtonColors(
-                            containerColor = attachmentContainerColor,
-                            contentColor = attachmentContentColor,
-                            disabledContainerColor = attachmentContainerColor,
-                            disabledContentColor = attachmentContentColor
-                        ),
-                        modifier = Modifier
-                            .size(48.dp)
-                            .alpha(attachmentAlpha)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Outlined.Undo,
-                            contentDescription = stringResource(R.string.cancel_edit)
-                        )
-                    }
+                FilledIconButton(
+                    onClick = onCancelEdit,
+                    colors = IconButtonDefaults.filledIconButtonColors(
+                        containerColor = cancelEditContainerColor,
+                        contentColor = cancelEditContentColor,
+                        disabledContainerColor = cancelEditContainerColor,
+                        disabledContentColor = cancelEditContentColor
+                    ),
+                    modifier = Modifier
+                        .size(48.dp)
+                        .alpha(cancelEditAlpha)
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.Undo,
+                        contentDescription = stringResource(R.string.cancel_edit)
+                    )
+                }
                     Spacer(Modifier.width(8.dp))
                 }
             }

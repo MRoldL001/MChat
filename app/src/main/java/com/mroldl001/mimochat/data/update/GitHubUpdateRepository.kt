@@ -47,7 +47,7 @@ object GitHubUpdateRepository {
             }
 
             val release = releases
-                .filterNot { it.versionCode <= currentVersionCode }
+                .filter { compareVersions(it.tagName, currentVersionName) > 0 }
                 .maxByOrNull { it.versionCode }
 
             if (release == null) {
@@ -60,10 +60,30 @@ object GitHubUpdateRepository {
         }
     }
 
-    /** 按项目版本规则将 v2.1.0 转换为 210。 */
+    private fun parseVersion(name: String): List<Long> {
+        return name.removePrefix("v")
+            .substringBefore('-')
+            .substringBefore('+')
+            .split('.')
+            .map { it.toLongOrNull() ?: 0L }
+    }
+
+    private fun compareVersions(a: String, b: String): Int {
+        val pa = parseVersion(a)
+        val pb = parseVersion(b)
+        val len = maxOf(pa.size, pb.size)
+        for (i in 0 until len) {
+            val x = pa.getOrElse(i) { 0L }
+            val y = pb.getOrElse(i) { 0L }
+            if (x != y) return x.compareTo(y)
+        }
+        return 0
+    }
+
     private fun versionCodeFromTag(tag: String): Long? {
         val match = Regex("(?i)^v?(\\d+)\\.(\\d+)\\.(\\d+)").find(tag) ?: return null
-        return match.groupValues.drop(1).joinToString("").toLongOrNull()
+        val parts = match.groupValues.drop(1).map { it.toLongOrNull() ?: return null }
+        return parts[0] * 100 + parts[1] * 10 + parts[2]
     }
 
     private fun parseRelease(json: JSONObject): GitHubRelease? {

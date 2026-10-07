@@ -139,9 +139,7 @@ fun SettingsScreen(
         isExpandedScreen = isExpandedScreen,
         scrollState = scrollState,
         appLanguage = appLanguage,
-        onLanguageSelected = onLanguageSelected,
-        showUsage = uiState.showUsage,
-        onShowUsageChanged = viewModel::setShowUsage
+        onLanguageSelected = onLanguageSelected
     )
 
     if (showApiKey) {
@@ -293,9 +291,7 @@ private fun SettingsPageContent(
     isExpandedScreen: Boolean,
     scrollState: ScrollState,
     appLanguage: String,
-    onLanguageSelected: (String) -> Unit,
-    showUsage: Boolean = false,
-    onShowUsageChanged: (Boolean) -> Unit = {}
+    onLanguageSelected: (String) -> Unit
 ) {
     val pageColor by animateColorAsState(
         targetValue = MaterialTheme.colorScheme.background,
@@ -555,31 +551,6 @@ private fun SettingsPageContent(
 
                 SettingAction(Icons.Outlined.VpnKey, stringResource(R.string.api_key), stringResource(R.string.api_key_desc), onApiKeyClick)
                 SettingAction(Icons.Outlined.Link, stringResource(R.string.api_base_url), stringResource(R.string.api_base_url_desc), onApiBaseUrlClick)
-
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { onShowUsageChanged(!showUsage) }
-                        .padding(vertical = 12.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    SettingPageIcon(Icons.Outlined.AccountBalanceWallet)
-                    Spacer(Modifier.width(16.dp))
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            stringResource(R.string.usage_setting_title),
-                            style = MaterialTheme.typography.titleMedium,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        Text(
-                            stringResource(R.string.usage_setting_desc),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                    Spacer(Modifier.width(12.dp))
-                    Switch(checked = showUsage, onCheckedChange = onShowUsageChanged)
-                }
 
                 SettingsGroupTitle(stringResource(R.string.group_experience))
 

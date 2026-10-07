@@ -145,6 +145,17 @@
   <string name="thinking_status">Thinking...</string>
   <string name="ai_replying">AI is replying</string>
 
+  <!-- Search screen -->
+  <string name="search_screen_title">Search</string>
+  <string name="search_placeholder">Search messages...</string>
+  <string name="clear">Clear</string>
+  <string name="search_role_user">User</string>
+  <string name="search_role_assistant">Assistant</string>
+  <string name="search_empty_title">Search conversations</string>
+  <string name="search_empty_hint">Enter keywords to search all conversation messages</string>
+  <string name="search_no_results_title">No results found</string>
+  <string name="search_no_results_detail">No messages containing &quot;%1$s&quot; were found</string>
+
   <!-- Common dialogs -->
   <string name="save">Save</string>
   <string name="confirm">Confirm</string>
@@ -219,6 +230,7 @@
   <string name="notif_install_update">Tap to install update</string>
   <string name="notif_update_failed">Update download failed</string>
   <string name="notif_retry_later">Please try again later</string>
+  <string name="notif_update_signature_mismatch">Signature verification failed; installation cancelled</string>
 
   <!-- Disclaimer -->
   <string name="disclaimer_section_non_official">Non-official Statement</string>

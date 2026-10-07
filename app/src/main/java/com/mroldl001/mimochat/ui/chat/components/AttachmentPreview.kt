@@ -24,6 +24,11 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.core.tween
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.InsertDriveFile
 import androidx.compose.material.icons.filled.Close
@@ -37,8 +42,11 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -51,6 +59,8 @@ import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.mroldl001.mimochat.domain.model.MessageAttachment
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 @Composable
@@ -62,6 +72,19 @@ internal fun AttachmentPreviewList(
     modifier: Modifier = Modifier
 ) {
     if (attachments.isEmpty()) return
+    var removingUris by remember { mutableStateOf<Set<String>>(emptySet()) }
+    val scope = rememberCoroutineScope()
+    val exitMillis = 200
+    val requestRemove: (String) -> Unit = { uri ->
+        removingUris = removingUris + uri
+        scope.launch {
+            delay(exitMillis + 20L)
+            val idx = attachments.indexOfFirst { it.uri == uri }
+            if (idx >= 0) onClear?.invoke(idx)
+            removingUris = removingUris - uri
+        }
+    }
+
     val visualIndices = remember(attachments) {
         attachments.indices.filter {
             val mime = attachments[it].mimeType.orEmpty().lowercase()
@@ -80,27 +103,41 @@ internal fun AttachmentPreviewList(
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 visualIndices.forEach { index ->
-                    AttachmentPreview(
-                        uri = attachments[index].uri,
-                        mimeType = attachments[index].mimeType,
-                        label = attachments[index].label,
-                        compact = compactVisual,
-                        onClear = onClear?.let { { it(index) } },
-                        onClick = onClick?.let { { it(index) } }
-                    )
+                    val att = attachments[index]
+                    AnimatedVisibility(
+                        visible = att.uri !in removingUris,
+                        enter = EnterTransition.None,
+                        exit = fadeOut(tween(exitMillis)) + scaleOut(tween(exitMillis), targetScale = 0.8f)
+                    ) {
+                        AttachmentPreview(
+                            uri = att.uri,
+                            mimeType = att.mimeType,
+                            label = att.label,
+                            compact = compactVisual,
+                            onClear = onClear?.let { { requestRemove(att.uri) } },
+                            onClick = onClick?.let { { it(index) } }
+                        )
+                    }
                 }
             }
         }
 
         attachments.indices.filter { it !in visualSet }.forEach { index ->
-            AttachmentPreview(
-                uri = attachments[index].uri,
-                mimeType = attachments[index].mimeType,
-                label = attachments[index].label,
-                onClear = onClear?.let { { it(index) } },
-                onClick = onClick?.let { { it(index) } },
-                modifier = Modifier.fillMaxWidth()
-            )
+            val att = attachments[index]
+            AnimatedVisibility(
+                visible = att.uri !in removingUris,
+                enter = EnterTransition.None,
+                exit = fadeOut(tween(exitMillis)) + scaleOut(tween(exitMillis), targetScale = 0.8f)
+            ) {
+                AttachmentPreview(
+                    uri = att.uri,
+                    mimeType = att.mimeType,
+                    label = att.label,
+                    onClear = onClear?.let { { requestRemove(att.uri) } },
+                    onClick = onClick?.let { { it(index) } },
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
         }
     }
 }

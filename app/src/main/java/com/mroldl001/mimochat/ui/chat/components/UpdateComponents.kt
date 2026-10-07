@@ -84,7 +84,7 @@ internal fun UpdateSettingsItem(
 }
 
 @Composable
-private fun AnimatedUpdateIcon(
+internal fun AnimatedUpdateIcon(
     icon: ImageVector,
     loading: Boolean = false
 ) {

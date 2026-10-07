@@ -1,6 +1,9 @@
 package com.mroldl001.mimochat.service
 import com.mroldl001.mimochat.R
 import android.content.Context
+import android.content.pm.PackageInfo
+import android.content.pm.PackageManager
+import android.content.pm.Signature
 import com.mroldl001.mimochat.data.preferences.PreferencesManager
 import com.mroldl001.mimochat.ui.settings.AppLocale
 
@@ -39,7 +42,6 @@ class UpdateDownloadService : Service() {
     private lateinit var notificationManager: NotificationManager
     private var downloadJob: Job? = null
 
-    /** 通知文本也跟着语言切 */
     private val localizedContext: Context
         get() = AppLocale.wrap(this, PreferencesManager(this).getAppLanguage())
 
@@ -110,6 +112,14 @@ class UpdateDownloadService : Service() {
                 }
             }
             connection.disconnect()
+            if (!verifyApkSignatureMatchesApp(apkFile)) {
+                apkFile.delete()
+                notificationManager.notify(
+                    NOTIFICATION_ID,
+                    buildFailureNotification(localizedContext.getString(R.string.notif_update_signature_mismatch))
+                )
+                return
+            }
             downloadCompleted = true
             notificationManager.notify(NOTIFICATION_ID, buildCompleteNotification(version, apkFile))
             runCatching { openInstaller(apkFile) }
@@ -170,6 +180,31 @@ class UpdateDownloadService : Service() {
             .setContentText(message ?: localizedContext.getString(R.string.notif_retry_later))
             .setAutoCancel(true)
             .build()
+    }
+
+    private fun getSigners(info: PackageInfo?): Array<Signature>? {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            info?.signingInfo?.apkContentsSigners
+        } else {
+            @Suppress("DEPRECATION")
+            info?.signatures
+        }
+    }
+
+    private fun verifyApkSignatureMatchesApp(apkFile: File): Boolean {
+        return runCatching {
+            val flags = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                PackageManager.GET_SIGNING_CERTIFICATES
+            } else {
+                @Suppress("DEPRECATION")
+                PackageManager.GET_SIGNATURES
+            }
+            val current = getSigners(packageManager.getPackageInfo(packageName, flags))
+                ?: return@runCatching false
+            val archive = getSigners(packageManager.getPackageArchiveInfo(apkFile.absolutePath, flags))
+                ?: return@runCatching false
+            current.toSet() == archive.toSet()
+        }.getOrDefault(false)
     }
 
     private fun installerIntent(apkFile: File) = Intent(Intent.ACTION_VIEW).apply {

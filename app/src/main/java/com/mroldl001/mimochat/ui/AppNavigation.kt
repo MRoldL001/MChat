@@ -16,6 +16,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
@@ -89,11 +90,15 @@ fun AppNavigation(
     var currentScreen by rememberSaveable(stateSaver = ScreenSaver) { mutableStateOf<Screen>(Screen.Chat) }
     var selectedChatId by remember { mutableStateOf(initialChatId) }
     var suppressInitialChatScroll by remember { mutableStateOf(false) }
+    // 从二级页返回聊天页时 +1，触发 ChatScreen 恢复滚动位置（不跳到底部）
+    var chatScrollRestoreSignal by remember { mutableStateOf(0) }
     val chatScrollPositions = remember { mutableMapOf<Long, ChatScrollPosition>() }
     // recreate 后停在原处
     var settingsScrollOffset by rememberSaveable { mutableStateOf(0) }
     val settingsScrollState = rememberScrollState(initial = settingsScrollOffset)
     var previousScreen by rememberSaveable(stateSaver = ScreenSaver) { mutableStateOf<Screen>(Screen.Chat) }
+    val pendingAttachmentsState = remember { mutableStateOf<List<MessageAttachment>>(emptyList()) }
+    val pendingOwnedPathsState = remember { mutableStateOf<List<String>>(emptyList()) }
     LaunchedEffect(initialChatId) {
         if (initialChatId != null) selectedChatId = initialChatId
     }
@@ -101,6 +106,10 @@ fun AppNavigation(
         snapshotFlow { settingsScrollState.value }.collect { settingsScrollOffset = it }
     }
     LaunchedEffect(currentScreen) {
+        // 从任意二级页回到聊天页：触发滚动位置恢复，不跳到底部
+        if (currentScreen is Screen.Chat && previousScreen !is Screen.Chat) {
+            chatScrollRestoreSignal++
+        }
         // 二级页返回不回顶部
         if (currentScreen is Screen.Settings &&
             (previousScreen is Screen.Chat || previousScreen is Screen.Search)
@@ -206,12 +215,15 @@ fun AppNavigation(
                             if (chatId != null) selectedChatId = chatId
                         },
                         suppressInitialScroll = suppressInitialChatScroll,
+                        scrollRestoreSignal = chatScrollRestoreSignal,
                         onInitialChatNavigationHandled = {
                             suppressInitialChatScroll = false
                         },
                         onAttachmentOpen = { attachments, index ->
                             currentScreen = Screen.AttachmentViewer(attachments, index)
-                        }
+                        },
+                        pendingAttachments = pendingAttachmentsState,
+                        pendingOwnedPaths = pendingOwnedPathsState
                     )
                 }
 

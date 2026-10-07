@@ -382,14 +382,16 @@ fun MIMOChatTheme(
     val view = LocalView.current
     if (!view.isInEditMode) {
         SideEffect {
-            val window = (view.context as Activity).window
-            val statusBarColor = resolvedColorScheme.background.toArgb()
-            window.statusBarColor = statusBarColor
-            window.navigationBarColor = resolvedColorScheme.background.toArgb()
+            val window = (view.context as? Activity)?.window
+            if (window != null) {
+                val statusBarColor = resolvedColorScheme.background.toArgb()
+                window.statusBarColor = statusBarColor
+                window.navigationBarColor = statusBarColor
 
-            val insetsController = WindowCompat.getInsetsController(window, view)
-            insetsController.isAppearanceLightStatusBars = !darkTheme
-            insetsController.isAppearanceLightNavigationBars = !darkTheme
+                val insetsController = WindowCompat.getInsetsController(window, view)
+                insetsController.isAppearanceLightStatusBars = !darkTheme
+                insetsController.isAppearanceLightNavigationBars = !darkTheme
+            }
         }
     }
 

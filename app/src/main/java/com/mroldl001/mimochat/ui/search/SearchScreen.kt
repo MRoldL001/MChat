@@ -15,7 +15,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.res.stringResource
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.mroldl001.mimochat.R
 import com.mroldl001.mimochat.domain.model.SearchResult
 import java.text.SimpleDateFormat
 import java.util.*
@@ -43,7 +45,7 @@ fun SearchScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("搜索对话") },
+                title = { Text(stringResource(R.string.search_screen_title)) },
                 navigationIcon = {
                     val interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
                     Box(
@@ -56,7 +58,7 @@ fun SearchScreen(
                             ),
                         contentAlignment = Alignment.Center
                     ) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back))
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -139,7 +141,7 @@ private fun SearchInput(
                 value = query,
                 onValueChange = onQueryChange,
                 modifier = Modifier.fillMaxWidth(),
-                placeholder = { Text("搜索消息内容...") },
+                placeholder = { Text(stringResource(R.string.search_placeholder)) },
                 singleLine = true,
                 shape = RoundedCornerShape(24.dp),
                 trailingIcon = {
@@ -147,7 +149,7 @@ private fun SearchInput(
                         IconButton(onClick = { onQueryChange("") }) {
                             Icon(
                                 imageVector = Icons.Default.Clear,
-                                contentDescription = "清除",
+                                contentDescription = stringResource(R.string.clear),
                                 tint = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
@@ -232,7 +234,7 @@ private fun SearchResultItem(
         Spacer(modifier = Modifier.height(4.dp))
 
         Text(
-            text = if (result.message.role == "user") "用户" else "助手",
+            text = if (result.message.role == "user") stringResource(R.string.search_role_user) else stringResource(R.string.search_role_assistant),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.primary
         )
@@ -256,7 +258,7 @@ private fun EmptySearchState(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
-                text = "搜索对话内容",
+                text = stringResource(R.string.search_empty_title),
                 style = MaterialTheme.typography.headlineSmall,
                 fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onSurface,
@@ -264,7 +266,7 @@ private fun EmptySearchState(
             )
             Spacer(modifier = Modifier.height(8.dp))
             Text(
-                text = "输入关键词搜索所有对话消息",
+                text = stringResource(R.string.search_empty_hint),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = androidx.compose.ui.text.style.TextAlign.Center
@@ -286,7 +288,7 @@ private fun NoResultsState(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
-                text = "未找到结果",
+                text = stringResource(R.string.search_no_results_title),
                 style = MaterialTheme.typography.headlineSmall,
                 fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onSurface,
@@ -294,7 +296,7 @@ private fun NoResultsState(
             )
             Spacer(modifier = Modifier.height(8.dp))
             Text(
-                text = "没有找到包含“$query”的消息",
+                text = stringResource(R.string.search_no_results_detail, query),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = androidx.compose.ui.text.style.TextAlign.Center

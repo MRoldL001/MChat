@@ -86,7 +86,7 @@ class MainActivity : ComponentActivity() {
         requestedOrientation = if (isPhone) {
             ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
         } else {
-            ActivityInfo.SCREEN_ORIENTATION_FULL_SENSOR
+            ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
         }
         
         setContent {

@@ -73,6 +73,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import java.io.File
+import java.util.UUID
 
 private fun LazyListState.isNearBottom(thresholdPx: Int): Boolean {
     val layoutInfo = layoutInfo
@@ -101,8 +102,11 @@ fun ChatScreen(
     onChatScrollPositionChanged: (Long, Int, Int) -> Unit = { _, _, _ -> },
     onCurrentChatChanged: (Long?) -> Unit = {},
     suppressInitialScroll: Boolean = false,
+    scrollRestoreSignal: Int = 0,
     onInitialChatNavigationHandled: () -> Unit = {},
-    onAttachmentOpen: (List<MessageAttachment>, Int) -> Unit = { _, _ -> }
+    onAttachmentOpen: (List<MessageAttachment>, Int) -> Unit = { _, _ -> },
+    pendingAttachments: MutableState<List<MessageAttachment>>,
+    pendingOwnedPaths: MutableState<List<String>>
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val messages = viewModel.messages
@@ -111,11 +115,9 @@ fun ChatScreen(
     val streamingReasoning by viewModel.streamingReasoning
     val isStreaming by viewModel.isStreaming
     val streamingStartTime by viewModel.streamingStartTime
-    var pendingAttachments by remember { mutableStateOf<List<MessageAttachment>>(emptyList()) }
-    var pendingOwnedPaths by remember { mutableStateOf<List<String>>(emptyList()) }
     val isEditing by viewModel.isEditing
     val editAttachments by viewModel.editAttachments
-    val displayAttachments = if (isEditing) editAttachments + pendingAttachments else pendingAttachments
+    val displayAttachments = if (isEditing) editAttachments + pendingAttachments.value else pendingAttachments.value
     var showMiMoLogin by rememberSaveable { mutableStateOf(false) }
     var pendingCameraUri by rememberSaveable { mutableStateOf<String?>(null) }
     var pendingCameraPath by rememberSaveable { mutableStateOf<String?>(null) }
@@ -127,10 +129,10 @@ fun ChatScreen(
     }
     fun clearAttachments(deleteOwnedFiles: Boolean = false) {
         if (deleteOwnedFiles) {
-            pendingOwnedPaths.forEach { path -> runCatching { File(path).delete() } }
+            pendingOwnedPaths.value.forEach { path -> runCatching { File(path).delete() } }
         }
-        pendingAttachments = emptyList()
-        pendingOwnedPaths = emptyList()
+        pendingAttachments.value = emptyList()
+        pendingOwnedPaths.value = emptyList()
         if (isEditing) {
             viewModel.editAttachments.value = emptyList()
         }
@@ -143,8 +145,8 @@ fun ChatScreen(
             return
         }
         val localIndex = index - editCount
-        val current = pendingAttachments.toMutableList()
-        val owned = pendingOwnedPaths.toMutableList()
+        val current = pendingAttachments.value.toMutableList()
+        val owned = pendingOwnedPaths.value.toMutableList()
         if (localIndex in owned.indices) {
             runCatching { File(owned[localIndex]).delete() }
             owned.removeAt(localIndex)
@@ -152,8 +154,8 @@ fun ChatScreen(
         if (localIndex in current.indices) {
             current.removeAt(localIndex)
         }
-        pendingAttachments = current
-        pendingOwnedPaths = owned
+        pendingAttachments.value = current
+        pendingOwnedPaths.value = owned
     }
 
     fun prepareAttachment(uri: Uri, mimeOverride: String? = null, ownedPath: String? = null): Boolean {
@@ -198,20 +200,35 @@ fun ChatScreen(
         }
 
         val uriString = uri.toString()
-        if (pendingAttachments.any { it.uri == uriString }) {
+        if (pendingAttachments.value.any { it.uri == uriString }) {
             if (ownedPath != null) runCatching { File(ownedPath).delete() }
             return false
         }
 
         val label = displayName ?: uri.lastPathSegment?.substringAfterLast('/')
             ?: context.getString(R.string.attachment_selected)
-        pendingAttachments = pendingAttachments + MessageAttachment(
+        pendingAttachments.value = pendingAttachments.value + MessageAttachment(
             uri = uriString,
             mimeType = mime,
             label = label
         )
-        pendingOwnedPaths = pendingOwnedPaths + (ownedPath ?: "")
+        pendingOwnedPaths.value = pendingOwnedPaths.value + (ownedPath ?: "")
         return true
+    }
+
+    fun persistCameraPhoto(tempPath: String): Pair<Uri, String>? {
+        val tempFile = File(tempPath)
+        if (!tempFile.exists()) return null
+        val sentDir = File(context.filesDir, "attachments/sent").apply { mkdirs() }
+        val permanentFile = File(sentDir, "${UUID.randomUUID()}.jpg")
+        runCatching { tempFile.copyTo(permanentFile, overwrite = true) }.getOrNull() ?: return null
+        runCatching { tempFile.delete() }
+        val uri = FileProvider.getUriForFile(
+            context,
+            "${context.packageName}.fileprovider",
+            permanentFile
+        )
+        return uri to permanentFile.absolutePath
     }
 
     val supportsMultimodal = uiState.selectedModel?.capabilities?.contains("multimodal") == true
@@ -236,13 +253,20 @@ fun ChatScreen(
     }
 
     val cameraLauncher = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { captured ->
+        val tempPath = pendingCameraPath
         val cameraUri = pendingCameraUri?.let(Uri::parse)
-        val prepared = captured && cameraUri != null && prepareAttachment(cameraUri, "image/jpeg", pendingCameraPath)
-        if (!prepared) {
-            pendingCameraPath?.let { path -> runCatching { File(path).delete() } }
-        }
         pendingCameraUri = null
         pendingCameraPath = null
+        if (captured && cameraUri != null && tempPath != null) {
+            val persisted = persistCameraPhoto(tempPath)
+            if (persisted == null) {
+                runCatching { File(tempPath).delete() }
+            } else if (!prepareAttachment(persisted.first, "image/jpeg", persisted.second)) {
+                runCatching { File(persisted.second).delete() }
+            }
+        } else {
+            tempPath?.let { runCatching { File(it).delete() } }
+        }
     }
 
     val pickAttachmentFile: () -> Unit = {
@@ -309,6 +333,17 @@ fun ChatScreen(
     var showApiBaseUrlDialog by remember { mutableStateOf(false) }
     var showCustomPromptDialog by remember { mutableStateOf(false) }
     var showParameterSettingsDialog by remember { mutableStateOf(false) }
+
+    if (showMiMoLogin) {
+        MiMoLoginScreen(
+            onNavigateBack = { showMiMoLogin = false },
+            onCookieObtained = { cookie ->
+                viewModel.saveUsageCookie(cookie)
+                showMiMoLogin = false
+            }
+        )
+        return
+    }
 
     if (isExpandedScreen) {
         AdaptiveChatLayout(
@@ -492,7 +527,7 @@ fun ChatScreen(
         onPositionChanged = onChatScrollPositionChanged
     )
 
-    LaunchedEffect(uiState.currentChat?.id) {
+    LaunchedEffect(uiState.currentChat?.id, scrollRestoreSignal) {
         val chatId = uiState.currentChat?.id
         pendingRestoreChatId = chatId
         followStreaming = false
@@ -637,17 +672,6 @@ fun ChatScreen(
     LaunchedEffect(drawerState.currentValue) {
         onNavigateFromDrawer(drawerState.currentValue == DrawerValue.Open)
         if (drawerState.currentValue == DrawerValue.Open) viewModel.refreshUsage()
-    }
-
-    if (showMiMoLogin) {
-        MiMoLoginScreen(
-            onNavigateBack = { showMiMoLogin = false },
-            onCookieObtained = { cookie ->
-                viewModel.saveUsageCookie(cookie)
-                showMiMoLogin = false
-            }
-        )
-        return
     }
 
     ModalNavigationDrawer(

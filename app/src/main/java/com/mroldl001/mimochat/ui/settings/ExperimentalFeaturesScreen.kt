@@ -2,10 +2,12 @@ package com.mroldl001.mimochat.ui.settings
 import com.mroldl001.mimochat.R
 
 import androidx.compose.foundation.ScrollState
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.AccountBalanceWallet
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -15,6 +17,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.res.stringResource
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.mroldl001.mimochat.ui.chat.components.PrereleaseUpdateSetting
+import com.mroldl001.mimochat.ui.chat.components.AnimatedUpdateIcon
 import com.mroldl001.mimochat.ui.chat.components.animateThemeColor
 import com.mroldl001.mimochat.ui.chat.viewmodel.ChatViewModel
 
@@ -67,6 +70,30 @@ internal fun ExperimentalFeaturesScreen(
                     checked = uiState.acceptPrereleaseUpdates,
                     onCheckedChange = viewModel::setAcceptPrereleaseUpdates
                 )
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { viewModel.setShowUsage(!uiState.showUsage) }
+                        .padding(vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    AnimatedUpdateIcon(icon = Icons.Outlined.AccountBalanceWallet)
+                    Spacer(Modifier.width(16.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            stringResource(R.string.usage_setting_title),
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            stringResource(R.string.usage_setting_desc),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Spacer(Modifier.width(12.dp))
+                    Switch(checked = uiState.showUsage, onCheckedChange = viewModel::setShowUsage)
+                }
             }
         }
     }

@@ -14,8 +14,8 @@ android {
         applicationId = "com.mroldl001.mimochat"
         minSdk = 26
         targetSdk = 36
-        versionCode = 230
-        versionName = "2.3.0-Trainspotting"
+        versionCode = 231
+        versionName = "2.3.1-Trainspotting"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {

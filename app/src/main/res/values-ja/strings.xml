@@ -145,6 +145,17 @@
   <string name="thinking_status">考え中...</string>
   <string name="ai_replying">AIは返信中</string>
 
+  <!-- 検索画面 -->
+  <string name="search_screen_title">検索</string>
+  <string name="search_placeholder">メッセージを検索...</string>
+  <string name="clear">クリア</string>
+  <string name="search_role_user">ユーザー</string>
+  <string name="search_role_assistant">アシスタント</string>
+  <string name="search_empty_title">会話を検索</string>
+  <string name="search_empty_hint">キーワードを入力してすべての会話メッセージを検索</string>
+  <string name="search_no_results_title">結果が見つかりません</string>
+  <string name="search_no_results_detail">「%1$s」を含むメッセージは見つかりませんでした</string>
+
   <!-- 共通ダイアログ -->
   <string name="save">保存</string>
   <string name="confirm">確認</string>
@@ -219,6 +230,7 @@
   <string name="notif_install_update">タップして更新をインストール</string>
   <string name="notif_update_failed">更新のダウンロードに失敗</string>
   <string name="notif_retry_later">後でもう一度お試しください</string>
+  <string name="notif_update_signature_mismatch">署名検証に失敗したため、インストールを中止しました</string>
 
   <!-- 免責事項 -->
   <string name="disclaimer_section_non_official">非公式声明</string>

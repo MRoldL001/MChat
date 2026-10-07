@@ -233,7 +233,7 @@ class PreferencesManager @Inject constructor(
     }
 
     fun getShowUsage(): Boolean {
-        return prefs.getBoolean(KEY_SHOW_USAGE, true)
+        return prefs.getBoolean(KEY_SHOW_USAGE, false)
     }
 
     fun saveShowUsage(enabled: Boolean) {

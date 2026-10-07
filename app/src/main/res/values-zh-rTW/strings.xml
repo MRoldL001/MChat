@@ -49,7 +49,7 @@
   <string name="usage_login_prompt">登入後查看剩餘用量</string>
   <string name="usage_login_hint">登入成功後會自動取得用量並自動返回</string>
   <string name="usage_login_load_failed">頁面載入失敗，請重試</string>
-  <string name="usage_expired">登入狀態已過期，請重新登入</string>
+  <string name="usage_expired">登入過期，請重新登入</string>
   <string name="retry">重試</string>
   <string name="cancel_edit">撤回編輯</string>
 
@@ -145,6 +145,17 @@
   <string name="thinking_status">正在思考...</string>
   <string name="ai_replying">AI 正在回覆</string>
 
+  <!-- 搜尋頁面 -->
+  <string name="search_screen_title">搜尋對話</string>
+  <string name="search_placeholder">搜尋訊息內容...</string>
+  <string name="clear">清除</string>
+  <string name="search_role_user">使用者</string>
+  <string name="search_role_assistant">助手</string>
+  <string name="search_empty_title">搜尋對話內容</string>
+  <string name="search_empty_hint">輸入關鍵字搜尋所有對話訊息</string>
+  <string name="search_no_results_title">未找到結果</string>
+  <string name="search_no_results_detail">沒有找到包含「%1$s」的訊息</string>
+
   <!-- 通用彈窗 -->
   <string name="save">儲存</string>
   <string name="confirm">確認</string>
@@ -219,6 +230,7 @@
   <string name="notif_install_update">點擊安裝更新</string>
   <string name="notif_update_failed">更新下載失敗</string>
   <string name="notif_retry_later">請稍後重試</string>
+  <string name="notif_update_signature_mismatch">安裝包簽名校驗失敗，已取消安裝</string>
 
   <!-- 免責聲明 -->
   <string name="disclaimer_section_non_official">非官方聲明</string>
