@@ -26,7 +26,7 @@ MChat - 一款为 MiMo 大模型优化，专注于原生 Android 体验的 AI �
 
 <div align="center">
   <img src="MChat.gif" width="100">
-  [![Typing SVG](https://readme-typing-svg.demolab.com?font=Basic&size=30&duration=1&pause=1&color=000000&center=true&repeat=false&width=435&lines=V2.3.x+Trainspotting)](https://git.io/typing-svg)
+  <a href="https://git.io/typing-svg"><img src="https://readme-typing-svg.demolab.com?font=Basic&size=30&duration=1&pause=1&color=000000&center=true&repeat=false&width=435&lines=V2.3.x+Trainspotting" alt="Typing SVG" /></a>
 </div>
 
 ## ✨ 功能
