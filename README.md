@@ -7,7 +7,7 @@
 MChat - 一款为 MiMo 大模型优化，专注于原生 Android 体验的 AI 聊天客户端
 
 ![GitHub stars](https://img.shields.io/github/stars/MRoldL001/MChat?style=for-the-badge&label=Stars)
-![GitHub Release Downloads](https://img.shields.io/github/downloads/MRoldL001/MChat/total?style=flat-for-the-badge&label=Downloads)
+![GitHub Release Downloads](https://img.shields.io/github/downloads/MRoldL001/MChat/total?style=for-the-badge&label=Downloads)
 ![MiMo](https://img.shields.io/badge/MiMo-console-FF7E00?style=for-the-badge\&logo=xiaomi\&logoColor=white)
 ![README](https://img.shields.io/badge/MiMo-README-FF7E00?style=for-the-badge\&logo=xiaomi\&logoColor=white)
 
