@@ -29,9 +29,7 @@ MChat - 一款为 MiMo 大模型优化，专注于原生 Android 体验的 AI �
 <p align="center">
     <img src="MChat.gif" alt="MChat" width="100">
 </p>
-<p align="center">
-    <strong>V2.3.x Trainspotting</strong>
-</p>
+
 
 ## ✨ 特色
 
