@@ -25,11 +25,9 @@ MChat - 一款为 MiMo 大模型优化，专注于原生 Android 体验的 AI �
 ![Target API](https://img.shields.io/badge/Target%20API-36%20%28Android%2016%29-3DDC84?style=flat-square\&logo=android\&logoColor=white)
 
 ---
-
 <p align="center">
     <img src="MChat.gif" alt="MChat" width="100">
 </p>
-
 
 ## ✨ 特色
 
